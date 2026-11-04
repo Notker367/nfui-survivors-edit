@@ -8,25 +8,36 @@ W.Fill(view,{0.05,0.05,0.07,0.96});W.Fill(view,{0,0,0,1},"BACKGROUND",-1)
 local stats=CreateFrame("Frame","nfUICharacterStats",view)
 stats:SetWidth(204);stats:SetHeight(430);stats:SetPoint("TOPRIGHT",view,"TOPRIGHT",0,0)
 local heading=W.Label(stats,18,"TOP",0,-14,"-",{0.72,0.45,1})
-local caption=W.Label(stats,10,"TOP",0,-38,"Damage bonus",{0.7,0.7,0.7})
+local caption=W.Label(stats,10,"TOP",0,-38,"Бонус урона",{0.7,0.7,0.7})
 local scroll=CreateFrame("ScrollFrame","nfUICharacterScroll",stats)
 scroll:SetWidth(180);scroll:SetHeight(368);scroll:SetPoint("TOPLEFT",stats,"TOPLEFT",12,-54)
 local list=CreateFrame("Frame",nil,scroll);list:SetWidth(180);list:SetHeight(1);scroll:SetScrollChild(list)
 local offset,maximum=0,0
 scroll:EnableMouseWheel(true)
 scroll:SetScript("OnMouseWheel",function() offset=math.max(0,math.min(maximum,offset-(arg1 or 0)*28));scroll:SetVerticalScroll(offset) end)
+local RU={Offense="Атака",Reach="Дальность",Defense="Защита",Utility="Полезное",["Damage over time"]="Периодический урон",["Bonus damage"]="Бонусный урон"}
+local STAT={Damage={"Урон","Бонус урона от усилений этого забега."},Crit={"Шанс крита","Шанс нанести критический удар."},["Crit Dmg"]={"Сила крита","Множитель урона критических ударов."},
+Haste={"Перезарядка","Сокращение перезарядки способностей."},Echo={"Эхо","Шанс дополнительного удара заклинанием."},Area={"Область","Увеличение области и дальности заклинаний."},
+Targets={"Цели","Дополнительные враги для способности."},Pickup={"Подбор","Радиус сбора опыта и золота."},Health={"Здоровье","Максимум здоровья."},Armor={"Броня","Снижение получаемого урона."},
+Regen={"Реген","Восстановление здоровья в секунду."},Lifesteal={"Вампиризм","Часть урона становится лечением."},["Kill Heal"]={"Лечение за убийство","Здоровье за каждое убийство."},
+Thorns={"Шипы","Часть урона в ближнем бою возвращается атакующим."},Lives={"Жизни","Оставшиеся воскрешения."},Speed={"Скорость бега","Прибавка к скорости передвижения."},
+Experience={"Опыт","Дополнительный опыт."},Gold={"Золото","Дополнительное золото."},Luck={"Удача","Лучше редкость улучшений."},["Buff Power"]={"Сила баффов","Сила временных усилений."},
+["DoT Stacks"]={"Стаки DoT","Максимум стаков периодического эффекта."},["DoT Haste"]={"Скорость DoT","Частота тиков периодических эффектов."},["Vs Elites"]={"По элитным","Бонус урона по элитным врагам."},
+Execute={"Добивание","Бонус урона по врагам с низким здоровьем."},["Vs Controlled"]={"По контролю","Бонус урона по обездвиженным врагам."},["Vs Afflicted"]={"По ослабленным","Бонус урона по врагам с эффектами."},
+Shielded={"Под щитом","Бонус урона, пока на герое щит."},Melee={"Ближний бой","Бонус урона автоатак."},["Pet Damage"]={"Питомцы","Бонус урона питомцев."}}
 local cells={}
 for _,section in ipairs(C.CharacterStatSections) do
-    local label=W.Label(list,10,"TOPLEFT",0,0,section.title,section.color)
+    local label=W.Label(list,10,"TOPLEFT",0,0,RU[section.title] or section.title,section.color)
     local group={header=label,rows={}}
     for _,source in ipairs(section.rows) do
         local row=CreateFrame("Frame",nil,list);row:SetWidth(180);row:SetHeight(14);row:EnableMouse(true)
-        row.caption=W.Label(row,11,"LEFT",2,0,source[1],{0.82,0.82,0.82})
+        local words=STAT[source[1]] or {source[1],source[3]}
+        row.caption=W.Label(row,11,"LEFT",2,0,words[1],{0.82,0.82,0.82})
         row.amount=W.Label(row,11,"RIGHT",-2,0,"",section.color)
         row.source=source
         row:SetScript("OnEnter",function()
-            GameTooltip:SetOwner(row,"ANCHOR_RIGHT");GameTooltip:SetText(source[1],1,1,1)
-            GameTooltip:AddLine(source[3],1,0.82,0,true);GameTooltip:Show()
+            GameTooltip:SetOwner(row,"ANCHOR_RIGHT");GameTooltip:SetText(words[1],1,1,1)
+            GameTooltip:AddLine(words[2],1,0.82,0,true);GameTooltip:Show()
         end)
         row:SetScript("OnLeave",function() GameTooltip:Hide() end)
         table.insert(group.rows,row)
@@ -81,18 +92,17 @@ local function Refresh()
     end
     local damage=AZS_STATS and AZS_STATS.dmg
     heading:SetText(type(damage)=="number" and string.format("%+.0f%%",(damage-1)*100) or "-")
-    caption:SetText(damage and "Damage bonus" or "Start a run to see modifiers")
+    caption:SetText(damage and "Бонус урона | колесо: прокрутка" or "Начни забег, чтобы увидеть")
     local visible,total={},0
     for _,group in ipairs(cells) do
         local values={}
         for _,row in ipairs(group.rows) do
-            local value=C.CharacterStatText(row.source,AZS_STATS)
+            local value=AZS_STATS and (C.CharacterStatText(row.source,AZS_STATS,true) or "0")
             if value then table.insert(values,{row=row,value=value});total=total+1 else row:Hide() end
         end
         if table.getn(values)>0 then table.insert(visible,{group=group,values=values}) else group.header:Hide() end
     end
-    local rowHeight=math.max(9,math.min(14,math.floor((scroll:GetHeight()-table.getn(visible)*20)/math.max(1,total))))
-    local size=math.max(8,rowHeight-3);local y=0
+    local rowHeight,size,y=14,11,0
     for _,item in ipairs(visible) do
         local header=item.group.header;header:ClearAllPoints();header:SetPoint("TOPLEFT",list,"TOPLEFT",0,-y);header:Show();y=y+20
         for _,data in ipairs(item.values) do

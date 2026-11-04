@@ -21,6 +21,7 @@ end
 local panel=CreateFrame("Frame","nfUIStats",UIParent)
 panel:SetWidth(210);panel:SetHeight(340);panel:SetPoint("TOPRIGHT",UIParent,"TOPRIGHT",-16,-260)
 panel:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"});panel:SetBackdropColor(0.04,0.04,0.07,0.88)
+panel:Hide() do return end -- local tweak: panel removed, the rest crashed at load
 local title=panel:CreateFontString(nil,"OVERLAY");title:SetFont(FONT,12,"OUTLINE")
 title:SetText("Character Stats");title:SetTextColor(1,0.82,0);title:SetPoint("TOPLEFT",panel,"TOPLEFT",8,-8)
 local scroll=CreateFrame("ScrollFrame","nfUIStatsScroll",panel)

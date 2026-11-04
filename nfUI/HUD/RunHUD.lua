@@ -37,6 +37,10 @@ local function Native(key,fallback) return type(AZS_RUN)=="table" and Number(AZS
 local panel=CreateFrame("Frame","nfUIRun",UIParent)
 panel:SetWidth(112);panel:SetHeight(32);panel:SetFrameStrata("MEDIUM")
 panel:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"});panel:Hide()
+function C.SetRunCollapsed() end -- local tweak: the settings window still calls these
+function nfUI_ResetRun() end
+function nfUI_ToggleRun() end
+do return end -- local tweak: panel removed, the rest crashed at load
 local header=CreateFrame("Frame","nfUIRunHeader",panel)
 header:SetHeight(32);header:EnableMouse(true);header:RegisterForDrag("LeftButton")
 local title=header:CreateFontString(nil,"OVERLAY")

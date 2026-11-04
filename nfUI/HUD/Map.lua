@@ -35,7 +35,7 @@ local function Install()
             if button then if shown then button:Show() else button:Hide() end end
         end
     end
-    ZoomButtons(false)
+    ZoomButtons(true) -- local tweak: always clickable
     local hoverAge=0
     local hover=CreateFrame("Frame","nfUIMapHover",UIParent)
     hover:SetScript("OnUpdate",function()
@@ -43,7 +43,7 @@ local function Install()
         local over=Minimap:IsVisible() and MouseIsOver and (MouseIsOver(Minimap)
             or (MinimapZoomIn and MinimapZoomIn:IsShown() and MouseIsOver(MinimapZoomIn))
             or (MinimapZoomOut and MinimapZoomOut:IsShown() and MouseIsOver(MinimapZoomOut)))
-        ZoomButtons(over)
+        ZoomButtons(true)
     end)
     if MinimapZoomIn then
         MinimapZoomIn:ClearAllPoints(); MinimapZoomIn:SetPoint("BOTTOMRIGHT",Minimap,"BOTTOMRIGHT",0,20)

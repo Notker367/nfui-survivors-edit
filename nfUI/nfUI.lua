@@ -141,18 +141,80 @@ local function UnitFrame(unit,name,side,dropdown)
     nfUIWidgets.Fill(portrait,{0.04,0.04,0.04,1},"BACKGROUND")
     portrait.texture=portrait:CreateTexture(nil,"ARTWORK");portrait.texture:SetAllPoints(portrait)
     portrait.texture:SetTexCoord(0.15,0.85,0.15,0.85);widget.portrait=portrait
+    -- Local tweak: a live face over the static one; the static one stays if the model cannot show.
+    local modelOk,model=pcall(CreateFrame,"PlayerModel",nil,portrait)
+    if modelOk and model then model:SetAllPoints(portrait);portrait.model=model end
+    local flashLayer=CreateFrame("Frame",nil,portrait);flashLayer:SetAllPoints(portrait)
+    flashLayer:SetFrameLevel(portrait:GetFrameLevel()+3)
+    portrait.flash=flashLayer:CreateTexture(nil,"OVERLAY");portrait.flash:SetTexture(FLAT)
+    portrait.flash:SetVertexColor(0.9,0.1,0.1,1);portrait.flash:SetAllPoints(flashLayer);portrait.flash:SetAlpha(0)
     widget.health=FlatBar(widget,FRAME_WIDTH,HEALTH_HEIGHT)
     local corner=isPlayer and "TOPRIGHT" or "TOPLEFT"
     widget.health:SetPoint(corner,widget,corner,0,0)
     widget.power=FlatBar(widget,FRAME_WIDTH,POWER_HEIGHT);widget.power:SetPoint("TOP",widget.health,"BOTTOM",0,-1)
-    widget.name=Text(widget.health,11,"LEFT",5,0);widget.name:SetWidth(FRAME_WIDTH-82);widget.name:SetHeight(12);widget.name:SetJustifyH("LEFT")
-    widget.value=Text(widget.health,11,"RIGHT",-5,0)
-    widget.name:SetTextColor(1,1,1);widget.value:SetTextColor(1,1,1)
+    -- Local tweak: see-through backing, a soft shadow around the bars and a sheen on them.
+    for _,bar in ipairs({widget.health,widget.power}) do
+        for _,region in ipairs({bar:GetRegions()}) do
+            if region:GetObjectType()=="Texture" then region:SetAlpha(0.55) end
+        end
+        nfUIWidgets.Fill(bar,{0,0,0,0.16},"BACKGROUND",-4)
+        nfUIWidgets.Fill(bar,{0,0,0,0.22},"BACKGROUND",-3)
+        nfUIWidgets.Fill(bar,{0,0,0,0.30},"BACKGROUND",-2)
+    end
+    nfUIWidgets.Fill(portrait,{0,0,0,0.3},"BACKGROUND",-3)
+    nfUIWidgets.Fill(portrait,{0,0,0,0.45},"BACKGROUND",-2)
+    local shine=widget.health:CreateTexture(nil,"OVERLAY");shine:SetTexture(FLAT);shine:SetVertexColor(1,1,1,0.2)
+    shine:SetPoint("TOPLEFT",widget.health,"TOPLEFT",0,0);shine:SetPoint("TOPRIGHT",widget.health,"TOPRIGHT",0,0);shine:SetHeight(1)
+    local shade=widget.health:CreateTexture(nil,"OVERLAY");shade:SetTexture(FLAT);shade:SetVertexColor(0,0,0,0.16)
+    shade:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);shade:SetPoint("BOTTOMRIGHT",widget.health,"BOTTOMRIGHT",0,0);shade:SetHeight(5)
+    -- Local tweak: a pale trail of lost health, and smooth bars.
+    local ghost=widget.health:CreateTexture(nil,"ARTWORK");ghost:SetTexture(FLAT);ghost:SetVertexColor(1,0.86,0.62,0.75);ghost:Hide()
+    widget:SetScript("OnUpdate",function()
+        local elapsed=arg1 or 0
+        local step=math.min(1,elapsed*12)
+        local goal=this.healthGoal
+        if goal then
+            if this.flashFrom and goal<this.flashFrom-0.01 then this.flashAlpha=0.45 end
+            this.flashFrom=goal
+            if this.flashAlpha and this.flashAlpha>0 then
+                this.flashAlpha=math.max(0,this.flashAlpha-elapsed*1.2);this.portrait.flash:SetAlpha(this.flashAlpha)
+            end
+            local shown=this.healthShown or goal
+            shown=shown+(goal-shown)*step
+            if math.abs(goal-shown)<0.002 then shown=goal end
+            this.healthShown=shown;this.health:SetValue(shown)
+            local trail=this.healthTrail or goal
+            if trail<goal then trail=goal else trail=math.max(goal,trail-elapsed*0.3) end
+            this.healthTrail=trail
+            local width=this.health:GetWidth()
+            if trail-shown>0.002 then
+                ghost:ClearAllPoints()
+                ghost:SetPoint("TOPLEFT",this.health,"TOPLEFT",width*shown,0)
+                ghost:SetPoint("BOTTOMLEFT",this.health,"BOTTOMLEFT",width*shown,0)
+                ghost:SetWidth(width*(trail-shown));ghost:Show()
+            else ghost:Hide() end
+        end
+        local want=this.powerGoal
+        if want then
+            local level=this.powerShown or want
+            level=level+(want-level)*step
+            if math.abs(want-level)<0.002 then level=want end
+            this.powerShown=level;this.power:SetValue(level)
+        end
+    end)
+    -- Local tweak: all text sits in its own layer above the bars and the shield.
+    local textLayer=CreateFrame("Frame",nil,widget.health);textLayer:SetAllPoints(widget.health)
+    textLayer:SetFrameLevel(widget.health:GetFrameLevel()+4)
+    widget.name=Text(textLayer,11,"LEFT",5,0);widget.name:SetWidth(FRAME_WIDTH-82);widget.name:SetHeight(12);widget.name:SetJustifyH("LEFT")
+    widget.value=Text(textLayer,11,"RIGHT",-5,0)
+    widget.percent=Text(textLayer,11,"RIGHT",-5,0)
+    widget.name:SetTextColor(1,1,1);widget.value:SetTextColor(1,1,1);widget.percent:SetTextColor(0.92,0.92,0.92)
+    for _,label in ipairs({widget.name,widget.value,widget.percent}) do label:SetShadowColor(0,0,0,0.9);label:SetShadowOffset(1,-1) end
     local absorb=CreateFrame("StatusBar",nil,widget.health)
-    absorb:SetMinMaxValues(0,1);absorb:SetStatusBarTexture(FLAT);absorb:SetStatusBarColor(0.2,0.75,1,0.85)
+    absorb:SetMinMaxValues(0,1);absorb:SetStatusBarTexture(FLAT);absorb:SetStatusBarColor(0.45,0.8,1,0.5)
     absorb:SetWidth(FRAME_WIDTH);absorb:SetHeight(3);absorb:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);absorb:Hide()
-    widget.shield=absorb;widget.shieldText=Text(widget.health,10,"TOPRIGHT",-5,-2)
-    widget.shieldText:SetTextColor(0.4,0.85,1);widget.shieldText:Hide()
+    widget.shield=absorb;widget.shieldText=Text(textLayer,11,"CENTER",0,0)
+    widget.shieldText:SetTextColor(0.6,0.92,1);widget.shieldText:SetShadowColor(0,0,0,0.9);widget.shieldText:SetShadowOffset(1,-1);widget.shieldText:Hide()
     widget:RegisterForClicks("LeftButtonUp","RightButtonUp");widget:RegisterForDrag("LeftButton")
     widget:SetScript("OnClick",function()
         local menu=dropdown and getglobal(dropdown)
@@ -170,6 +232,10 @@ end
 local function UpdatePortrait(frame)
 	if UnitExists(frame.unit) then
 		SetPortraitTexture(frame.portrait.texture, frame.unit)
+		local model = frame.portrait.model
+		if model then
+			pcall(function() model:SetUnit(frame.unit);model:SetCamera(0) end)
+		end
 	end
 end
 
@@ -177,6 +243,8 @@ local function UpdateUnitFrame(widget)
     local unit=widget.unit
     if not UnitExists(unit) then
         widget.shield:Hide();widget.shieldText:Hide()
+        widget.healthGoal=nil;widget.powerGoal=nil;widget.healthShown=nil;widget.powerShown=nil;widget.healthTrail=nil;widget.shownFor=nil
+        widget.percent:SetText("")
         if nfUIConfig.editing then
             widget:Show();widget.name:SetText("Target preview");widget.value:SetText("75%")
             widget.health:SetValue(0.75);widget.power:SetValue(0.5)
@@ -190,23 +258,35 @@ local function UpdateUnitFrame(widget)
     local options=nfUIDB and nfUIDB[unit.."Style"] or {}
     local red,green,blue=HealthColor(unit)
     if options.healthColor~=false then
-        local value=math.max(0,math.min(1,fraction));red=math.min(1,2-2*value);green=math.min(1,2*value);blue=0.15
+        local value=math.max(0,math.min(1,fraction));red=0.82-0.62*value;green=0.18+0.57*value;blue=0.18
     end
-    widget.health:SetStatusBarColor(red,green,blue,1);widget.health:SetValue(fraction)
+    widget.health:SetStatusBarColor(red,green,blue,0.85)
+    if widget.shownFor~=UnitName(unit) then widget.shownFor=UnitName(unit);widget.healthShown=nil;widget.healthTrail=nil end
+    widget.healthGoal=math.max(0,math.min(1,fraction))
     widget.name:SetText(nfUI_AbbreviateName(UnitName(unit)))
     local value=percent.."%"
     if UnitIsDead(unit) or UnitIsGhost(unit) then value="Dead"
     elseif options.healthText=="Numerical" then value=string.format("%.0f",current)
-    elseif options.healthText=="CurrentHP+%" or (not options.healthText and unit=="player") then value=Short(current).." | "..value end
+    elseif options.healthText=="CurrentHP+%" or (not options.healthText and unit=="player") then value=Short(current);widget.percent:SetText(percent.."%") end
+    if value==percent.."%" or value=="Dead" then widget.percent:SetText("") end
     widget.value:SetText(value)
     local total=nfUIConfig.GetShield and nfUIConfig.GetShield(unit)
     widget.shieldAvailable=total~=nil
     if options.showShield and total and total>0 and maximum>0 then
-        widget.shield:SetValue(math.min(1,total/maximum));widget.shield:Show()
+        -- Local tweak: the shield continues the health bar, its number right after it.
+        local barWidth=widget.health:GetWidth()
+        local share=math.min(1,total/maximum)
+        local start=math.max(0,math.min(1-share,math.min(1,fraction)))
+        widget.shield:ClearAllPoints()
+        widget.shield:SetPoint("LEFT",widget.health,"LEFT",barWidth*start,0)
+        widget.shield:SetWidth(math.max(1,barWidth*share))
+        widget.shield:SetHeight(widget.health:GetHeight())
+        widget.shield:SetValue(1);widget.shield:Show()
+        widget.shieldText:ClearAllPoints();widget.shieldText:SetPoint("CENTER",widget.health,"CENTER",0,0)
         widget.shieldText:SetText("+"..Short(total));widget.shieldText:Show()
     else widget.shield:Hide();widget.shieldText:Hide() end
     local energy,capacity=UnitMana(unit),UnitManaMax(unit)
-    widget.power:SetValue(capacity>0 and energy/capacity or 0)
+    widget.powerGoal=capacity>0 and energy/capacity or 0
     if capacity>0 then widget.power:SetStatusBarColor(unpack(POWER_COLORS[UnitPowerType(unit)] or POWER_COLORS[0])) end
 end
 
@@ -228,6 +308,15 @@ for index = 1, DEBUFFS do
 	icon.texture:SetTexCoord(0, 1, 0, 1)
 
 	icon.count = Text(icon, 9, "BOTTOMRIGHT", -1, 1)
+	-- Local tweak: read a target's debuff on hover.
+	icon.debuffIndex = index
+	icon:EnableMouse(true)
+	icon:SetScript("OnEnter", function()
+		if this.nfuiPreview then return end
+		GameTooltip:SetOwner(this, "ANCHOR_TOPRIGHT")
+		GameTooltip:SetUnitDebuff("target", this.debuffIndex)
+	end)
+	icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	icon:Hide()
 	debuffs[index] = icon
 end
@@ -336,7 +425,6 @@ local function LayoutBar()
 		"MainMenuBarTexture0", "MainMenuBarTexture1", "MainMenuBarTexture2", "MainMenuBarTexture3",
 		"MainMenuBarLeftEndCap", "MainMenuBarRightEndCap",
 		"ActionBarUpButton", "ActionBarDownButton", "MainMenuBarPageNumber",
-		"MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag1Slot", "CharacterBag2Slot", "CharacterBag3Slot",
 		"KeyRingButton", "MainMenuBarPerformanceBarFrame",
 		"BonusActionBarTexture0", "BonusActionBarTexture1",
 		"MainMenuXPBarTexture0", "MainMenuXPBarTexture1", "MainMenuXPBarTexture2", "MainMenuXPBarTexture3",
@@ -421,6 +509,9 @@ local function UpdateAuras()
             local remaining=GetPlayerBuffTimeLeft(entry.id);local stacks=GetPlayerBuffApplications(entry.id)
             widget.time:SetText(remaining and remaining>0 and TimeText(remaining) or "")
             widget.count:SetText(stacks and stacks>1 and stacks or "");widget:Show()
+            -- Local tweak: green edge for buffs, red for debuffs.
+            if entry.helpful then widget.border:SetVertexColor(0.2,0.8,0.3,1) else widget.border:SetVertexColor(0.95,0.15,0.15,1) end
+            widget.border:Show()
         elseif nfUIConfig.editing then
             widget.nfuiPreview=true;widget.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
             widget.time:SetText("30s");widget.count:SetText("2");widget:Show()
@@ -483,7 +574,7 @@ if CooldownFrame_SetTimer and not OmniCC_OnUpdate then
 		end
 
 		-- The global cooldown's flicker is not worth a number.
-		if start and start > 0 and duration and duration > 1.5 and enable and enable > 0 then
+		if start and start > 0 and duration and duration > 0 and enable and enable > 0 then
 			counter.start, counter.duration = start, duration
 			counter:Show()
 		else
@@ -731,15 +822,15 @@ local function StyleTooltips()
 
 	local header = getglobal("GameTooltipHeaderText")
 	if header then
-		header:SetFont(FONT, 13)
+		header:SetFont(FONT, 16)
 	end
 	local body = getglobal("GameTooltipText")
 	if body then
-		body:SetFont(FONT, 11)
+		body:SetFont(FONT, 14)
 	end
 	local small = getglobal("GameTooltipTextSmall")
 	if small then
-		small:SetFont(FONT, 10)
+		small:SetFont(FONT, 13)
 	end
 
 	local bar = getglobal("GameTooltipStatusBar")
@@ -894,6 +985,8 @@ local function SizeUnit(frame,data)
     frame.name:SetFont(FONT,nameSize,"OUTLINE")
     frame.name:SetWidth(math.max(30,data.width*0.5-5)); frame.name:SetHeight(nameSize+4)
     frame.value:SetFont(FONT,Config.UnitTextSize(frame.value,data.valueFont),"OUTLINE")
+    frame.percent:SetFont(FONT,Config.UnitTextSize(frame.percent,data.valueFont),"OUTLINE")
+    frame.percent:ClearAllPoints();frame.percent:SetPoint("RIGHT",frame.health,"RIGHT",-5,0)
     frame.shield:SetWidth(data.width); frame.shield:SetHeight(style.shieldHeight)
     frame.shieldText:SetFont(FONT,Config.UnitTextSize(frame.shieldText,style.shieldFont),"OUTLINE")
 end
@@ -967,7 +1060,7 @@ function Config.Apply()
         aura:SetWidth(db.auras.size); aura:SetHeight(db.auras.size)
         aura:ClearAllPoints()
         aura:SetPoint("BOTTOMLEFT",player,"TOPLEFT",(index-1)*(db.auras.size+db.auras.gap),5)
-        aura.time:ClearAllPoints(); aura.time:SetPoint("CENTER",aura,"CENTER",0,0)
+        aura.time:ClearAllPoints(); aura.time:SetPoint("TOP",aura,"BOTTOM",0,-1)
         aura.count:ClearAllPoints(); aura.count:SetPoint("BOTTOMRIGHT",aura,"BOTTOMRIGHT",-1,1)
         aura.time:SetFont(FONT,db.auras.timeFont,"OUTLINE")
         aura.count:SetFont(FONT,db.auras.stackFont,"OUTLINE")
@@ -1006,6 +1099,9 @@ function Config.Apply()
     if ChatFrameEditBox then
         ChatFrameEditBox:SetScale(editBaseScale*db.chat.editScale)
         ChatFrameEditBox:SetFont(FONT,db.chat.editFont)
+        -- Local tweak: a moved input box loses the stock anchors that gave it its width.
+        ChatFrameEditBox:SetWidth(db.chat.width/db.chat.editScale);ChatFrameEditBox:SetHeight(32)
+        ChatFrameEditBox:SetFrameStrata("DIALOG")
     end
     for _,name in ipairs(MICRO_BUTTONS) do
         local button=getglobal(name)

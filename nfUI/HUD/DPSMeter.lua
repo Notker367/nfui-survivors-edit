@@ -126,6 +126,19 @@ nfUIModules:NewMod("DPSMeter",5,function()
                 row:SetMinMaxValues(0,1);row:SetHeight(20)
                 row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",4,0);row.name:SetJustifyH("LEFT")
                 row.valueText=row:CreateFontString(nil,"OVERLAY");row.valueText:SetFont(FONT,11,"OUTLINE");row.valueText:SetPoint("RIGHT",row,"RIGHT",-4,0)
+                -- Local tweak: details on hover.
+                row:EnableMouse(true)
+                row:SetScript("OnEnter",function()
+                    local info=this.info
+                    if not info then return end
+                    GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(info.name,1,1,1)
+                    GameTooltip:AddDoubleLine("Урон за забег",Short(info.dmg),1,0.82,0,1,1,1)
+                    GameTooltip:AddDoubleLine("DPS",Short(info.dps),1,0.82,0,1,1,1)
+                    GameTooltip:AddDoubleLine("Доля урона",string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1)
+                    if info.proc==1 then GameTooltip:AddLine("Срабатывающий эффект",0.6,0.8,1) end
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave",function() GameTooltip:Hide() end)
                 rows[index]=row
             end
             row:SetWidth(width);row:SetPoint("TOPLEFT",content,"TOPLEFT",0,-22-(index-1)*23)
@@ -133,7 +146,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
             local value=Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
             local valueWidth=Measure(value)
             row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-valueWidth-12));row.name:SetHeight(14);row.name:SetText(line.name)
-            row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row:Show()
+            row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row.info=line;row:Show()
         end
         for index=table.getn(lines)+1,table.getn(rows) do rows[index]:Hide() end
         content:SetHeight(22+table.getn(lines)*23)
@@ -148,4 +161,99 @@ nfUIModules:NewMod("DPSMeter",5,function()
     driver:SetScript("OnEvent",function() if event=="PLAYER_ENTERING_WORLD" then inWorld=true;C.RefreshDPSMeter() else inWorld=false;Restore() end end)
     driver:SetScript("OnUpdate",function() age=age+(arg1 or 0);if age<0.2 then return end;age=0;if inWorld then C.RefreshDPSMeter() end end)
     C.RefreshDPSMeter()
+    -- Local tweak: the party's meter, left of the hero's own.
+    local party=CreateFrame("Frame","nfUIPartyDPS",UIParent)
+    party:SetWidth(190);party:SetHeight(32);party:SetFrameStrata("MEDIUM")
+    party:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"});party:SetBackdropColor(0.04,0.05,0.07,0.7)
+    party:SetPoint("BOTTOMRIGHT",panel,"BOTTOMLEFT",-4,0);party:Hide()
+    local partyTitle=party:CreateFontString(nil,"OVERLAY");partyTitle:SetFont(FONT,11,"OUTLINE")
+    partyTitle:SetPoint("TOPLEFT",party,"TOPLEFT",8,-7);partyTitle:SetTextColor(1,0.82,0)
+    local partyRows={}
+    -- Local tweak: skill icons by name, gathered from each hero's loadout every few seconds.
+    local topIcons,topIconsAge={},-1000
+    local function RefreshTopIcons()
+        if GetTime()-topIconsAge<5 then return end
+        topIconsAge=GetTime()
+        local context=AZS_GetMeterContext and AZS_GetMeterContext()
+        if type(context)~="table" or not context.runId then return end
+        local snapshot=AZS_GetMeterSnapshot({apiVersion=1,runId=context.runId,metric="damage",scope="party",period="run",groupBy="owner",windowSeconds=0})
+        if type(snapshot)~="table" or type(snapshot.actors)~="table" then return end
+        for id,actor in pairs(snapshot.actors) do
+            if type(actor)=="table" and actor.kind=="hero" then
+                local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId,ownerId=id})
+                if type(loadout)=="table" and type(loadout.sources)=="table" then
+                    for _,source in pairs(loadout.sources) do
+                        if source.name and type(source.icon)=="table" and source.icon.path then topIcons[source.name]=source.icon.path end
+                    end
+                end
+            end
+        end
+    end
+    local function RefreshParty()
+        local ok,lines,total,dps=false
+        if AZS_GetPhase and AZS_GetPhase() and AZS_GetPartyMeter then ok,lines,total,dps=pcall(AZS_GetPartyMeter) end
+        if not ok or type(lines)~="table" or table.getn(lines)==0 or not Number(total) or not Number(dps) then party:Hide();return end
+        party:SetScale(panel:GetScale())
+        pcall(RefreshTopIcons)
+        partyTitle:SetText("\208\147\209\128\209\131\208\191\208\191\208\176: "..Short(dps).." DPS")
+        for index,line in ipairs(lines) do
+            local row=partyRows[index]
+            if not row then
+                row=CreateFrame("StatusBar",nil,party);row:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+                row:SetMinMaxValues(0,1);row:SetHeight(20);row:SetWidth(174);row:EnableMouse(true)
+                row:SetPoint("TOPLEFT",party,"TOPLEFT",8,-24-(index-1)*37)
+                -- Local tweak: under each hero, their top skill: icon, share of their damage, DPS.
+                row.top=CreateFrame("StatusBar",nil,row);row.top:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+                row.top:SetMinMaxValues(0,1);row.top:SetHeight(13);row.top:SetWidth(158)
+                row.top:SetPoint("TOPRIGHT",row,"BOTTOMRIGHT",0,-1)
+                row.top.back=row.top:CreateTexture(nil,"BACKGROUND");row.top.back:SetTexture("Interface\\Buttons\\WHITE8X8")
+                row.top.back:SetVertexColor(0.2,0.22,0.27,0.3);row.top.back:SetAllPoints(row.top)
+                row.top.icon=row:CreateTexture(nil,"OVERLAY");row.top.icon:SetWidth(13);row.top.icon:SetHeight(13)
+                row.top.icon:SetTexCoord(0.08,0.92,0.08,0.92);row.top.icon:SetPoint("RIGHT",row.top,"LEFT",-3,0)
+                row.top.name=row.top:CreateFontString(nil,"OVERLAY");row.top.name:SetFont(FONT,9,"OUTLINE")
+                row.top.name:SetPoint("LEFT",row.top,"LEFT",3,0);row.top.name:SetWidth(92);row.top.name:SetHeight(12);row.top.name:SetJustifyH("LEFT")
+                row.top.value=row.top:CreateFontString(nil,"OVERLAY");row.top.value:SetFont(FONT,9,"OUTLINE")
+                row.top.value:SetPoint("RIGHT",row.top,"RIGHT",-3,0)
+                row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",4,0)
+                row.value=row:CreateFontString(nil,"OVERLAY");row.value:SetFont(FONT,11,"OUTLINE");row.value:SetPoint("RIGHT",row,"RIGHT",-4,0)
+                row:SetScript("OnEnter",function()
+                    local info=this.info
+                    if not info then return end
+                    GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(type(info.name)=="string" and info.name or "?",1,1,1)
+                    if Number(info.dmg) then GameTooltip:AddDoubleLine("Урон за забег",Short(info.dmg),1,0.82,0,1,1,1) end
+                    if Number(info.dps) then GameTooltip:AddDoubleLine("DPS",Short(info.dps),1,0.82,0,1,1,1) end
+                    if Number(info.share) then GameTooltip:AddDoubleLine("Доля урона",string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1) end
+                    if type(info.top)=="string" then GameTooltip:AddDoubleLine("Лучшее: "..info.top,Number(info.topdps) and Short(info.topdps).." DPS" or "",0.6,0.8,1,1,1,1) end
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave",function() GameTooltip:Hide() end)
+                partyRows[index]=row
+            end
+            local class=type(line.class)=="string" and string.upper(line.class) or ""
+            local color=class=="SHAMAN" and {r=0,g=0.44,b=0.87} or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]) or {r=0.4,g=0.4,b=0.45}
+            row:SetStatusBarColor(color.r,color.g,color.b,0.7)
+            row:SetValue(Number(line.share) and math.min(1,line.share) or 0)
+            row.name:SetText(type(line.name)=="string" and line.name or "?")
+            row.value:SetText((Number(line.dps) and Short(line.dps) or "-").." | "..(Number(line.share) and string.format("%.0f%%",line.share*100) or "-"))
+            row.info=line
+            local topShare=Number(line.topdps) and Number(line.dps) and line.dps>0 and math.min(1,line.topdps/line.dps) or nil
+            if type(line.top)=="string" and topShare then
+                row.top:SetStatusBarColor(color.r,color.g,color.b,0.4);row.top:SetValue(topShare)
+                row.top.name:SetText(line.top)
+                row.top.value:SetText(Short(line.topdps).." | "..string.format("%.0f%%",topShare*100))
+                local path=topIcons[line.top]
+                if path then row.top.icon:SetTexture(path);row.top.icon:Show() else row.top.icon:Hide() end
+                row.top:Show()
+            else row.top:Hide();row.top.icon:Hide() end
+            row:Show()
+        end
+        for index=table.getn(lines)+1,table.getn(partyRows) do partyRows[index]:Hide() end
+        party:SetHeight(30+table.getn(lines)*37);party:Show()
+    end
+    local partyAge=0
+    party.driver=CreateFrame("Frame",nil,UIParent)
+    party.driver:SetScript("OnUpdate",function()
+        partyAge=partyAge+(arg1 or 0);if partyAge<0.2 then return end;partyAge=0
+        if inWorld then RefreshParty() else party:Hide() end
+    end)
 end)

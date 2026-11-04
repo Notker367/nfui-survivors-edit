@@ -232,7 +232,8 @@ nfUIModules:NewMod("NameplateCombatText", 6, function()
         local count = WorldFrame:GetNumChildren() or 0
         if count < discoveredChildren then discoveredChildren = 0 end
         if force or count > discoveredChildren then
-            local children = {WorldFrame:GetChildren()}
+            local ok, children = pcall(function() return {WorldFrame:GetChildren()} end)
+            if not ok then discoveredChildren = count; children = {} end
             local first = force and 1 or discoveredChildren + 1
             local index
             for index = first, count do DiscoverPlate(children[index], now) end
@@ -358,7 +359,7 @@ nfUIModules:NewMod("NameplateCombatText", 6, function()
             visual:SetPoint("CENTER", holder, "CENTER", 0, 0)
             visual:EnableMouse(false)
             local label = visual:CreateFontString(nil, "OVERLAY")
-            label:SetFont("DEFAULT", 18, "OUTLINE")
+            label:SetFont("Fonts\\FRIZQT__.TTF", 18, "OUTLINE")
             label:SetShadowOffset(1, -1)
             label:SetPoint("CENTER", visual, "CENTER", 0, 0)
             local icon = visual:CreateTexture(nil, "OVERLAY")

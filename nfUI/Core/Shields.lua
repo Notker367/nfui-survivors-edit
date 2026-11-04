@@ -5,6 +5,10 @@ function C.ParseShieldAmount(line)
     if type(line)~="string" then return nil end
     local plain=string.gsub(string.gsub(line,"|c%x%x%x%x%x%x%x%x",""),"|r","")
     local _,_,number=string.find(plain,"^Absorbs ([%d,]+) damage%.$")
+    -- Local tweak: the game's other wordings, Russian included.
+    if not number then _,_,number=string.find(plain,"^Absorbs up to ([%d,]+) damage%.$") end
+    if not number then _,_,number=string.find(plain,"^Поглощает ([%d,]+) ед%. урона%.$") end
+    if not number then _,_,number=string.find(plain,"^Поглощает до ([%d,]+) ед%. урона%.$") end
     return number and tonumber((string.gsub(number,",",""))) or nil
 end
 local function AuraTotal()
