@@ -172,7 +172,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
     -- Local tweak: skill icons by name, gathered from each hero's loadout every few seconds.
     local topIcons,topIconsAge={},-1000
     local function RefreshTopIcons()
-        if GetTime()-topIconsAge<5 then return end
+        if GetTime()-topIconsAge<30 then return end
         topIconsAge=GetTime()
         local context=AZS_GetMeterContext and AZS_GetMeterContext()
         if type(context)~="table" or not context.runId then return end
@@ -194,7 +194,9 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if AZS_GetPhase and AZS_GetPhase() and AZS_GetPartyMeter then ok,lines,total,dps=pcall(AZS_GetPartyMeter) end
         if not ok or type(lines)~="table" or table.getn(lines)==0 or not Number(total) or not Number(dps) then party:Hide();return end
         party:SetScale(panel:GetScale())
-        pcall(RefreshTopIcons)
+        for _,line in ipairs(lines) do
+            if type(line.top)=="string" and not topIcons[line.top] then pcall(RefreshTopIcons);break end
+        end
         partyTitle:SetText("\208\147\209\128\209\131\208\191\208\191\208\176: "..Short(dps).." DPS")
         for index,line in ipairs(lines) do
             local row=partyRows[index]

@@ -2,7 +2,7 @@
   "Combat/CombatParser.lua": "8516dcc095fc512d5eda6d6d6aed53fcffdc0e07deb2e4d5cd09b0fd85eef111",
   "Combat/CombatText.lua": "afb80647d1f315ffe57789e348058efd0401ac3807113ddf8f93580d82123ad4",
   "Combat/QuickText.lua": "804bd3b6bc9a275faa74923327e3e539689e318b9ad669dbe3205c4489bc4f82",
-  "Core/Bootstrap.lua": "e47b45cfd1b57fa218a7a0f172c618049b749a37c90ceb7148dee6158c88dc4f",
+  "Core/Bootstrap.lua": "9c33f115495a3223c8a0a8892a036309ffb43e496c50c6370e675925aa94b20d",
   "Core/Modules.lua": "5223b6d8b12c2cfac223d4e1d31a97774f250fb22cfa96d3457d80c03ccc6bbd",
   "Core/Names.lua": "420e72629ac31c8265e72559b05eefcb44702b8262745a18524ac3a99749be67",
   "Core/Shields.lua": "50bd234cf49f4b714ef4665c88338acaf393c5b88e767d7a57b7c2edb03641d5",
@@ -13,10 +13,10 @@
   "HUD/AbilityTooltip.lua": "47675dee5aede752287f7719c4670901b4243f852889c71f131e7223481040e5",
   "HUD/CharacterPane.lua": "98a678f3330fdf714a021c2f1ca99ad064bbb2026c0341e900a0f1ccd4064951",
   "HUD/Compass.lua": "1498375dfe9f426e032d301b47e889b729745641de81c3770eaa9480cca76d43",
-  "HUD/DPSMeter.lua": "63a22331b66c8bd93ccfa6818e48979472d004f8ec017dc842357cbb81b85deb",
+  "HUD/DPSMeter.lua": "8c2d69e46d35f0b2dc5a394c3845ae03d5528719af11fd79126813acdfe9b5ba",
   "HUD/Map.lua": "4fbaa35fbd1ca1c2994343b8e4983d6f05c2e174216d7cbd1cd902a506d6f9f6",
   "HUD/NativeHUD.lua": "85718472e6a7379d4e9d3ab1e999ffdab391afb5b16e13ed711477bc45eef908",
-  "HUD/Plates.lua": "f09252345c82081c21b2bbd079547cb3fbaf905e1eafc9566b9762a0cd10a94d",
+  "HUD/Plates.lua": "2c9f22269a2fee918fa16bc05c3388fb6e4437a975c00f2c485b2a7c6be0929c",
   "HUD/RunHUD.lua": "19247911e09448ca19c34fa09c69ae2c7015a6ed29f431835138b0d63d97c149",
   "HUD/StatsHUD.lua": "c2a0cdf1d84536f8f3e3121fd2a6076c5f5c9334820f885cf373dc39fe40d5c9",
   "nfUI.lua": "a822a3bd825dafc4a2da558b336fe1c6d4f1cf7b4602d71743418888936c7d5e",
@@ -84,5 +84,5 @@
   "Settings/NumericInput.lua": "635743fec600e4c8f26e83214fff1639d6f6012b3c2331ef0b140271015602a8",
   "Settings/SizeMatches.lua": "c0375813f7ec4cec49c2a8d2ee6a8b41c1949ae8643723fc229bc28a35a1aa80",
   "Settings/TooltipMover.lua": "1f05fa2702733a7731d934ec789ac8dd1695fb00a58f9f5e81f384ae04a0924a",
-  "Resources/docs/README-RU.md": "902dea6835c1369c337a67bd1f326c99abc254be40ebfb81d198c79fcf4b4810"
+  "Resources/docs/README-RU.md": "ab48c57cab8b6bdf9d82e38db3c6d0847747d473982d8be94c51c3a509170c59"
 }

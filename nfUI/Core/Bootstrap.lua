@@ -52,7 +52,12 @@ local PARTY_SHAMAN={r=0.00,g=0.44,b=0.87}
 local PARTY_BARS={"HealthBar","ManaBar"}
 local PARTY_BAR_WIDTH=140
 local partyColors=CreateFrame("Frame","nfUIPartyClassColors")
+local partyColorsAge=0
 partyColors:SetScript("OnUpdate",function()
+    partyColorsAge=partyColorsAge+(arg1 or 0)
+    -- Pets and bar colours must be corrected often, but not on every frame.
+    if partyColorsAge<0.1 or not UnitExists("party1") then return end
+    partyColorsAge=0
     for index=1,4 do
         local unit="party"..index
         -- Allies' pets hidden, allies' bars at full length without the stock art around them.
@@ -236,7 +241,7 @@ function UpdateRanks()
     for _,prefix in ipairs({"ActionButton","BonusActionButton"}) do
         for _,id in ipairs(hudButtons) do
             local button=getglobal(prefix..id)
-            if button then
+            if button and button:IsVisible() then
                 if not button.nfuiRank then
                     button.nfuiRank=button:CreateFontString(nil,"OVERLAY")
                     button.nfuiRank:SetFont("Fonts\\FRIZQT__.TTF",9,"OUTLINE")
@@ -304,13 +309,14 @@ local function ReadTargetDistance()
     return best
 end
 function UpdateTargetDistance(frame)
-    distanceAge=distanceAge+0.1;if distanceAge<0.3 then return end;distanceAge=0
+    distanceAge=distanceAge+0.1;if distanceAge<1 then return end;distanceAge=0
     if not distanceLabel then
         distanceLabel=frame.health:CreateFontString(nil,"OVERLAY")
         distanceLabel:SetFont("Fonts\\FRIZQT__.TTF",9,"OUTLINE")
         distanceLabel:SetPoint("BOTTOMRIGHT",frame.health,"TOPRIGHT",0,1);distanceLabel:SetTextColor(0.85,0.85,0.85)
     end
-    local ok,value=pcall(ReadTargetDistance)
+    local ok,value=false,nil
+    if UnitExists("target") then ok,value=pcall(ReadTargetDistance) end
     local text=ok and value and string.format("%.0f",value) or ""
     distanceLabel:SetText(text)
     -- Local tweak: the same number at the top right corner of the target's bar over its head.
@@ -668,13 +674,15 @@ local SKILL_POOL={
 local POOL_PICKS=6
 -- Local tweak: the skills still in the pool, shown until six are picked. Banished cards are not known yet.
 local function ShowPool(holder)
-    local _,class=UnitClass("player")
-    local pool=class and SKILL_POOL[class]
-    if not pool then return false end
     local context=AZS_GetMeterContext()
     if type(context)~="table" or not context.runId then return false end
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
     if type(loadout)~="table" then return false end
+    -- The run's hero decides the class: the character's own class may be a different one.
+    local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
+    local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
+    local pool=class and SKILL_POOL[class]
+    if not pool then return false end
     local picked,total={},0
     for _,entry in ipairs(loadout.abilities or {}) do
         if entry.selected and type(entry.sourceKey)=="string" then
@@ -683,7 +691,8 @@ local function ShowPool(holder)
         end
     end
     for _,skill in ipairs(pool) do if picked[skill[1]] then total=total+1 end end
-    if total>=POOL_PICKS then return false end
+    -- Stays up once the six are picked, fainter. The game does not tell addons which cards were banished.
+    local faint=total>=POOL_PICKS
     local count=0
     for _,skill in ipairs(pool) do
         if not picked[skill[1]] then
@@ -692,7 +701,7 @@ local function ShowPool(holder)
             icon:ClearAllPoints()
             icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",math.mod(count-1,ALLY_PER_ROW)*(ALLY_SIZE+ALLY_GAP),-math.floor((count-1)/ALLY_PER_ROW)*(ALLY_SIZE+ALLY_GAP))
             icon.texture:SetTexture("Interface\\Icons\\"..skill[3]);icon.label=skill[2];icon.rankValue=nil;icon.effect=nil
-            icon.rank:SetText("");icon:SetAlpha(0.8);icon:Show()
+            icon.rank:SetText("");icon:SetAlpha(faint and 0.35 or 0.8);icon:Show()
         end
     end
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
@@ -704,12 +713,17 @@ local function NewHolder(name,scale,point,anchor,relative,x,y)
     return {frame=frame,icons={}}
 end
 local allyHolder,ownHolder,poolHolder
-local allyAge=1
+local allyAge=0
+local ownWait=5
 local allyDriver=CreateFrame("Frame","nfUIAllyLoadout")
 allyDriver:RegisterEvent("PLAYER_TARGET_CHANGED")
-allyDriver:SetScript("OnEvent",function() allyAge=1;ownerByName={} end)
+allyDriver:SetScript("OnEvent",function() allyAge=ownWait;ownerByName={} end)
 allyDriver:SetScript("OnUpdate",function()
-    allyAge=allyAge+(arg1 or 0);if allyAge<1 then return end;allyAge=0
+    allyAge=allyAge+(arg1 or 0);if allyAge<ownWait then return end;allyAge=0
+    -- These calls ask the game for a lot, and a refused one sends a request to the server, so they
+    -- wait for a run in progress and back off while the game is not ready.
+    local phase=AZS_GetPhase and AZS_GetPhase()
+    if phase~="playing" and phase~="choosing" and phase~="paused" then ownWait=3;return end
     local C=nfUIConfig
     if not totFrame or not C or not C.row then return end
     if not allyHolder then
@@ -723,25 +737,54 @@ allyDriver:SetScript("OnUpdate",function()
     if isAlly then ok,shown=pcall(ShowAlly,allyHolder) end
     if ok and shown then allyHolder.frame:Show() else allyHolder.frame:Hide() end
     ok,shown=pcall(ShowOwn,ownHolder)
-    if ok and shown then ownHolder.frame:Show() else ownHolder.frame:Hide() end
+    if ok and shown then ownHolder.frame:Show();ownWait=4 else ownHolder.frame:Hide();ownWait=10 end
     ok,shown=pcall(ShowPool,poolHolder)
     if ok and shown then poolHolder.frame:Show() else poolHolder.frame:Hide() end
 end)
 
-
--- Fit the layout to this screen's shape, once. It was laid out on a 3440x1440 screen (2038.5 x 853.3 units).
-local fit=CreateFrame("Frame")
-fit:RegisterEvent("ADDON_LOADED")
-fit:SetScript("OnEvent",function()
-    if arg1~="nfUI" or type(nfUIDB)~="table" or nfUIDB.layoutFitted then return end
-    nfUIDB.layoutFitted=true
-    local height=UIParent:GetHeight()
-    if not height or height<=0 or not nfUIDB.positions then return end
-    local extra=853.33*UIParent:GetWidth()/height-2038.5
-    for _,key in ipairs({"actionBar","xp","player","playerAuras","target","targetDebuffs"}) do
-        local spot=nfUIDB.positions[key];if spot and spot.x then spot.x=spot.x+extra/2 end
+-- Fits the layout to any screen. Positions are kept relative to where they belong: the two central
+-- blocks to the screen's centre, everything else to its nearest corner. Sizes follow the screen's height.
+-- Runs again only when the screen's shape or UI scale changes, so moving things by hand is kept.
+local LAYOUT_CENTERED={actionBar=true,xp=true,player=true,playerAuras=true,target=true,targetDebuffs=true}
+function nfUILayoutRescale(db,oldWidth,oldHeight,width,height)
+    local k=height/oldHeight
+    for key,spot in pairs(db.positions or {}) do
+        if type(spot)=="table" and type(spot.x)=="number" and type(spot.y)=="number" and not spot.centered then
+            if LAYOUT_CENTERED[key] then
+                spot.x=width/2+(spot.x-oldWidth/2)*k
+                spot.y=spot.y*k
+            else
+                if spot.x>oldWidth/2 then spot.x=width+(spot.x-oldWidth)*k else spot.x=spot.x*k end
+                if spot.y>oldHeight/2 then spot.y=height+(spot.y-oldHeight)*k else spot.y=spot.y*k end
+            end
+        end
     end
-    for _,key in ipairs({"minimap","dpsMeter","tooltip"}) do
-        local spot=nfUIDB.positions[key];if spot and spot.x then spot.x=spot.x+extra end
+    if db.layout and db.layout.scale then db.layout.scale=db.layout.scale*k end
+    if db.minimap and db.minimap.scale then db.minimap.scale=db.minimap.scale*k end
+    if db.dpsDisplay and db.dpsDisplay.scale then db.dpsDisplay.scale=db.dpsDisplay.scale*k end
+    if db.micro and db.micro.scale then db.micro.scale=db.micro.scale*k end
+    if db.nameplates and db.nameplates.scale then db.nameplates.scale=db.nameplates.scale*k end
+    if db.chat then
+        if db.chat.width then db.chat.width=db.chat.width*k end
+        if db.chat.height then db.chat.height=db.chat.height*k end
+        if db.chat.font then db.chat.font=math.max(10,math.floor(db.chat.font*k+0.5)) end
+    end
+end
+-- The screen's real size can arrive only after the world loads, so it is checked once a second.
+local responsive=CreateFrame("Frame","nfUILayoutWatcher")
+local responsiveAge=1
+responsive:SetScript("OnUpdate",function()
+    responsiveAge=responsiveAge+(arg1 or 0);if responsiveAge<1 then return end;responsiveAge=0
+    if type(nfUIDB)~="table" or not nfUIConfig or not nfUIConfig.player then return end
+    local width,height=UIParent:GetWidth(),UIParent:GetHeight()
+    if not width or not height or width<=0 or height<=0 then return end
+    -- The layout was made on a 3440x1440 screen, which is this many UI units.
+    local basis=nfUIDB.layoutBasis or {width=2038.5,height=853.33}
+    if math.abs(basis.width-width)>2 or math.abs(basis.height-height)>2 then
+        nfUILayoutRescale(nfUIDB,basis.width,basis.height,width,height)
+        nfUIDB.layoutBasis={width=width,height=height}
+        if nfUIConfig.Apply then pcall(nfUIConfig.Apply) end
+    else
+        nfUIDB.layoutBasis=basis
     end
 end)

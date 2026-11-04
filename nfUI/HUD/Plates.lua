@@ -145,13 +145,34 @@ end
 local PLATE_DEBUFFS = 6
 local DEBUFF_SIZE = 11
 -- Local tweak: which unit a plate's debuffs can be read from: the target, or an ally by name.
-local function PartyUnitByName(name)
-    if not name then return nil end
+-- The party is looked up twice a second, not for every plate on every frame.
+local partyUnits,partyColors,partyPets,partyRead={},{},{},-1
+local function ReadParty()
+    local now=GetTime()
+    if now-partyRead<0.5 then return end
+    partyRead=now
+    partyUnits,partyColors,partyPets={},{},{}
+    if UnitExists("pet") then local name=UnitName("pet");if name then partyPets[name]=true end end
     for index=1,4 do
         local unit="party"..index
-        if UnitExists(unit) and UnitName(unit)==name then return unit end
+        if UnitExists(unit) then
+            local name=UnitName(unit)
+            if name then
+                partyUnits[name]=unit
+                local _,class=UnitClass(unit)
+                local color=class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+                if class=="SHAMAN" then partyColors[name]={0.00,0.44,0.87}
+                elseif color then partyColors[name]={color.r,color.g,color.b} end
+            end
+        end
+        local pet="partypet"..index
+        if UnitExists(pet) then local name=UnitName(pet);if name then partyPets[name]=true end end
     end
-    return nil
+end
+local function PartyUnitByName(name)
+    if not name then return nil end
+    ReadParty()
+    return partyUnits[name]
 end
 
 local function UpdatePlateDebuffs(overlay,target)
@@ -194,32 +215,21 @@ end
 
 -- Local tweak: allies' plates alongside enemies': allies in their class colour, others in the game's own
 -- friendly colour, and the party's pets left out.
-local function PartyClassColor(name)
-	for index=1,4 do
-		local unit="party"..index
-		if UnitExists(unit) and UnitName(unit)==name then
-			local _,class=UnitClass(unit)
-			if class=="SHAMAN" then return {0.00,0.44,0.87} end
-			local color=class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-			if color then return {color.r,color.g,color.b} end
-		end
-	end
-	return nil
-end
 local function FriendlyColor(overlay)
 	local r,g,b=overlay.stock.health:GetStatusBarColor()
 	if not r or (g<=r+0.2 and b<=r+0.2) then return nil end
-	return PartyClassColor(overlay.stock.name:GetText()) or {r,g,b}
+	ReadParty()
+	local known=partyColors[overlay.stock.name:GetText()]
+	if known then return known end
+	overlay.friendColor=overlay.friendColor or {}
+	overlay.friendColor[1],overlay.friendColor[2],overlay.friendColor[3]=r,g,b
+	return overlay.friendColor
 end
 local function IsPartyPet(overlay)
-	local name=overlay.stock.name:GetText()
-	if not name then return false end
-	if UnitExists("pet") and UnitName("pet")==name then return true end
-	for index=1,4 do
-		local unit="partypet"..index
-		if UnitExists(unit) and UnitName(unit)==name then return true end
-	end
-	return false
+    local name=overlay.stock.name:GetText()
+    if not name then return false end
+    ReadParty()
+    return partyPets[name]==true
 end
 
 local function UpdatePlate()
