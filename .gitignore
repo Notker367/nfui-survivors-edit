@@ -12,3 +12,6 @@ Desktop.ini
 *.bak
 *.orig
 *.rej
+
+# The ready-to-install archive for the browser version
+!web/*.zip
