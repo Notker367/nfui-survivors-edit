@@ -272,7 +272,7 @@ local function UpdatePlate()
 	overlay.bar:SetStatusBarColor(color[1], color[2], color[3], 1)
 
 	-- Local tweak: red edge when the target is looking at the hero. The game names only the target's target.
-	if isTarget and UnitExists("targettarget") and UnitIsUnit("targettarget","player") and UnitCanAttack("player","target") then
+	if overlay.nearHero or (isTarget and UnitExists("targettarget") and UnitIsUnit("targettarget","player") and UnitCanAttack("player","target")) then
 		overlay.border:SetVertexColor(1, 0.08, 0.08, 1)
 	elseif isTarget or overlay.kind == "boss" then
 		overlay.border:SetVertexColor(1, 1, 1, 1)

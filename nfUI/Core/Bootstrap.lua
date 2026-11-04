@@ -282,50 +282,61 @@ function UpdateChestIcon(frame)
 end
 local aggroEdge
 local distanceLabel,distanceAge=nil,1
-local function Rows(result)
-    if type(result)~="table" then return {} end
-    return result.anchors or result.entries or result
-end
-local function ReadTargetDistance()
-    if type(AZS_GetWorldAnchors)~="function" or type(AZS_ProjectWorldAnchors)~="function" then return nil end
-    local name=UnitName("target");if not name then return nil end
-    local requests={}
-    local function Collect(list)
-        for _,row in ipairs(list or {}) do
-            if type(row)=="table" and row.name==name and row.anchorId and table.getn(requests)<64 then
-                table.insert(requests,{anchorId=row.anchorId,attachment="position"})
-            end
+-- Local tweak: metres over every enemy's plate, and a red edge on those close enough to hit the hero.
+-- The game names no enemy's target, so nearness stands in for aggro. Plates and anchors are matched
+-- by name and screen position.
+local NEAR_YARDS=6
+local distanceKinds={kinds={"enemy","elite","guardian","boss","finalBoss"}}
+local function ReadEnemyDistances()
+    local catalog=AZS_GetWorldAnchors(distanceKinds,nil,256)
+    local rows=type(catalog)=="table" and catalog.entries
+    if type(rows)~="table" then return nil end
+    local wanted,live={},{}
+    for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
+        if overlay.plate and overlay.plate:IsShown() then
+            local name=overlay.stock.name:GetText()
+            if name then wanted[name]=true end
         end
     end
-    if AZS_GetBosses then Collect(AZS_GetBosses()) end
-    if AZS_GetGuardians then Collect(AZS_GetGuardians()) end
-    if table.getn(requests)==0 then Collect(Rows(AZS_GetWorldAnchors({kinds={"enemy","elite"}},nil,256))) end
-    if table.getn(requests)==0 then return nil end
-    local best
-    for _,row in ipairs(Rows(AZS_ProjectWorldAnchors(requests))) do
-        local value=type(row)=="table" and row.playerDistance
-        if type(value)=="number" and (not best or value<best) then best=value end
+    local requests={}
+    for _,row in ipairs(rows) do
+        if row.anchorId and row.state~="dead" and table.getn(requests)<128 and (wanted[row.name] or row.unitId==(AZS_TARGET and AZS_TARGET.id)) then
+            table.insert(requests,{anchorId=row.anchorId,attachment="overhead"})
+            live[row.anchorId]=row
+        end
     end
-    return best
+    if table.getn(requests)==0 then return {} end
+    local projected=AZS_ProjectWorldAnchors(requests)
+    local out={}
+    for _,spot in ipairs(type(projected)=="table" and projected.entries or {}) do
+        local row=live[spot.anchorId]
+        if row and type(spot.playerDistance)=="number" then
+            table.insert(out,{name=row.name,unitId=row.unitId,x=spot.x,y=spot.y,onScreen=spot.state=="onScreen",yards=spot.playerDistance})
+        end
+    end
+    return out
 end
+local function MetreText(yards) return string.format("%.0f",yards).."\208\188" end
 function UpdateTargetDistance(frame)
-    distanceAge=distanceAge+0.1;if distanceAge<1 then return end;distanceAge=0
+    distanceAge=distanceAge+0.1;if distanceAge<0.5 then return end;distanceAge=0
     if not distanceLabel then
         distanceLabel=frame.health:CreateFontString(nil,"OVERLAY")
         distanceLabel:SetFont("Fonts\\FRIZQT__.TTF",9,"OUTLINE")
         distanceLabel:SetPoint("BOTTOMRIGHT",frame.health,"TOPRIGHT",0,1);distanceLabel:SetTextColor(0.85,0.85,0.85)
     end
-    local ok,value=false,nil
-    if UnitExists("target") then ok,value=pcall(ReadTargetDistance) end
-    local text=ok and value and string.format("%.0f",value) or ""
-    distanceLabel:SetText(text)
-    -- Local tweak: the same number at the top right corner of the target's bar over its head.
-    local hasTarget=UnitExists("target")
+    local ok,spots=pcall(ReadEnemyDistances)
+    if not ok or type(spots)~="table" then spots={} end
+    local targetId=UnitExists("target") and AZS_TARGET and AZS_TARGET.id
+    local targetText=""
+    for _,spot in ipairs(spots) do
+        if targetId and spot.unitId==targetId then targetText=MetreText(spot.yards) end
+    end
+    distanceLabel:SetText(targetText)
     for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
         if overlay.bar then
             if not overlay.distanceText then
                 -- A small box at the bar's top right corner, the number centred in it, over the name.
-                local box=CreateFrame("Frame",nil,overlay);box:SetWidth(18);box:SetHeight(11)
+                local box=CreateFrame("Frame",nil,overlay);box:SetWidth(22);box:SetHeight(11)
                 box:SetFrameLevel(overlay:GetFrameLevel()+6);box:SetPoint("BOTTOMRIGHT",overlay.bar,"TOPRIGHT",0,1)
                 local fill=box:CreateTexture(nil,"BACKGROUND");fill:SetTexture("Interface\\Buttons\\WHITE8X8")
                 fill:SetVertexColor(0.12,0.13,0.16,0.8);fill:SetAllPoints(box)
@@ -335,9 +346,26 @@ function UpdateTargetDistance(frame)
                 overlay.distanceText:SetPoint("CENTER",box,"CENTER",0,0);overlay.distanceText:SetTextColor(0.95,0.95,0.95)
                 box:Hide()
             end
-            local isTarget=hasTarget and overlay.plate and overlay.plate:IsShown() and overlay.plate:GetAlpha()==1
-            overlay.distanceText:SetText(isTarget and text or "")
-            if isTarget and text~="" then overlay.distanceBox:Show() else overlay.distanceBox:Hide() end
+            local best,bestGap=nil,80*80
+            if overlay.plate and overlay.plate:IsShown() then
+                local x,y=overlay.plate:GetCenter()
+                local name=overlay.stock.name:GetText()
+                if x and y then
+                    for _,spot in ipairs(spots) do
+                        if spot.name==name and spot.onScreen and spot.x and spot.y then
+                            local dx,dy=spot.x-x,spot.y-y
+                            local gap=dx*dx+dy*dy
+                            if gap<bestGap then best,bestGap=spot,gap end
+                        end
+                    end
+                end
+            end
+            if best then
+                overlay.distanceText:SetText(MetreText(best.yards));overlay.distanceBox:Show()
+                overlay.nearHero=best.yards<=NEAR_YARDS
+            else
+                overlay.distanceBox:Hide();overlay.nearHero=nil
+            end
         end
     end
 end
@@ -776,7 +804,10 @@ local responsiveAge=1
 responsive:SetScript("OnUpdate",function()
     responsiveAge=responsiveAge+(arg1 or 0);if responsiveAge<1 then return end;responsiveAge=0
     if type(nfUIDB)~="table" or not nfUIConfig or not nfUIConfig.player then return end
-    local width,height=UIParent:GetWidth(),UIParent:GetHeight()
+    -- GetWidth and GetHeight leave out the UI scale; positions are laid out in the scaled units.
+    local uiScale=UIParent:GetEffectiveScale()
+    if not uiScale or uiScale<=0 then return end
+    local width,height=UIParent:GetWidth()/uiScale,UIParent:GetHeight()/uiScale
     if not width or not height or width<=0 or height<=0 then return end
     -- The layout was made on a 3440x1440 screen, which is this many UI units.
     local basis=nfUIDB.layoutBasis or {width=2038.5,height=853.33}

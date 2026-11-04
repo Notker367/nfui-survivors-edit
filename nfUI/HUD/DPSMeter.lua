@@ -85,6 +85,35 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if value>=1000 then return string.format("%.1fk",value/1000) end
         return string.format("%.0f",value)
     end
+    -- Local tweak: skill icons by name, for the hero's own meter and the party's.
+    local topIcons,topIconsAge={},-1000
+    local function RefreshTopIcons()
+        if GetTime()-topIconsAge<15 then return end
+        topIconsAge=GetTime()
+        local context=AZS_GetMeterContext and AZS_GetMeterContext()
+        if type(context)~="table" or not context.runId then return end
+        local function Add(sources)
+            if type(sources)~="table" then return end
+            for _,source in pairs(sources) do
+                if type(source)=="table" and source.name and type(source.icon)=="table" and source.icon.path then topIcons[source.name]=source.icon.path end
+            end
+        end
+        local mine=AZS_GetMeterSnapshot({apiVersion=1,runId=context.runId,metric="damage",scope="self",period="run",groupBy="source",windowSeconds=0})
+        if type(mine)=="table" then Add(mine.sources) end
+        local own=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
+        if type(own)=="table" then Add(own.sources) end
+        if context.partyState and context.partyState~="solo" then
+            local snapshot=AZS_GetMeterSnapshot({apiVersion=1,runId=context.runId,metric="damage",scope="party",period="run",groupBy="owner",windowSeconds=0})
+            if type(snapshot)=="table" and type(snapshot.actors)=="table" then
+                for id,actor in pairs(snapshot.actors) do
+                    if type(actor)=="table" and actor.kind=="hero" then
+                        local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId,ownerId=id})
+                        if type(loadout)=="table" then Add(loadout.sources) end
+                    end
+                end
+            end
+        end
+    end
     function C.RefreshDPSMeter()
         C.LayoutDPSMeter()
         local phase=AZS_GetPhase and AZS_GetPhase()
@@ -111,10 +140,13 @@ nfUIModules:NewMod("DPSMeter",5,function()
             measure:SetText(text)
             return measure.GetStringWidth and measure:GetStringWidth() or string.len(text)*7
         end
+        for _,line in ipairs(lines) do
+            if not topIcons[line.name] then pcall(RefreshTopIcons);break end
+        end
         fittedWidth=math.max(112,Measure(summary:GetText())+16)
         for _,line in ipairs(lines) do
             local value=Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
-            fittedWidth=math.max(fittedWidth,Measure(line.name)+Measure(value)+28)
+            fittedWidth=math.max(fittedWidth,Measure(line.name)+Measure(value)+46)
         end
         fittedHeight=66+table.getn(lines)*23
         C.LayoutDPSMeter()
@@ -124,7 +156,9 @@ nfUIModules:NewMod("DPSMeter",5,function()
             if not row then
                 row=CreateFrame("StatusBar",nil,content);row:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
                 row:SetMinMaxValues(0,1);row:SetHeight(20)
-                row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",4,0);row.name:SetJustifyH("LEFT")
+                row.icon=row:CreateTexture(nil,"OVERLAY");row.icon:SetWidth(16);row.icon:SetHeight(16)
+                row.icon:SetPoint("LEFT",row,"LEFT",2,0);row.icon:SetTexCoord(0.08,0.92,0.08,0.92)
+                row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",21,0);row.name:SetJustifyH("LEFT")
                 row.valueText=row:CreateFontString(nil,"OVERLAY");row.valueText:SetFont(FONT,11,"OUTLINE");row.valueText:SetPoint("RIGHT",row,"RIGHT",-4,0)
                 -- Local tweak: details on hover.
                 row:EnableMouse(true)
@@ -145,7 +179,9 @@ nfUIModules:NewMod("DPSMeter",5,function()
             row:SetStatusBarColor(line.proc==1 and 0.15 or 0.15,line.proc==1 and 0.45 or 0.55,line.proc==1 and 0.8 or 0.3,0.65)
             local value=Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
             local valueWidth=Measure(value)
-            row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-valueWidth-12));row.name:SetHeight(14);row.name:SetText(line.name)
+            row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-valueWidth-29))
+            if topIcons[line.name] then row.icon:SetTexture(topIcons[line.name]);row.icon:Show() else row.icon:Hide() end
+            row.name:SetHeight(14);row.name:SetText(line.name)
             row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row.info=line;row:Show()
         end
         for index=table.getn(lines)+1,table.getn(rows) do rows[index]:Hide() end
@@ -169,26 +205,6 @@ nfUIModules:NewMod("DPSMeter",5,function()
     local partyTitle=party:CreateFontString(nil,"OVERLAY");partyTitle:SetFont(FONT,11,"OUTLINE")
     partyTitle:SetPoint("TOPLEFT",party,"TOPLEFT",8,-7);partyTitle:SetTextColor(1,0.82,0)
     local partyRows={}
-    -- Local tweak: skill icons by name, gathered from each hero's loadout every few seconds.
-    local topIcons,topIconsAge={},-1000
-    local function RefreshTopIcons()
-        if GetTime()-topIconsAge<30 then return end
-        topIconsAge=GetTime()
-        local context=AZS_GetMeterContext and AZS_GetMeterContext()
-        if type(context)~="table" or not context.runId then return end
-        local snapshot=AZS_GetMeterSnapshot({apiVersion=1,runId=context.runId,metric="damage",scope="party",period="run",groupBy="owner",windowSeconds=0})
-        if type(snapshot)~="table" or type(snapshot.actors)~="table" then return end
-        for id,actor in pairs(snapshot.actors) do
-            if type(actor)=="table" and actor.kind=="hero" then
-                local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId,ownerId=id})
-                if type(loadout)=="table" and type(loadout.sources)=="table" then
-                    for _,source in pairs(loadout.sources) do
-                        if source.name and type(source.icon)=="table" and source.icon.path then topIcons[source.name]=source.icon.path end
-                    end
-                end
-            end
-        end
-    end
     local function RefreshParty()
         local ok,lines,total,dps=false
         if AZS_GetPhase and AZS_GetPhase() and AZS_GetPartyMeter then ok,lines,total,dps=pcall(AZS_GetPartyMeter) end
