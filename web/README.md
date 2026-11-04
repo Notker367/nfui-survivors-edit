@@ -25,4 +25,4 @@
 
 Сам забег в браузере с этой сборкой пока не проверялся. Если появится окно с ошибкой, приложите скриншот к [Issue](https://github.com/Notker367/nfui-survivors-edit/issues).
 
-Архив совпадает с файлом из [релиза v1.0.0-edit3](https://github.com/Notker367/nfui-survivors-edit/releases/tag/v1.0.0-edit3).
+Архив совпадает с файлом из [релиза v1.0.0-edit4](https://github.com/Notker367/nfui-survivors-edit/releases/tag/v1.0.0-edit4).

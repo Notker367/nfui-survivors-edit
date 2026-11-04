@@ -2,7 +2,7 @@
   "Combat/CombatParser.lua": "8516dcc095fc512d5eda6d6d6aed53fcffdc0e07deb2e4d5cd09b0fd85eef111",
   "Combat/CombatText.lua": "afb80647d1f315ffe57789e348058efd0401ac3807113ddf8f93580d82123ad4",
   "Combat/QuickText.lua": "804bd3b6bc9a275faa74923327e3e539689e318b9ad669dbe3205c4489bc4f82",
-  "Core/Bootstrap.lua": "60e976929cd7baa950852d966655182e00a727a567466e30017c614e59e90737",
+  "Core/Bootstrap.lua": "67fecbe75be1c45ba50c883818437b2872a0c244255b429b62c62785997c087d",
   "Core/Modules.lua": "5223b6d8b12c2cfac223d4e1d31a97774f250fb22cfa96d3457d80c03ccc6bbd",
   "Core/Names.lua": "420e72629ac31c8265e72559b05eefcb44702b8262745a18524ac3a99749be67",
   "Core/Shields.lua": "50bd234cf49f4b714ef4665c88338acaf393c5b88e767d7a57b7c2edb03641d5",

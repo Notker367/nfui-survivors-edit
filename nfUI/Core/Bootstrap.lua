@@ -283,24 +283,18 @@ end
 local aggroEdge
 local distanceLabel,distanceAge=nil,1
 -- Local tweak: metres over every enemy's plate, and a red edge on those close enough to hit the hero.
--- The game names no enemy's target, so nearness stands in for aggro. Plates and anchors are matched
--- by name and screen position.
+-- The game names no enemy's target, so nearness stands in for aggro. Plates and anchors are matched by
+-- screen position alone: names can differ between the client's language and the game's data.
 local NEAR_YARDS=6
 local distanceKinds={kinds={"enemy","elite","guardian","boss","finalBoss"}}
 local function ReadEnemyDistances()
     local catalog=AZS_GetWorldAnchors(distanceKinds,nil,256)
     local rows=type(catalog)=="table" and catalog.entries
     if type(rows)~="table" then return nil end
-    local wanted,live={},{}
-    for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
-        if overlay.plate and overlay.plate:IsShown() then
-            local name=overlay.stock.name:GetText()
-            if name then wanted[name]=true end
-        end
-    end
+    local live={}
     local requests={}
     for _,row in ipairs(rows) do
-        if row.anchorId and row.state~="dead" and table.getn(requests)<128 and (wanted[row.name] or row.unitId==(AZS_TARGET and AZS_TARGET.id)) then
+        if row.anchorId and row.state~="dead" and table.getn(requests)<256 then
             table.insert(requests,{anchorId=row.anchorId,attachment="overhead"})
             live[row.anchorId]=row
         end
@@ -332,12 +326,14 @@ function UpdateTargetDistance(frame)
         if targetId and spot.unitId==targetId then targetText=MetreText(spot.yards) end
     end
     distanceLabel:SetText(targetText)
+    local stats={ok=ok,spots=table.getn(spots),shown=0,matched=0,gap=0,w=UIParent:GetWidth(),h=UIParent:GetHeight(),eff=UIParent:GetEffectiveScale()}
+    nfUIMetreStats=stats
     for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
         if overlay.bar then
             if not overlay.distanceText then
-                -- A small box at the bar's top right corner, the number centred in it, over the name.
+                -- A small box right of the bar, the number centred in it.
                 local box=CreateFrame("Frame",nil,overlay);box:SetWidth(22);box:SetHeight(11)
-                box:SetFrameLevel(overlay:GetFrameLevel()+6);box:SetPoint("BOTTOMRIGHT",overlay.bar,"TOPRIGHT",0,1)
+                box:SetFrameLevel(overlay:GetFrameLevel()+6);box:SetPoint("LEFT",overlay.bar,"RIGHT",3,0)
                 local fill=box:CreateTexture(nil,"BACKGROUND");fill:SetTexture("Interface\\Buttons\\WHITE8X8")
                 fill:SetVertexColor(0.12,0.13,0.16,0.8);fill:SetAllPoints(box)
                 overlay.distanceBox=box
@@ -346,18 +342,25 @@ function UpdateTargetDistance(frame)
                 overlay.distanceText:SetPoint("CENTER",box,"CENTER",0,0);overlay.distanceText:SetTextColor(0.95,0.95,0.95)
                 box:Hide()
             end
-            local best,bestGap=nil,80*80
+            local best,bestGap=nil,60*60
             if overlay.plate and overlay.plate:IsShown() then
                 local x,y=overlay.plate:GetCenter()
-                local name=overlay.stock.name:GetText()
                 if x and y then
                     for _,spot in ipairs(spots) do
-                        if spot.name==name and spot.onScreen and spot.x and spot.y then
+                        if spot.onScreen and spot.x and spot.y then
                             local dx,dy=spot.x-x,spot.y-y
                             local gap=dx*dx+dy*dy
                             if gap<bestGap then best,bestGap=spot,gap end
                         end
                     end
+                end
+            end
+            if overlay.plate and overlay.plate:IsShown() then
+                stats.shown=stats.shown+1
+                if best then stats.matched=stats.matched+1;stats.gap=math.max(stats.gap,bestGap) end
+                if not stats.sample then
+                    local x,y=overlay.plate:GetCenter()
+                    stats.sample={x=x,y=y,name=overlay.stock.name:GetText(),spot=spots[1] and {x=spots[1].x,y=spots[1].y,name=spots[1].name,on=spots[1].onScreen}}
                 end
             end
             if best then
