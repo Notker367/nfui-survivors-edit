@@ -2,16 +2,16 @@
 local C,W=nfUIConfig,nfUIWidgets
 if not CharacterFrame or not PaperDollFrame then return end
 local view=CreateFrame("Frame","nfUICharacter",PaperDollFrame)
-view:SetWidth(546);view:SetHeight(430);view:SetPoint("TOPLEFT",CharacterFrame,"TOPLEFT",11,-11)
+view:SetWidth(742);view:SetHeight(430);view:SetPoint("TOPLEFT",CharacterFrame,"TOPLEFT",11,-11)
 view:SetFrameLevel(math.max(0,PaperDollFrame:GetFrameLevel()-1))
 W.Fill(view,{0.05,0.05,0.07,0.96});W.Fill(view,{0,0,0,1},"BACKGROUND",-1)
 local stats=CreateFrame("Frame","nfUICharacterStats",view)
-stats:SetWidth(204);stats:SetHeight(430);stats:SetPoint("TOPRIGHT",view,"TOPRIGHT",0,0)
+stats:SetWidth(400);stats:SetHeight(430);stats:SetPoint("TOPRIGHT",view,"TOPRIGHT",0,0)
 local heading=W.Label(stats,18,"TOP",0,-14,"-",{0.72,0.45,1})
 local caption=W.Label(stats,10,"TOP",0,-38,nfUIEdit.Text("Бонус урона","Damage bonus"),{0.7,0.7,0.7})
 local scroll=CreateFrame("ScrollFrame","nfUICharacterScroll",stats)
-scroll:SetWidth(180);scroll:SetHeight(368);scroll:SetPoint("TOPLEFT",stats,"TOPLEFT",12,-54)
-local list=CreateFrame("Frame",nil,scroll);list:SetWidth(180);list:SetHeight(1);scroll:SetScrollChild(list)
+scroll:SetWidth(376);scroll:SetHeight(368);scroll:SetPoint("TOPLEFT",stats,"TOPLEFT",12,-54)
+local list=CreateFrame("Frame",nil,scroll);list:SetWidth(376);list:SetHeight(1);scroll:SetScrollChild(list)
 local offset,maximum=0,0
 scroll:EnableMouseWheel(true)
 scroll:SetScript("OnMouseWheel",function() offset=math.max(0,math.min(maximum,offset-(arg1 or 0)*28));scroll:SetVerticalScroll(offset) end)
@@ -27,8 +27,17 @@ Execute={"Добивание","Бонус урона по врагам с низ
 Shielded={"Под щитом","Бонус урона, пока на герое щит."},Melee={"Ближний бой","Бонус урона автоатак."},["Pet Damage"]={"Питомцы","Бонус урона питомцев."}}
 local cells={}
 for _,section in ipairs(C.CharacterStatSections) do
-    local label=W.Label(list,10,"TOPLEFT",0,0,nfUIEdit.IsRussian() and RU[section.title] or section.title,section.color)
-    local group={header=label,rows={}}
+    local title=nfUIEdit.IsRussian() and RU[section.title] or section.title
+    local foldKey="stats_"..section.title
+    -- A click on a group's title folds it: defence is not needed on a damage dealer, and the other way round.
+    local label=CreateFrame("Button",nil,list);label:SetWidth(180);label:SetHeight(14)
+    label.text=W.Label(label,11,"LEFT",0,0,title,section.color)
+    local group={header=label,rows={},foldKey=foldKey,title=title}
+    label:SetScript("OnClick",function()
+        if type(nfUIDB.collapsed)~="table" then nfUIDB.collapsed={} end
+        nfUIDB.collapsed[foldKey]=(not nfUIDB.collapsed[foldKey]) or nil
+        if C.RefreshCharacterPane then C.RefreshCharacterPane() end
+    end)
     for _,source in ipairs(section.rows) do
         local row=CreateFrame("Frame",nil,list);row:SetWidth(180);row:SetHeight(14);row:EnableMouse(true)
         local words=nfUIEdit.IsRussian() and STAT[source[1]] or {source[1],source[3]}
@@ -92,7 +101,7 @@ local function Refresh()
     end
     local damage=AZS_STATS and AZS_STATS.dmg
     heading:SetText(type(damage)=="number" and string.format("%+.0f%%",(damage-1)*100) or "-")
-    caption:SetText(damage and nfUIEdit.Text("Бонус урона | колесо: прокрутка","Damage bonus | wheel: scroll") or nfUIEdit.Text("Начни забег, чтобы увидеть","Start a run to see modifiers"))
+    caption:SetText(damage and nfUIEdit.Text("Бонус урона | клик по группе сворачивает её","Damage bonus | click a group to fold it") or nfUIEdit.Text("Начни забег, чтобы увидеть","Start a run to see modifiers"))
     local visible,total={},0
     for _,group in ipairs(cells) do
         local values={}
@@ -102,15 +111,47 @@ local function Refresh()
         end
         if table.getn(values)>0 then table.insert(visible,{group=group,values=values}) else group.header:Hide() end
     end
-    local rowHeight,size,y=14,11,0
+    -- Two columns: each group stays whole, and a group that does not fit starts the next column.
+    local rowHeight,size,y,x,tallest=14,11,0,0,0
+    local room=scroll:GetHeight()
     for _,item in ipairs(visible) do
-        local header=item.group.header;header:ClearAllPoints();header:SetPoint("TOPLEFT",list,"TOPLEFT",0,-y);header:Show();y=y+20
+        local folded=nfUIEdit.IsCollapsed(item.group.foldKey)
+        local height=16+(folded and 0 or table.getn(item.values)*rowHeight)+8
+        if y>0 and x==0 and y+height>room then x=196;y=0 end
+        local header=item.group.header;header:ClearAllPoints();header:SetPoint("TOPLEFT",list,"TOPLEFT",x,-y);header:Show()
+        header.text:SetText((folded and "[+] " or "[-] ")..item.group.title);y=y+16
         for _,data in ipairs(item.values) do
-            local row=data.row;row:ClearAllPoints();row:SetPoint("TOPLEFT",list,"TOPLEFT",0,-y);row:SetHeight(rowHeight)
-            row.caption:SetFont(W.font,size);row.amount:SetFont(W.font,size);row.amount:SetText(data.value);row:Show();y=y+rowHeight
+            local row=data.row
+            if folded then row:Hide()
+            else
+                row:ClearAllPoints();row:SetPoint("TOPLEFT",list,"TOPLEFT",x,-y);row:SetHeight(rowHeight)
+                row.caption:SetFont(W.font,size);row.amount:SetFont(W.font,size)
+                local shownValue=data.value
+                if nfUIEdit.IsRussian() then shownValue=string.gsub(shownValue," yd$"," ярд") end
+                row.amount:SetText(shownValue)
+                -- A stat at zero stays readable but steps back.
+                local zero=tonumber(data.value)==0
+                row.caption:SetTextColor(zero and 0.45 or 0.82,zero and 0.45 or 0.82,zero and 0.48 or 0.82);row:SetAlpha(zero and 0.7 or 1)
+                row:Show();y=y+rowHeight
+            end
+        end
+        y=y+8
+        if y>tallest then tallest=y end
+    end
+    list:SetHeight(math.max(1,tallest));maximum=math.max(0,tallest-room);offset=math.min(offset,maximum);scroll:SetVerticalScroll(offset)
+    -- The game's own lines on this page, in the client's language.
+    if nfUIEdit.IsRussian() then
+        if CharacterLevelText and type(AZS_ZONE)=="table" and AZS_ZONE.cname then
+            CharacterLevelText:SetText("Уровень "..(UnitLevel("player") or 1)..", "..tostring(AZS_ZONE.rname or "")..", "..tostring(AZS_ZONE.cname))
+        end
+        for index=1,5 do
+            local tab=getglobal("CharacterFrameTab"..index)
+            if tab and tab.GetText then
+                local word=nfUIEdit.L(tab:GetText())
+                if word~=tab:GetText() then tab:SetText(word) end
+            end
         end
     end
-    list:SetHeight(math.max(1,y));maximum=math.max(0,y-scroll:GetHeight());offset=math.min(offset,maximum);scroll:SetVerticalScroll(offset)
     RefreshTabs()
 end
 W.HideNames({"CharacterModelFrameRotateLeftButton","CharacterModelFrameRotateRightButton"})

@@ -1,5 +1,5 @@
 -- The edit's default profile, applied once, and the layout's fit to the screen.
-local PROFILE_VERSION=8
+local PROFILE_VERSION=11
 local SPOTS={
     actionBar={674,255},xp={674,282},player={674,292},playerAuras={674,318},
     target={1189,292},targetDebuffs={1189,318},
@@ -34,6 +34,8 @@ local function ApplyProfile(db)
     if db.sizeMatches then db.sizeMatches.player=nil end
     Merge(db.auras,{size=22,gap=2,timeFont=10,stackFont=10})
     Merge(db.debuffs,{size=22,gap=2,stackFont=10})
+    -- The game's own row of spells and jewelry lies over the party frames, and the skill bar and pools show the same.
+    SetCVar("hudBuild","0")
     SetCVar("hudClock","1");SetCVar("hudBosses","1");SetCVar("hudTally","1")
     SetCVar("nameplateLayout","overlap")
 end
@@ -72,6 +74,10 @@ loader:SetScript("OnEvent",function()
     end
     -- Version 6: the two pools move over the chat.
     if version<6 then positions.blockPool=nil;positions.blockJewelPool=nil end
+    -- Version 11: the jewelry pool is compact again, at full size.
+    if version<11 and type(nfUIDB.blocks)=="table" then nfUIDB.blocks.jewelPoolScale=1 end
+    -- Version 9: the game's own row of spells and jewelry goes.
+    if version<9 then SetCVar("hudBuild","0") end
     -- Version 8: blocks stay chained unless dragged; opening the movers had pinned them all.
     if version<8 then
         for _,key in ipairs({"blockBosses","blockLairs","blockTaken","blockHistory","blockPool","blockJewelPool"}) do positions[key]=nil end

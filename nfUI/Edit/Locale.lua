@@ -44,6 +44,13 @@ function E.On(key)
 end
 
 function E.IsRussian() return GetCVar("azsLanguage")=="ru" end
+-- Text the game itself provides, in the client's language.
+function E.Pick(texts)
+    if type(texts)~="table" then return nil end
+    local text=texts[GetCVar("azsLanguage")] or texts.en
+    if text=="" then return nil end
+    return text
+end
 -- Picks the Russian or the English text.
 function E.Text(russian,english) if E.IsRussian() then return russian end return english end
 
@@ -123,6 +130,16 @@ function E.Edge(object,r,g,b,a)
     Line("BOTTOMLEFT","BOTTOMRIGHT",-1,-1,1,-1):SetHeight(1)
     Line("TOPLEFT","BOTTOMLEFT",-1,1,-1,-1):SetWidth(1)
     Line("TOPRIGHT","BOTTOMRIGHT",1,1,1,-1):SetWidth(1)
+    -- Thicker lines grow outward; lines are the four first entries.
+    function edge.SetSize(size)
+        size=size or 1
+        if edge.size==size then return end
+        edge.size=size
+        edge[1]:ClearAllPoints();edge[1]:SetPoint("TOPLEFT",object,"TOPLEFT",-size,size);edge[1]:SetPoint("TOPRIGHT",object,"TOPRIGHT",size,size);edge[1]:SetHeight(size)
+        edge[2]:ClearAllPoints();edge[2]:SetPoint("BOTTOMLEFT",object,"BOTTOMLEFT",-size,-size);edge[2]:SetPoint("BOTTOMRIGHT",object,"BOTTOMRIGHT",size,-size);edge[2]:SetHeight(size)
+        edge[3]:ClearAllPoints();edge[3]:SetPoint("TOPLEFT",object,"TOPLEFT",-size,size);edge[3]:SetPoint("BOTTOMLEFT",object,"BOTTOMLEFT",-size,-size);edge[3]:SetWidth(size)
+        edge[4]:ClearAllPoints();edge[4]:SetPoint("TOPRIGHT",object,"TOPRIGHT",size,size);edge[4]:SetPoint("BOTTOMRIGHT",object,"BOTTOMRIGHT",size,-size);edge[4]:SetWidth(size)
+    end
     function edge.Show() for _,line in ipairs(edge) do line:Show() end end
     function edge.Hide() for _,line in ipairs(edge) do line:Hide() end end
     return edge

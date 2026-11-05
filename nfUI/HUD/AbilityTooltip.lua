@@ -1,7 +1,9 @@
 -- Transform native ability lines into nfUI's compact section layout.
 local C,W=nfUIConfig,nfUIWidgets
-local headings={['Upgrades: ']={"Upgrades",{1,0.82,0.3}},['Your bonuses: ']={"Bonuses",{0.3,0.9,0.45}},['Talents: ']={"Talents",{0.35,0.75,1}}}
+local headings={['Upgrades: ']={"Upgrades",{1,0.82,0.3}},['Your bonuses: ']={"Bonuses",{0.3,0.9,0.45}},['Talents: ']={"Talents",{0.35,0.75,1}},
+    ['Улучшения: ']={"Upgrades",{1,0.82,0.3}},['Ваши бонусы: ']={"Bonuses",{0.3,0.9,0.45}},['Таланты: ']={"Talents",{0.35,0.75,1}}}
 local schools={Holy={1,0.78,0.15},Fire={1,0.42,0.08},Frost={0.3,0.72,1},Nature={0.3,0.88,0.25},Shadow={0.66,0.38,1},Arcane={1,0.4,0.85}}
+local CAST_WORDS={Automatic=true,Passive=true,["Автоматическое"]=true,["Пассивное"]=true}
 local neutral={0.7,0.72,0.76}
 local function Clean(text)
     text=string.gsub(text or "","|c%x%x%x%x%x%x%x%x","")
@@ -27,10 +29,10 @@ function C.AbilityTooltipModel(lines)
     local cast,recognized
     local title=Clean(lines[1].left)
     local rank=Clean(lines[1].right)
-    if string.find(rank,"^Rank") then recognized=true end
+    if string.find(rank,"^Rank") or string.find(rank,"^Ранг") then recognized=true end
     for index=2,table.getn(lines) do
         local left,right=Clean(lines[index].left),Clean(lines[index].right)
-        if left=="Automatic" or left=="Passive" or string.find(string.lower(right),"cooldown",1,true) then cast=index;break end
+        if CAST_WORDS[left] or string.find(string.lower(right),"cooldown",1,true) or string.find(right,"перезарядк",1,true) then cast=index;break end
     end
     if not cast then return nil end
     local blocks={};local details={}
@@ -62,11 +64,13 @@ function C.AbilityTooltipModel(lines)
     table.insert(output,{left=table.concat(stats," / "),right=Numbers(Clean(lines[cast].right)),color=neutral})
     for _,detail in ipairs(details) do table.insert(output,{left=Numbers(detail.text),color=detail.color,wrap=true}) end
     for _,section in ipairs(blocks) do
-        table.insert(output,{left=section.title,color=section.color,separator=true})
+        table.insert(output,{left=nfUIEdit.L(section.title),color=section.color,separator=true})
         for _,text in ipairs(section.items) do
             local _,_,amount,label=string.find(text,"^([%+%-]?[%d%.]+%%?)%s+(.+)$")
             if amount then
-                label=string.upper(string.sub(label,1,1))..string.sub(label,2)
+                -- Only a plain letter can be capitalized by a byte; a Cyrillic one is two bytes long.
+                local first=string.byte(label,1)
+                if first and first<128 then label=string.upper(string.sub(label,1,1))..string.sub(label,2) end
                 table.insert(output,{left="  "..label,right=amount,color=section.color})
             else table.insert(output,{left="  "..text,color=section.color,wrap=true}) end
         end

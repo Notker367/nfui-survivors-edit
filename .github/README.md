@@ -75,16 +75,14 @@ The game gives addons no network or file access, so nothing can update from insi
 
 ## What has and has not been tested
 
-Tested with automatic runs on the desktop game, all without errors: 14 client language settings, all 9 classes, 5 window shapes from 4:3 to ultrawide, `/reload`, and upgrades from the original nfUI and from earlier builds. The longest run reached the first boss at 3:00.
+Tested without addon errors: 14 client language settings, all 9 classes, window shapes from 4:3 to ultrawide, `/reload`, upgrades from the original nfUI and earlier builds, a co-op run on two clients, and a run in the browser version.
 
-Not tested yet, so tell me if something looks wrong:
+Not fully tested:
 
-- **Co-op:** two clients connect, but a run together has not been played. Ally levels and panels are unverified.
-- **Browser:** installation is checked, a full run is not.
-- **Chinese, Japanese, Korean clients:** the addon falls back safely if the game's font is missing, and runs without errors in that state. Whether the fonts load on a real client of these languages is unverified.
-- **Late game:** runs past a few minutes, later bosses, killed guardians returning.
+- **Worn jewelry outline:** checked on data in the game's format, not on jewelry dropped in a real run.
+- **Late game:** runs past the first boss, killed guardians returning.
 
-Other limits: 19 pieces of jewelry show only their name and slot rule, because the game's table has no text for their effect. Bars for far enemies have no level, and show the health last seen on a real plate (guardians and bosses show their real health). In-game text is Russian or English; other languages get English.
+Other limits: addon text is English or Russian, game text follows the client's language. 3 pieces of jewelry show only part of their effect or none, because the game's table has no text for it. Only 5 of 22 legendary amulets are shown, those whose spell could be confirmed. Skill descriptions cover about two thirds of skills. In the browser the minimap is square. Hits above the target are matched by name.
 
 ## Credits and license
 

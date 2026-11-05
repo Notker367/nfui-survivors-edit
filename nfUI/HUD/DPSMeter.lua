@@ -10,7 +10,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
     header:EnableMouse(true);header:RegisterForClicks("LeftButtonUp")
     header:SetPoint("BOTTOMLEFT",panel,"BOTTOMLEFT",0,0);header:SetPoint("BOTTOMRIGHT",panel,"BOTTOMRIGHT",0,0)
     local title=header:CreateFontString(nil,"OVERLAY");title:SetFont(FONT,11,"OUTLINE")
-    title:SetPoint("LEFT",header,"LEFT",8,0);title:SetText("DPS Meter");title:SetTextColor(1,0.82,0)
+    title:SetPoint("LEFT",header,"LEFT",8,0);title:SetText(nfUIEdit.L("DPS Meter"));title:SetTextColor(1,0.82,0)
     local toggle=CreateFrame("Button","nfUIDPSCollapse",header,"UIPanelButtonTemplate")
     toggle:EnableMouse(true);toggle:RegisterForClicks("LeftButtonUp")
     toggle:SetFrameLevel(header:GetFrameLevel()+5)
@@ -135,7 +135,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if not success then Restore();return end
         local checked,shown=pcall(AZS_IsHudShown,"meter")
         if not checked or (shown~=false and shown~=0 and shown~="0") then Restore();return end
-        panel:Show();summary:SetText(Short(dps).." DPS   |   "..Short(total).." damage")
+        panel:Show();summary:SetText(Short(dps).." DPS   |   "..Short(total)..nfUIEdit.L(" damage"))
         local function Measure(text)
             measure:SetText(text)
             return measure.GetStringWidth and measure:GetStringWidth() or string.len(text)*7
@@ -181,7 +181,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
             local valueWidth=Measure(value)
             row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-valueWidth-29))
             if topIcons[line.name] then row.icon:SetTexture(topIcons[line.name]);row.icon:Show() else row.icon:Hide() end
-            row.name:SetHeight(14);row.name:SetText(line.name)
+            row.name:SetHeight(14);row.name:SetText(nfUIEdit.L(line.name))
             row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row.info=line;row:Show()
         end
         for index=table.getn(lines)+1,table.getn(rows) do rows[index]:Hide() end

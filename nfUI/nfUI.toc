@@ -5,6 +5,7 @@
 ## Notes: Configurable HUD, movers, nameplates, combat text, run panels and compass.
 ## SavedVariables: nfUIDB, nfUIPlatesDB
 Edit/Locale.lua
+Edit/Strings.lua
 Core/StarterProfile.lua
 Core/Bootstrap.lua
 Edit/Profile.lua

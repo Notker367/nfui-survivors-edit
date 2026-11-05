@@ -5,6 +5,8 @@ local ALLY_SIZE,ALLY_GAP,ALLY_PER_ROW=19,2,9
 local POOL_PICKS=6
 -- The pools are as wide as the chat they stand over.
 local POOL_PER_ROW=16
+-- Enough for all the amulets on one row, about as wide as the chat.
+local JEWEL_PER_ROW=17
 -- Each class's skill pool: { key, Russian name, icon }, from the game's own tables.
 local SKILL_POOL={
     DRUID={{"wrath","Гнев","Ability_ThunderClap"},{"moonfire","Лунный огонь","Spell_Nature_StarFall"},{"starfire","Звездный огонь","Spell_Arcane_StarFire"},{"hurricane","Гроза","Spell_Nature_Cyclone"},{"insect_swarm","Рой насекомых","Spell_Nature_InsectSwarm"},{"entangling_roots","Гнев деревьев","Spell_Nature_StrangleVines"},{"rejuvenation","Омоложение","Spell_Nature_Rejuvenation"},{"regrowth","Восстановление","Spell_Nature_ResistNature"},{"thorns","Шипы","Spell_Nature_Thorns"},{"swipe","Размах","INV_Misc_MonsterClaw_03"},{"faerie_fire","Волшебный огонь","Spell_Nature_FaerieFire"},{"shred","Полоснуть","Spell_Shadow_VampiricAura"}},
@@ -32,8 +34,7 @@ end
 local JewelByKey={}
 for _,jewel in ipairs(E.JEWELS) do JewelByKey[jewel.key]=jewel end
 local function JewelEffect(jewel)
-    local text=jewel.effect[E.IsRussian() and 1 or 2]
-    return text~="" and text or nil
+    return E.Pick(jewel.effect)
 end
 local function KindText(kind)
     if kind=="ring" then return E.Text("Кольцо: до двух на героя","Ring: two at most") end
@@ -152,11 +153,32 @@ local function MarkBanish(icon,key,alpha,picked)
     icon.banishKey=key
     -- What is already picked has a green edge.
     if picked and not icon.pickedEdge then icon.pickedEdge=E.Edge(icon,E.COLORS.green[1],E.COLORS.green[2],E.COLORS.green[3],1) end
-    if icon.pickedEdge then if picked then icon.pickedEdge.Show() else icon.pickedEdge.Hide() end end
+    if icon.pickedEdge then
+        if picked then icon.pickedEdge.SetSize(E.Size("pickedEdgeSize",2));icon.pickedEdge.Show() else icon.pickedEdge.Hide() end
+    end
     local marked=E.On("banishMarks") and E.IsBanished(key)
     if marked and not icon.cross then icon.cross=E.BanishCross(icon) end
     if icon.cross then if marked then icon.cross:Show() else icon.cross:Hide() end end
     icon:SetAlpha(marked and 0.6 or alpha)
+end
+-- The class is checked against what was really picked: the game's word, then the run's, and in the end whichever
+-- class's pool holds the most of the picked skills.
+function E.CheckClass(class,picked)
+    if not class and type(AZS_ZONE)=="table" and type(AZS_ZONE.class)=="string" then class=string.upper(AZS_ZONE.class) end
+    local function Holds(name)
+        local held=0
+        for _,skill in ipairs(SKILL_POOL[name] or {}) do if picked[skill[1]] then held=held+1 end end
+        return held
+    end
+    local total=0
+    for _ in pairs(picked) do total=total+1 end
+    if class and SKILL_POOL[class] and Holds(class)*2>=total then return class end
+    local best,bestHeld=class,0
+    for name in pairs(SKILL_POOL) do
+        local held=Holds(name)
+        if held>bestHeld then best,bestHeld=name,held end
+    end
+    return best
 end
 local function Folded(holder,key)
     if not E.IsCollapsed(key) then return false end
@@ -177,8 +199,6 @@ local function ShowPool(holder)
     -- The run's hero decides the class: the character's own class may be a different one.
     local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
     local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
-    local pool=class and SKILL_POOL[class]
-    if not pool then return false end
     local picked,total={},0
     for _,entry in ipairs(loadout.abilities or {}) do
         if entry.selected and type(entry.sourceKey)=="string" then
@@ -186,9 +206,12 @@ local function ShowPool(holder)
             if key then picked[key]=true end
         end
     end
+    class=E.CheckClass(class,picked)
+    local pool=class and SKILL_POOL[class]
+    if not pool then return false end
     for _,skill in ipairs(pool) do if picked[skill[1]] then total=total+1 end end
     local alpha=total>=POOL_PICKS and 0.35 or 0.8
-    -- The picked skills on top, what can still come up below.
+    -- What is picked on its own row, what can still come up below.
     local count,column,row=0,0,0
     local function Place(skill,isPicked)
         if column>=POOL_PER_ROW then column=0;row=row+1 end
@@ -196,8 +219,11 @@ local function ShowPool(holder)
         local icon=LoadoutIcon(holder,count)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP))
-        icon.texture:SetTexture("Interface\\Icons\\"..skill[3]);icon.rankValue=nil;icon.effect=nil
-        icon.label=E.IsRussian() and skill[2] or EnglishName(skill[1])
+        icon.texture:SetTexture("Interface\\Icons\\"..skill[3]);icon.rankValue=nil
+        -- Only in the client's own language: another language's text would break the page.
+        local described=E.SKILL_TEXT[skill[1]]
+        icon.effect=described and described[GetCVar("azsLanguage")] or nil
+        icon.label=E.Pick(E.SKILL_NAMES[skill[1]]) or (E.IsRussian() and skill[2]) or EnglishName(skill[1])
         icon.rank:SetText("")
         MarkBanish(icon,"spell:"..skill[1],isPicked and 1 or alpha,isPicked);icon:Show()
         column=column+1
@@ -205,14 +231,17 @@ local function ShowPool(holder)
     for _,skill in ipairs(pool) do if picked[skill[1]] then Place(skill,true) end end
     if column>0 then column=0;row=row+1 end
     for _,skill in ipairs(pool) do if not picked[skill[1]] then Place(skill,false) end end
+    local usedRows=column>0 and row+1 or row
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
-    FitRows(holder,column>0 and row+1 or row)
+    FitRows(holder,usedRows)
     return count>0
 end
--- Every ring, trinket and amulet that can still come up. Rings and trinkets dim once their slots are full; an
--- amulet can always replace the one worn. Dimmed icons can still be read.
+-- The jewelry, compact: a row for each kind, and in every row the same order of effects, so that like stands near
+-- like: damage first, then survival, then utility. What is worn keeps its place, with a green edge. Rings and trinkets
+-- dim once both slots are full; an amulet can always replace the one worn. Dimmed icons can still be read.
 local SLOTS={ring=2,trinket=2}
 local KIND_ORDER={"ring","trinket","amulet"}
+local COLUMN_ORDER={"dmg","crit","critdmg","cd","echo","area","dot","hp","dr","regen","leech","killheal","lives","speed","pickup","xp","gold","luck","buff","special"}
 local function ShowJewelPool(holder)
     if Folded(holder,"jewelPool") then return true end
     local context=Context()
@@ -221,34 +250,66 @@ local function ShowJewelPool(holder)
     if type(loadout)~="table" then return false end
     local worn,held={},{}
     for _,entry in ipairs(loadout.runJewelry or {}) do
-        if entry.localizationKey then worn[entry.localizationKey]=true end
+        -- The name lives on the entry's source; the source key holds it too, such as "jewel:accuria:r2".
+        local source=entry.sourceKey and type(loadout.sources)=="table" and loadout.sources[entry.sourceKey]
+        local key=entry.localizationKey or (type(source)=="table" and source.localizationKey)
+        if not key and type(entry.sourceKey)=="string" then
+            local _,_,group,name=string.find(entry.sourceKey,"(%a+):([%w_]+)")
+            if group=="run" then _,_,group,name=string.find(entry.sourceKey,"run:(%a+):([%w_]+)") end
+            if group and name then key=group.."."..name end
+        end
+        if key then worn[key]=true end
         local kind=entry.category or "other"
         held[kind]=(held[kind] or 0)+1
     end
-    local language=E.IsRussian() and 1 or 2
-    local count,row,column=0,0,0
-    local function Place(jewel,alpha,isPicked)
-        if column>=POOL_PER_ROW then column=0;row=row+1 end
-        count=count+1
-        local icon=LoadoutIcon(holder,count)
-        icon:ClearAllPoints()
-        icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP))
-        icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
-        icon.label=jewel.name[language]
-        icon.effect=JewelEffect(jewel);icon.kindText=KindText(jewel.kind)
-        icon.rank:SetText("")
-        MarkBanish(icon,jewel.key,alpha,isPicked);icon:Show()
-        column=column+1
+    local count,row=0,0
+    -- The legendary amulets of the hero's class, first. They come up once the hero knows their spell.
+    local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
+    local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
+    local known={}
+    for _,entry in ipairs(loadout.abilities or {}) do
+        if entry.selected and type(entry.sourceKey)=="string" then
+            local _,_,key=string.find(entry.sourceKey,"^ability:([%w_]+):")
+            if key then known[key]=true end
+        end
     end
-    -- What is worn on top, then each kind on its own rows.
-    for _,jewel in ipairs(E.JEWELS) do if worn[jewel.key] then Place(jewel,1,true) end end
-    if column>0 then column=0;row=row+1 end
+    class=E.CheckClass(class,known)
+    local legendaryColumn=0
+    for _,jewel in ipairs(E.LEGENDARY or {}) do
+        if jewel.class==class then
+            count=count+1
+            local icon=LoadoutIcon(holder,count)
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
+            icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
+            icon.label=E.Pick(jewel.name);icon.effect=E.Pick(jewel.effect);icon.kindText=KindText("amulet");icon.rank:SetText("")
+            MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,false);icon:Show()
+            legendaryColumn=legendaryColumn+1
+        end
+    end
+    if legendaryColumn>0 then row=1 end
     for _,kind in ipairs(KIND_ORDER) do
         local full=SLOTS[kind] and (held[kind] or 0)>=SLOTS[kind]
-        for _,jewel in ipairs(E.JEWELS) do
-            if jewel.kind==kind and not worn[jewel.key] then Place(jewel,full and 0.3 or 0.8,false) end
+        local column=0
+        for _,effect in ipairs(COLUMN_ORDER) do
+            for _,jewel in ipairs(E.JEWELS) do
+                if jewel.kind==kind and jewel.col==effect then
+                    if column>=JEWEL_PER_ROW then column=0;row=row+1 end
+                    count=count+1
+                    local icon=LoadoutIcon(holder,count)
+                    icon:ClearAllPoints()
+                    icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP))
+                    icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
+                    icon.label=E.Pick(jewel.name)
+                    icon.effect=JewelEffect(jewel);icon.kindText=KindText(jewel.kind)
+                    icon.rank:SetText("")
+                    local isWorn=worn[jewel.key] and true or false
+                    MarkBanish(icon,jewel.key,isWorn and 1 or (full and 0.3 or 0.8),isWorn);icon:Show()
+                    column=column+1
+                end
+            end
         end
-        if column>0 then column=0;row=row+1 end
+        if column>0 then row=row+1 end
     end
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
     FitRows(holder,row)

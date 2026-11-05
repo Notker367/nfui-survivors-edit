@@ -179,7 +179,7 @@ function C.UpdateCompass()
     if not frame:IsShown() then frame:Show() end
     local facing=Facing()
     if not facing then
-        heading:SetText("Heading unavailable"); HideMarkers()
+        heading:SetText(nfUIEdit.L("Heading unavailable")); HideMarkers()
         for _,label in ipairs(labels) do label:Hide() end
         return
     end

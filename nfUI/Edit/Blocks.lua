@@ -22,8 +22,10 @@ E.blocks.history=Block("nfUIHistoryPanel",200,108,"TOPRIGHT",E.blocks.taken,"BOT
 E.blocks.graph=Block("nfUIDpsGraph",200,70,"TOPRIGHT",E.blocks.history,"BOTTOMRIGHT",0,-6)
 E.blocks.stats=Block("nfUIHeroStats",150,160,"TOPRIGHT",E.blocks.bosses,"TOPLEFT",-6,0)
 E.blocks.rising:Show()
+E.blocks.targetRising=Block("nfUITargetRising",60,16,"BOTTOM",C.target.health,"TOP",0,3)
+E.blocks.targetRising:Show()
 -- The two pools stand over the chat and its input, as wide as the chat, below the party frames.
-E.blocks.jewelPool=Block("nfUIJewelPool",336,105,"BOTTOMLEFT",ChatFrame1,"TOPLEFT",-9,70)
+E.blocks.jewelPool=Block("nfUIJewelPool",357,63,"BOTTOMLEFT",ChatFrame1,"TOPLEFT",-9,70)
 E.blocks.pool=Block("nfUIPoolPanel",336,63,"BOTTOMLEFT",E.blocks.jewelPool,"TOPLEFT",0,17)
 -- Mover key, label, block, the frame its size follows, and its slider in the Blocks tab.
 E.blockList={
@@ -33,6 +35,7 @@ E.blockList={
     {"blockPool","Skill pool",E.blocks.pool,C.row,"poolScale"},
     {"blockAlly","Ally skills and jewelry",E.blocks.ally,C.target,"allyScale"},
     {"blockRising","Rising damage",E.blocks.rising,C.player,"risingScale"},
+    {"blockTargetRising","Damage on the target",E.blocks.targetRising,C.target,"targetRisingScale"},
     {"blockJewelPool","Jewelry pool",E.blocks.jewelPool,C.row,"jewelPoolScale"},
     {"blockBanished","Banished cards",E.blocks.banished,C.row,"banishedScale"},
     {"blockBosses","Boss schedule",E.blocks.bosses,C.row,"bossesScale"},

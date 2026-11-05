@@ -5,7 +5,7 @@ local ROW_HEIGHT,ROWS,WIDTH=14,5,200
 local SOURCES={
     ["mob melee"]={"Удары врагов","Enemy melee"},["mob spell"]={"Заклинания врагов","Enemy spells"},
     ["boss melee"]={"Удары боссов","Boss melee"},["boss spell"]={"Заклинания боссов","Boss spells"},
-    ["area"]={"Урон по области","Area damage"},
+    ["area"]={"Урон по области","Area damage"},["elite"]={"Элитные враги","Elites"},["guardian"]={"Стражи","Guardians"},
 }
 local RUN_PHASES={playing=true,choosing=true,paused=true}
 local DONE={0.5,0.5,0.56}
@@ -167,6 +167,10 @@ local function History()
     if type(nfUIDB.runHistory)~="table" then nfUIDB.runHistory={} end
     return nfUIDB.runHistory
 end
+-- Runs are compared only with runs of the same class, zone and difficulty.
+local function RunMode()
+    return tostring(AZS_ZONE.heroic or 0).."/"..tostring(AZS_ZONE.diff or 0)
+end
 local function Record()
     local run=type(AZS_ZONE)=="table" and AZS_ZONE.run
     local t,dealt=tonumber(AZS_RUN and AZS_RUN.t),tonumber(AZS_RUN and AZS_RUN.dealt)
@@ -176,7 +180,7 @@ local function Record()
         current=nil
         for _,entry in ipairs(list) do if entry.run==run then current=entry end end
         if not current then
-            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,marks={[0]=0}}
+            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0}}
             table.insert(list,current)
             while table.getn(list)>KEEP_RUNS do table.remove(list,1) end
         end
@@ -250,7 +254,7 @@ local function UpdateHistory()
     local previous,best
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if other~=entry and other.class==entry.class and other.zone==entry.zone then
+        if other~=entry and other.class==entry.class and other.zone==entry.zone and other.mode==entry.mode then
             local rate=RateAt(other,t)
             if rate then
                 if not previous then previous=rate end
@@ -331,7 +335,7 @@ local function UpdateGraph()
     local list=History()
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if other~=entry and other.class==entry.class and other.zone==entry.zone then previous=other;break end
+        if other~=entry and other.class==entry.class and other.zone==entry.zone and other.mode==entry.mode then previous=other;break end
     end
     local own,theirs=RatesOf(entry),RatesOf(previous)
     local count=table.getn(own)

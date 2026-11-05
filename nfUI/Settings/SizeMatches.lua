@@ -84,7 +84,7 @@ function C.SelectSizeMatch(item)
     if not pending then return false end
     if C.SetSizeMatch(pending.key,item.key,pending.axis) then
         pending=nil;menu:Hide()
-    else menu.title:SetText("Choose another element (no loops)") end
+    else menu.title:SetText(nfUIEdit.L("Choose another element (no loops)")) end
     return true
 end
 function C.CancelSizeMatch()
@@ -103,14 +103,14 @@ function C.ShowMoverMenu(item)
         local function Button(text,index,callback)
             local button=CreateFrame("Button","nfUIMoverMenuButton"..index,menu,"UIPanelButtonTemplate")
             button:SetWidth(204);button:SetHeight(24);button:SetPoint("TOPLEFT",menu,"TOPLEFT",8,-38-(index-1)*27)
-            button:SetText(text);button:SetScript("OnClick",callback)
+            button:SetText(nfUIEdit.L(text));button:SetScript("OnClick",callback)
             return button
         end
         for index,axis in ipairs({"width","height"}) do
             local dimension=axis
             Button(index==1 and "Width Match" or "Height Match",index,function()
                 pending={key=menu.item.key,axis=dimension}
-                menu.title:SetText("Click the element to follow")
+                menu.title:SetText(nfUIEdit.L("Click the element to follow"))
             end)
         end
         Button("Adjustments",3,function() local selected=menu.item;C.CancelSizeMatch();C.ShowFineAdjustments(selected) end)
@@ -121,8 +121,8 @@ function C.ShowMoverMenu(item)
         menu:SetScript("OnHide",function() pending=nil end)
         C.moverMenu=menu
     end
-    menu.item=item;menu.title:SetText(item.label)
-    menu.lock:SetText(C.IsMoverLocked(item.key) and "Unlock" or "Lock")
+    menu.item=item;menu.title:SetText(nfUIEdit.L(item.label))
+    menu.lock:SetText(nfUIEdit.L(C.IsMoverLocked(item.key) and "Unlock" or "Lock"))
     local x,y=GetCursorPosition();local scale=UIParent:GetEffectiveScale()
     menu:ClearAllPoints();menu:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",math.max(0,math.min(UIParent:GetWidth()-220,x/scale)),math.max(0,math.min(UIParent:GetHeight()-178,y/scale)))
     menu:Show()

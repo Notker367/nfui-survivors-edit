@@ -68,6 +68,7 @@ end
 local laneByTarget={}
 local CROWD=14
 local function Emit(amount,name,critical,periodic,spell)
+    if name then nfUIEdit.TargetHit(amount,name,SpellIcon(spell)) end
     local now=GetTime()
     local x,y,placed=Origin(name)
     -- Hits on enemies that cannot be placed all become one number, instead of a pile in the middle of the screen.

@@ -6,15 +6,10 @@ local categories={
     {key="layout",title="Overall layout",description="Overall scale. Use Movers to position each element independently.",
         fields={{"scale","Overall scale"}}},
     {key="edit",title="Switches",description="Everything that turns on and off, in one place.",
-        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},
-            {"risingDamage","Rising damage numbers above health","check"},{"plateTrail","Plate health drain animation","check"},{"farPlates","Bars for far enemies","check"},
-            {"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},
-            {"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"colorblind","Colour-blind palette (then /reload)","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},
-            {"skillStats","Rank and DPS under skills","check"},{"ownLoadout","Own jewelry panel","check"},
-            {"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"allyLoadout","Ally skills and jewelry","check"}}},
+        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},{"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},{"risingDamage","Rising damage numbers above health","check"},{"risingHeal","Green healing numbers beside them","check"},{"targetRising","Your hits above the target's health","check"},{"regenText","Regeneration per second on the health bar","check"},{"plateTrail","Plate health drain animation","check"},{"farPlates","Bars for far enemies","check"},{"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},{"colorblind","Colour-blind palette (then /reload)","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"skillStats","Rank and DPS under skills","check"},{"ownLoadout","Own jewelry panel","check"},{"allyLoadout","Ally skills and jewelry","check"}}},
     {key="blocks",title="Blocks",description="Size of each movable block. Drag them with Movers; right-click one to lock it.",
-        fields={{"farRadius","Far bars: radius (yards)"},{"statsScale","Hero stats"},{"graphScale","DPS graph"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
-            {"allyScale","Ally skills and jewelry"},{"risingScale","Rising damage: block"},{"risingFont","Rising damage: font"},
+        fields={{"pickedEdgeSize","Picked items: edge thickness"},{"farRadius","Far bars: radius (yards)"},{"statsScale","Hero stats"},{"graphScale","DPS graph"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
+            {"allyScale","Ally skills and jewelry"},{"risingScale","Rising damage: block"},{"targetRisingScale","Damage on the target"},{"risingFont","Rising damage: font"},
             {"risingHeight","Rising damage: how high"},{"skillStatsFont","Rank and DPS font"},{"metresFont","Metres font"},{"ownLevelFont","Hero level font"}}},
     {key="player",title="Player frame",description="Player size, text placement, health formatting, portrait, colors and shields.",
         fields={{"scale","Frame scale"},{"width","Health / power width"},{"height","Frame height"},{"portrait","Portrait size"},{"powerHeight","Power bar height"},{"nameFont","Name font"},{"valueFont","Health font"},{"hideName","Hide Name","check"},{"healthArea","Health display area","select"},{"showPortrait","Show portrait","check"},{"healthText","Health text","select"},{"healthColor","Color health by injury","check"},{"showShield","Show shields","check"},{"shieldHeight","Shield strip height"},{"shieldFont","Shield text font"}}},
@@ -43,6 +38,30 @@ local categories={
     {key="combatText",title="Combat text",description="Scrolling styles apply to icon combat text.",
         fields={{"damageMode","Damage text mode","select","root"},{"sctStyle","Scrolling text style","select","root"}}}
 }
+-- What most players reach for is shown first. Everything else waits behind "Show advanced", with its values kept.
+local ADVANCED_SECTIONS={auras=true,debuffs=true,xp=true,micro=true,compassStyle=true,statsDisplay=true,runDisplay=true}
+local COMMON_FIELDS={
+    edit={risingHeal=1,targetRising=1,regenText=1,updates=1,mode=1,export=1,levels=1,ownLevel=1,risingDamage=1,plateTrail=1,farPlates=1,metres=1,redEdge=1,bossAlert=1,mapPins=1,bossSchedule=1,lairPanel=1,takenPanel=1,historyPanel=1,skillPool=1,jewelPool=1,banishMarks=1,colorblind=1},
+    blocks={pickedEdgeSize=1,farRadius=1,bossesScale=1,lairsScale=1,takenScale=1,historyScale=1,poolScale=1,jewelPoolScale=1,banishedScale=1,risingFont=1,risingHeight=1},
+    player={scale=1,width=1,height=1,healthText=1,healthArea=1},
+    target={scale=1,width=1,height=1,healthText=1},
+    action={scale=1,size=1,gap=1},
+    chat={width=1,height=1,font=1,backdropOpacity=1},
+    minimap={size=1,scale=1},
+    nameplates={amount=1,scale=1,width=1,height=1,nameFont=1,healthFont=1},
+    dpsDisplay={scale=1,backdropOpacity=1},
+}
+local function ShowingAdvanced() return C.Settings().showAdvanced==true end
+-- The rows of a section as they are shown now.
+local function ShownFields(category)
+    local common=COMMON_FIELDS[category.key]
+    if ShowingAdvanced() or not common then return category.fields end
+    local shown={}
+    for _,field in ipairs(category.fields) do
+        if common[field[1]] then table.insert(shown,field) end
+    end
+    return shown
+end
 local selected=categories[1]
 local function SettingsCategory(key)
     if selected.key=="player" or selected.key=="target" then
@@ -108,7 +127,7 @@ local function Text(parent,text,x,y,size,color)
     label:SetFont(FONT,size or 12)
     if label.SetNonSpaceWrap then label:SetNonSpaceWrap(false) end
     label:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y)
-    label:SetText(text)
+    label:SetText(nfUIEdit.L(text))
     if color then label:SetTextColor(color[1],color[2],color[3]) else label:SetTextColor(0.85,0.87,0.9) end
     return label
 end
@@ -125,7 +144,7 @@ local function Button(name,parent,text,x,y,width,callback)
     button:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y)
     button.back=Flat(button,0.13,0.15,0.19)
     button.label=Text(button,text,10,-7,12)
-    button.SetText=function(self,value) self.label:SetText(value) end
+    button.SetText=function(self,value) self.label:SetText(nfUIEdit.L(value)) end
     button:SetHighlightTexture(FLAT)
     local highlight=button:GetHighlightTexture()
     if highlight then highlight:SetVertexColor(0.15,0.6,0.8,0.25) end
@@ -142,8 +161,6 @@ function C.Refresh()
     if not panel then return end
     refreshing=true
     local db=C.Settings()
-    content.title:SetText(selected.title)
-    content.description:SetText(selected.description)
     for key,button in pairs(buttons) do
         if key==selected.key then
             button.back:SetVertexColor(nfUIEdit.COLORS.surface[1],nfUIEdit.COLORS.surface[2],nfUIEdit.COLORS.surface[3],1)
@@ -153,24 +170,30 @@ function C.Refresh()
             button.label:SetTextColor(nfUIEdit.COLORS.text[1],nfUIEdit.COLORS.text[2],nfUIEdit.COLORS.text[3])
         end
     end
-    content:SetHeight(math.max(435,60+table.getn(selected.fields)*49))
+    if not ShowingAdvanced() and ADVANCED_SECTIONS[selected.key] then selected=categories[1] end
+    local shownFields=ShownFields(selected)
+    content.title:SetText(nfUIEdit.L(selected.title))
+    content.description:SetText(nfUIEdit.L(selected.description))
+    content:SetHeight(math.max(435,60+table.getn(shownFields)*49))
+    if C.LayoutSidebar then C.LayoutSidebar() end
+    if C.advancedButton then C.advancedButton:SetText(ShowingAdvanced() and "Hide advanced" or "Show advanced") end
     scrollOffset=math.min(scrollOffset,math.max(0,content:GetHeight()-contentScroll:GetHeight()/0.7))
     contentScroll:SetVerticalScroll(scrollOffset*0.7)
     for i=1,rowCount do
         local row=rows[i]
-        local field=selected.fields[i]
+        local field=shownFields[i]
         if field then
             local key=field[1]
             row.key=key
             local lo,hi,step=C.Range(SettingsCategory(key),key)
-            row.label:SetText(field[2])
+            row.label:SetText(field.store and field[2] or nfUIEdit.L(field[2]))
             row.check:Hide(); row.choice:Hide(); row.menu:Hide(); row.slider:Hide(); row.value:Hide();row.color:Hide();row.action:Hide()
             if field[3]=="mode" then
                 row.action:SetText(nfUIEdit.ModeName());row.action:Show()
             elseif field[3]=="export" then
                 row.action:SetText("Export");row.action:Show()
             elseif field[3]=="update" then
-                row.label:SetText(field[2].." "..(GetAddOnMetadata("nfUI","Version") or "?"))
+                row.label:SetText(nfUIEdit.L(field[2]).." "..(GetAddOnMetadata("nfUI","Version") or "?"))
                 row.action:SetText("Check for updates");row.action:Show()
             elseif field[3]=="action" then
                 row.action:SetText("Reset tracking");row.action:Show()
@@ -271,7 +294,7 @@ local function MoveSwitches()
                     local owner=category.key
                     if (owner=="player" or owner=="target") and C.defaults[owner.."Style"][field[1]]~=nil then owner=owner.."Style" end
                     local label=string.gsub(field[2],"^Nameplates? ","")
-                    table.insert(tab.fields,{category.key.."."..field[1],category.title..": "..label,"check",
+                    table.insert(tab.fields,{category.key.."."..field[1],nfUIEdit.L(category.title)..": "..nfUIEdit.L(label),"check",
                         store={category=owner,key=field[1],root=field[4]=="root",invert=field[5]}})
                 else table.insert(kept,field) end
             end
@@ -331,6 +354,19 @@ local function Build()
         buttons[choice.key]=Button("nfUISettingsCategory"..i,sidebar,choice.title,4,-5-(i-1)*28,157,
             function() C.CancelNumberInputs(); selected=choice;scrollOffset=0;C.Refresh() end)
     end
+    function C.LayoutSidebar()
+        local shown=0
+        for _,category in ipairs(categories) do
+            local button=buttons[category.key]
+            if ShowingAdvanced() or not ADVANCED_SECTIONS[category.key] then
+                button:ClearAllPoints();button:SetPoint("TOPLEFT",sidebar,"TOPLEFT",4,-5-shown*28);button:Show();shown=shown+1
+            else button:Hide() end
+        end
+    end
+    C.advancedButton=Button("nfUISettingsAdvanced",header,"Show advanced",395,-10,180,function()
+        C.Settings().showAdvanced=not ShowingAdvanced() or nil
+        scrollOffset=0;C.Refresh()
+    end)
     contentScroll=CreateFrame("ScrollFrame","nfUISettingsScroll",body)
     contentScroll:SetWidth(387.1);contentScroll:SetHeight(435);contentScroll:SetPoint("TOPLEFT",body,"TOPLEFT",192,-64)
     contentScroll:EnableMouseWheel(true)
@@ -496,7 +532,7 @@ local function Build()
         resize={x=x,y=y,width=panel:GetWidth(),height=panel:GetHeight(),scale=scale}
     end)
     grip:SetScript("OnMouseUp",function() resize=nil end)
-    grip:SetScript("OnEnter",function() GameTooltip:SetOwner(grip,"ANCHOR_TOP");GameTooltip:AddLine("Drag to resize settings",0.3,0.82,1);GameTooltip:Show() end)
+    grip:SetScript("OnEnter",function() GameTooltip:SetOwner(grip,"ANCHOR_TOP");GameTooltip:AddLine(nfUIEdit.L("Drag to resize settings"),0.3,0.82,1);GameTooltip:Show() end)
     grip:SetScript("OnLeave",function() GameTooltip:Hide() end)
     panel:SetScript("OnUpdate",function()
         if not resize then return end
@@ -528,5 +564,6 @@ function C.OpenCategory(key)
     Build()
     C.CancelNumberInputs();scrollOffset=0
     for _,category in ipairs(categories) do if category.key==key then selected=category end end
+    if ADVANCED_SECTIONS[selected.key] or (COMMON_FIELDS[selected.key]==nil and selected.key~="layout" and selected.key~="combatText") then C.Settings().showAdvanced=true end
     panel:Show(); C.Refresh()
 end

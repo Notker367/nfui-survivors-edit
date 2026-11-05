@@ -12,6 +12,11 @@
 - Bars for enemies beyond the game's own nameplates.
 - Hero stats and a DPS graph against your last run, in the new detailed mode.
 
+- Regeneration per second on the health bar, green healing numbers, and your hits with skill icons above the target.
+- Full Russian interface, jewelry and skill names in all 14 game languages.
+- Two-column character page with foldable groups; common and advanced settings.
+- Legendary amulets of your class in the jewelry pool (confirmed ones).
+
 **Warnings and map**
 - A warning with a sound 10 seconds before each boss.
 - Guardians and caches on the minimap, with pins at its edge for those further off.

@@ -7,7 +7,7 @@ local FLAT="Interface\\ChatFrame\\ChatFrameBackground"
 local function Label(parent,text,x,y)
     local f=parent:CreateFontString(nil,"OVERLAY")
     f:SetFont(NFUI_FONT,12)
-    f:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); f:SetText(text)
+    f:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); f:SetText(nfUIEdit.L(text))
     return f
 end
 local function Elements()
@@ -38,10 +38,10 @@ end
 local function Refresh()
     if not entry then return end
     syncing=true
-    panel.title:SetText(entry.label.." - fine adjustments")
+    panel.title:SetText(nfUIEdit.L(entry.label)..nfUIEdit.L(" - fine adjustments"))
     for _,item in ipairs(sliders) do
         local value=GetValue(item.field)
-        item.label:SetText(RootUnit() and item.field=="width" and "Health / power width" or item.caption)
+        item.label:SetText(nfUIEdit.L(RootUnit() and item.field=="width" and "Health / power width" or item.caption))
         local lo,hi,step=item.lo,item.hi,item.step
         if entry.key=="runPanel" and item.field~="x" and item.field~="y" then
             lo,hi,step=C.Range("runDisplay",item.field)
@@ -59,7 +59,7 @@ local function Refresh()
         else item:Show() end
     end
     if RootUnit() then panel.appearance:Show() else panel.appearance:Hide() end
-    panel.lock:SetText(C.IsMoverLocked(entry.key) and "Unlock" or "Lock")
+    panel.lock:SetText(nfUIEdit.L(C.IsMoverLocked(entry.key) and "Unlock" or "Lock"))
     syncing=false
 end
 local function BlockOf(item)
@@ -193,11 +193,11 @@ local function Build()
     end
     local done=CreateFrame("Button","nfUIFineDone",panel,"UIPanelButtonTemplate")
     done:SetWidth(90); done:SetHeight(24); done:SetPoint("BOTTOMRIGHT",panel,"BOTTOMRIGHT",-16,14)
-    done:SetText("Done"); done:SetScript("OnClick",function() panel:Hide() end)
+    done:SetText(nfUIEdit.L("Done")); done:SetScript("OnClick",function() panel:Hide() end)
     panel.appearance=CreateFrame("Button","nfUIFineAppearance",panel,"UIPanelButtonTemplate")
     panel.appearance:SetWidth(160); panel.appearance:SetHeight(24)
     panel.appearance:SetPoint("BOTTOMLEFT",panel,"BOTTOMLEFT",16,14)
-    panel.appearance:SetText("Frame settings")
+    panel.appearance:SetText(nfUIEdit.L("Frame settings"))
     panel.appearance:SetScript("OnClick",function()
         local category=entry.key.."Style"
         panel:Hide(); C.ToggleMovers(false); C.OpenCategory(category)

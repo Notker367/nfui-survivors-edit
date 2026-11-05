@@ -376,7 +376,7 @@ nfUIModules:NewMod("RunTimers", 5, function()
         if IsNumber(seconds) and maximum then
             runBar:SetMinMaxValues(0, maximum)
             runBar:SetValue(math.min(maximum, seconds))
-            runText:SetText("Run: " .. Clock(seconds) .. " / " .. Clock(maximum))
+            runText:SetText(nfUIEdit.L("Run: ") .. Clock(seconds) .. " / " .. Clock(maximum))
             run:Show()
             if not TakeOver("clock") then ReleaseClock() end
         else

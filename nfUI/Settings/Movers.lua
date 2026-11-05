@@ -264,7 +264,7 @@ local function ShowLock(key)
     if not handle then return end
     if Locks()[key] then
         handle:SetBackdropColor(0.6,0.12,0.08,0.3);handle:SetBackdropBorderColor(1,0.3,0.25,0.9)
-        handle.caption:SetText(handle.title.." [locked]")
+        handle.caption:SetText(handle.title..nfUIEdit.L(" [locked]"))
     else
         handle:SetBackdropColor(0.05,0.4,0.6,0.3);handle:SetBackdropBorderColor(0.25,0.8,1,0.9)
         handle.caption:SetText(handle.title)
@@ -314,7 +314,7 @@ local function Button(name,text,x,width,callback)
     local button=CreateFrame("Button",name,toolbar,"UIPanelButtonTemplate")
     button:SetWidth(width); button:SetHeight(26)
     button:SetPoint("TOPLEFT",toolbar,"TOPLEFT",x,-49)
-    button:SetText(text); button:SetScript("OnClick",callback)
+    button:SetText(nfUIEdit.L(text)); button:SetScript("OnClick",callback)
     return button
 end
 local function CreateHandle(entry,i)
@@ -329,8 +329,8 @@ local function CreateHandle(entry,i)
         handle:SetBackdropBorderColor(0.25,0.8,1,0.9)
         local caption=handle:CreateFontString(nil,"OVERLAY")
         caption:SetFont(FONT,10,"OUTLINE"); caption:SetPoint("CENTER",handle,"CENTER",0,0)
-        caption:SetText(item.label)
-        handle.caption=caption;handle.title=item.label
+        caption:SetText(nfUIEdit.L(item.label))
+        handle.caption=caption;handle.title=nfUIEdit.L(item.label)
         ShowLock(item.key)
         handle:SetScript("OnMouseDown",function()
             if arg1=="RightButton" then
@@ -360,14 +360,14 @@ local function Build()
     toolbar:SetBackdropColor(0.04,0.07,0.1,0.98)
     local title=toolbar:CreateFontString(nil,"OVERLAY")
     title:SetFont(FONT,14); title:SetPoint("TOPLEFT",toolbar,"TOPLEFT",12,-10)
-    title:SetText("nfUI movers")
+    title:SetText(nfUIEdit.L("nfUI movers"))
     local hint=toolbar:CreateFontString(nil,"OVERLAY")
     hint:SetFont(FONT,11); hint:SetPoint("TOPLEFT",toolbar,"TOPLEFT",12,-29)
-    hint:SetText("Drag to move. Right-click for sliders and lock. Details shows smaller parts.")
+    hint:SetText(nfUIEdit.L("Drag to move. Right-click for sliders and lock. Details shows smaller parts."))
     local detailButton
     detailButton=Button("nfUIMoversDetails","Details",12,100,function()
         Finish(); details=not details
-        detailButton:SetText(details and "Main elements" or "Details")
+        detailButton:SetText(nfUIEdit.L(details and "Main elements" or "Details"))
         ShowHandles()
     end)
     Button("nfUIMoversReset","Reset positions",120,130,function()
@@ -384,14 +384,14 @@ local function Build()
     snap:SetChecked(GridSettings().enabled)
     snap:SetScript("OnClick",function() GridSettings().enabled=snap:GetChecked() and true or false;RefreshGrid() end)
     local label=toolbar:CreateFontString(nil,"OVERLAY");label:SetFont(FONT,11)
-    label:SetPoint("LEFT",snap,"RIGHT",4,0);label:SetText("Snap grid   Size:")
+    label:SetPoint("LEFT",snap,"RIGHT",4,0);label:SetText(nfUIEdit.L("Snap grid   Size:"))
     local input=C.CreateNumberInput("nfUIMoversGridSize",toolbar,48,22,{
         get=function() return GridSettings().size end,percent=function() return false end,
         range=function() return 4,128,1 end,
         set=function(value) GridSettings().size=value;RefreshGrid() end})
     input:SetPoint("TOPLEFT",toolbar,"TOPLEFT",150,-86);input:RefreshNumber()
     local help=toolbar:CreateFontString(nil,"OVERLAY");help:SetFont(FONT,11)
-    help:SetPoint("LEFT",input,"RIGHT",12,0);help:SetText("UI px. Hold Shift for free movement.")
+    help:SetPoint("LEFT",input,"RIGHT",12,0);help:SetText(nfUIEdit.L("UI px. Hold Shift for free movement."))
     for i,entry in ipairs(registry) do CreateHandle(entry,i) end
     toolbar:SetScript("OnHide",function()
         Finish(); unlocked=false; C.editing=false

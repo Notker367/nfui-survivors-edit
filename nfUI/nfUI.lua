@@ -251,7 +251,7 @@ local function UpdateUnitFrame(widget)
         widget.healthGoal=nil;widget.powerGoal=nil;widget.healthShown=nil;widget.powerShown=nil;widget.healthTrail=nil;widget.shownFor=nil
         widget.percent:SetText("")
         if nfUIConfig.editing then
-            widget:Show();widget.name:SetText("Target preview");widget.value:SetText("75%")
+            widget:Show();widget.name:SetText(nfUIEdit.L("Target preview"));widget.value:SetText("75%")
             widget.health:SetValue(0.75);widget.power:SetValue(0.5)
         else widget:Hide() end
         return
@@ -277,11 +277,21 @@ local function UpdateUnitFrame(widget)
         widget.levelText:SetText(nfUIEdit.On("ownLevel") and UnitLevel(unit) or "")
     end
     local value=percent.."%"
-    if UnitIsDead(unit) or UnitIsGhost(unit) then value="Dead"
+    if UnitIsDead(unit) or UnitIsGhost(unit) then value=nfUIEdit.L("Dead")
     elseif options.healthText=="Numerical" then value=string.format("%.0f",current);widget.percent:SetText("")
     elseif options.healthText=="CurrentHP+%" or (not options.healthText and unit=="player") then value=Short(current);widget.percent:SetText(percent.."%") end
-    if value==percent.."%" or value=="Dead" then widget.percent:SetText("") end
+    if value==percent.."%" or value==nfUIEdit.L("Dead") then widget.percent:SetText("") end
     widget.value:SetText(value)
+    -- The hero's regeneration per second, at the bar's right end.
+    if unit=="player" then
+        if not widget.regenText then
+            widget.regenText=Text(widget.value:GetParent(),10,"RIGHT",-5,0)
+            widget.regenText:SetTextColor(nfUIEdit.COLORS.green[1],nfUIEdit.COLORS.green[2],nfUIEdit.COLORS.green[3])
+            widget.regenText:SetFont(FONT,10,"OUTLINE")
+        end
+        local regen=type(AZS_STATS)=="table" and tonumber(AZS_STATS.reg)
+        widget.regenText:SetText(nfUIEdit.On("regenText") and regen and regen>0 and string.format("+%.1f/s",regen) or "")
+    end
     local total=nfUIConfig.GetShield and nfUIConfig.GetShield(unit)
     widget.shieldAvailable=total~=nil
     if options.showShield and total and total>0 and maximum>0 then
@@ -909,10 +919,10 @@ end)
 nfUIConfig = {}
 local Config = nfUIConfig
 Config.defaults = {
-    blocks = {graphScale=1, statsScale=1, bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
+    blocks = {targetRisingScale=1, pickedEdgeSize=2, graphScale=1, statsScale=1, bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
         farRadius=100, risingFont=13, risingHeight=42, skillStatsFont=9, metresFont=9, ownLevelFont=10},
     edit = {levels=true, ownLevel=true, risingDamage=true, plateTrail=true, metres=true, redEdge=true, targetOfTarget=true,
-        chestIcon=true, chatNarrowFont=true, chatTabs=true, bossAlert=true, mapPins=true, heroStats=true, dpsGraph=true, colorblind=false, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
+        chestIcon=true, chatNarrowFont=true, chatTabs=true, risingHeal=true, targetRising=true, regenText=true, bossAlert=true, mapPins=true, heroStats=true, dpsGraph=true, colorblind=false, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
     layout = {scale=1, x=0, y=-150, sectionGap=6},
     player = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11,hideName=false,healthArea="Right"},
     target = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11},
@@ -929,7 +939,7 @@ Config.defaults = {
     micro = {scale=1}
 }
 Config.limits = {
-    graphScale={0.5,3,0.05}, statsScale={0.5,3,0.05}, bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
+    targetRisingScale={0.5,3,0.05}, pickedEdgeSize={1,4,1}, graphScale={0.5,3,0.05}, statsScale={0.5,3,0.05}, bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
     farRadius={20,300,5}, risingFont={8,32,1}, risingHeight={10,150,1}, skillStatsFont={7,24,1}, metresFont={7,24,1}, ownLevelFont={7,24,1},
     scale={0.5,2,0.05}, x={-800,800,5}, y={-600,600,5}, sectionGap={0,50,1},
     width={80,600,5}, height={16,100,1}, portrait={16,100,1}, powerHeight={1,16,1},
