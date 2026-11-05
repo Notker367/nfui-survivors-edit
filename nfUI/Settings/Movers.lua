@@ -1,7 +1,7 @@
 -- Independent screen-space anchors; native button parents remain unchanged.
 local C=nfUIConfig
 local FLAT="Interface\\ChatFrame\\ChatFrameBackground"
-local FONT="Fonts\\FRIZQT__.TTF"
+local FONT=NFUI_FONT
 local registry={}
 local handles={}
 local unlocked=false
@@ -94,6 +94,11 @@ Add("minimap","Minimap",Minimap,"minimap")
 Add("compass","Compass",nfUIConfig.compassFrame,"compassStyle")
 Add("runPanel","Run statistics",getglobal("nfUIRun"),"runDisplay")
 Add("characterStats","Character stats",C.statsFrame,"statsDisplay")
+-- A block stays chained to its neighbour until it is really dragged, so folding one moves the others.
+for _,block in ipairs(nfUIEdit.blockList) do
+    local entry=Add(block[1],block[2],block[3],"blocks")
+    if entry then entry.chained=true end
+end
 for i=1,7 do
     Add("chat"..i,"Chat "..i,getglobal("ChatFrame"..i),"chat")
     Add("chatTab"..i,"Chat tab "..i,getglobal("ChatFrame"..i.."Tab"),"chat",true)
@@ -196,6 +201,7 @@ local function GroupLayout()
 end
 function C.ApplyPositions()
     GroupLayout()
+    nfUIEdit.SyncBlocks()
     -- Parents first, then smaller elements, so scale conversions are stable.
     local positions=Positions()
     for _,entry in ipairs(registry) do
@@ -213,7 +219,7 @@ local function SnapshotMajors()
     -- Freeze all major components before moving any one of them.
     local positions=Positions()
     for _,entry in ipairs(registry) do
-        if not entry.detail and not positions[entry.key] then
+        if not entry.detail and not entry.chained and not positions[entry.key] then
             local position=Capture(entry.object)
             if position then positions[entry.key]=position end
         end
@@ -246,6 +252,28 @@ function C.ClearPositions(category)
     end
 end
 
+-- Locked panels keep their place: their handle no longer drags until unlocked with a right-click.
+local function Locks()
+    local db=C.Settings()
+    if type(db.moverLocks)~="table" then db.moverLocks={} end
+    return db.moverLocks
+end
+function C.IsMoverLocked(key) return Locks()[key]==true end
+local function ShowLock(key)
+    local handle=handles[key]
+    if not handle then return end
+    if Locks()[key] then
+        handle:SetBackdropColor(0.6,0.12,0.08,0.3);handle:SetBackdropBorderColor(1,0.3,0.25,0.9)
+        handle.caption:SetText(handle.title.." [locked]")
+    else
+        handle:SetBackdropColor(0.05,0.4,0.6,0.3);handle:SetBackdropBorderColor(0.25,0.8,1,0.9)
+        handle.caption:SetText(handle.title)
+    end
+end
+function C.ToggleMoverLock(key)
+    Locks()[key]=(not Locks()[key]) or nil
+    ShowLock(key)
+end
 local function Bounds(object)
     local left,bottom=object:GetLeft(),object:GetBottom()
     if not left or not bottom then return nil end
@@ -302,6 +330,8 @@ local function CreateHandle(entry,i)
         local caption=handle:CreateFontString(nil,"OVERLAY")
         caption:SetFont(FONT,10,"OUTLINE"); caption:SetPoint("CENTER",handle,"CENTER",0,0)
         caption:SetText(item.label)
+        handle.caption=caption;handle.title=item.label
+        ShowLock(item.key)
         handle:SetScript("OnMouseDown",function()
             if arg1=="RightButton" then
                 Finish(); SnapshotMajors()
@@ -310,6 +340,7 @@ local function CreateHandle(entry,i)
             end
             if C.SelectSizeMatch and C.SelectSizeMatch(item) then ShowHandles();return end
             if C.CancelSizeMatch then C.CancelSizeMatch() end
+            if C.IsMoverLocked(item.key) then return end
             SnapshotMajors()
             local position=Capture(item.object)
             if not position then return end
@@ -332,7 +363,7 @@ local function Build()
     title:SetText("nfUI movers")
     local hint=toolbar:CreateFontString(nil,"OVERLAY")
     hint:SetFont(FONT,11); hint:SetPoint("TOPLEFT",toolbar,"TOPLEFT",12,-29)
-    hint:SetText("Drag to move. Right-click for sliders. Details shows smaller parts.")
+    hint:SetText("Drag to move. Right-click for sliders and lock. Details shows smaller parts.")
     local detailButton
     detailButton=Button("nfUIMoversDetails","Details",12,100,function()
         Finish(); details=not details
@@ -340,7 +371,7 @@ local function Build()
         ShowHandles()
     end)
     Button("nfUIMoversReset","Reset positions",120,130,function()
-        Finish(); C.ClearPositions(); C.Apply()
+        Finish(); C.ResetPositions()
         -- Wait for a layout tick before freezing the restored default positions.
         dirty=-0.4
     end)
@@ -379,6 +410,7 @@ function C.ToggleMovers(want)
     if C.panel and C.panel:IsShown() then C.panel:Hide() end
     unlocked=true; C.editing=true
     C.target:Show()
+    for _,block in ipairs(nfUIEdit.blockList) do block[3]:Show() end
     C.Apply()
     SnapshotMajors()
     toolbar:Show(); ShowHandles();RefreshGrid()

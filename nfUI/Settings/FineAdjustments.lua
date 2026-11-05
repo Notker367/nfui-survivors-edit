@@ -6,7 +6,7 @@ local syncing=false
 local FLAT="Interface\\ChatFrame\\ChatFrameBackground"
 local function Label(parent,text,x,y)
     local f=parent:CreateFontString(nil,"OVERLAY")
-    f:SetFont("Fonts\\FRIZQT__.TTF",12)
+    f:SetFont(NFUI_FONT,12)
     f:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y); f:SetText(text)
     return f
 end
@@ -59,13 +59,21 @@ local function Refresh()
         else item:Show() end
     end
     if RootUnit() then panel.appearance:Show() else panel.appearance:Hide() end
+    panel.lock:SetText(C.IsMoverLocked(entry.key) and "Unlock" or "Lock")
     syncing=false
+end
+local function BlockOf(item)
+    for _,block in ipairs(nfUIEdit.blockList) do if block[1]==item.key then return block end end
 end
 local function SetValue(field,value)
     local db=C.Settings()
+    if (field=="x" or field=="y") and C.IsMoverLocked(entry.key) then Refresh();return end
     C.SaveElement(entry.object)
     if field=="x" or field=="y" then
         db.positions[entry.key][field]=value
+    elseif BlockOf(entry) and field=="scale" then
+        local block=BlockOf(entry)
+        db.blocks[block[5]]=value/block[4]:GetScale()
     elseif entry.key=="dpsMeter" then
         local lo,hi=C.Range("dpsDisplay",field)
         db.dpsDisplay[field]=math.max(lo,math.min(hi,value))
@@ -112,7 +120,7 @@ function C.ApplyElementSizes(item)
         local path,_,flags=object:GetFont()
         local size=data.font
         if C.UnitTextSize and (item.category=="player" or item.category=="target") then size=C.UnitTextSize(object,size) end
-        object:SetFont(path or "Fonts\\FRIZQT__.TTF",size,flags)
+        object:SetFont(path or NFUI_FONT,size,flags)
     end
 end
 function C.ClearElementSizes(category)
@@ -194,6 +202,9 @@ local function Build()
         local category=entry.key.."Style"
         panel:Hide(); C.ToggleMovers(false); C.OpenCategory(category)
     end)
+    panel.lock=CreateFrame("Button","nfUIFineLock",panel,"UIPanelButtonTemplate")
+    panel.lock:SetWidth(90);panel.lock:SetHeight(24);panel.lock:SetPoint("RIGHT",done,"LEFT",-8,0)
+    panel.lock:SetScript("OnClick",function() C.ToggleMoverLock(entry.key);Refresh() end)
     table.insert(UISpecialFrames,"nfUIFineAdjustments")
     C.finePanel=panel
 end

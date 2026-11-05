@@ -52,7 +52,7 @@ nfUIModules:NewMod("RunTimers", 5, function()
         local overlay=CreateFrame("Frame",nil,frame)
         overlay:SetAllPoints(frame);overlay:SetFrameLevel(bar:GetFrameLevel()+1)
         local text=overlay:CreateFontString(nil,"OVERLAY")
-        text:SetFont("Fonts\\FRIZQT__.TTF",11,"OUTLINE")
+        text:SetFont(NFUI_FONT,11,"OUTLINE")
         text:SetPoint("BOTTOM",frame,"TOP",0,4);text:SetTextColor(0.9,0.9,0.9)
         frame:Hide()
         return frame,bar,text,overlay
@@ -86,7 +86,7 @@ nfUIModules:NewMod("RunTimers", 5, function()
         icon:SetPoint("LEFT", field, "LEFT", 5, 0)
 
         local text = field:CreateFontString(nil, "OVERLAY")
-        text:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+        text:SetFont(NFUI_FONT, 12, "OUTLINE")
         text:SetTextColor(1, 0.88, 0.55)
         text:SetWidth(fieldWidth - 48)
         text:SetHeight(18)
@@ -158,7 +158,7 @@ nfUIModules:NewMod("RunTimers", 5, function()
     end
 
     local function TakeOver(part)
-        do return false end -- local tweak: keep the game's own clock, bosses and tally
+        do return false end -- Keep the game's own clock, bosses and tally
         if type(AZS_SetHudShown) ~= "function" or type(AZS_IsHudShown) ~= "function" then return false end
         local ok, value = pcall(AZS_IsHudShown, part)
         if not ok then return false end
@@ -311,10 +311,10 @@ nfUIModules:NewMod("RunTimers", 5, function()
         createdRows = createdRows + 1
         local frame, bar, name, rowOverlay = Pill("nfUIModules_BossHealthPill" .. tostring(createdRows), "FillWhite")
         bar:SetStatusBarColor(0.86, 0.12, 0.1, 1)
-        name:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+        name:SetFont(NFUI_FONT, 12, "OUTLINE")
         name:SetWidth(BAR_WIDTH)
         local health = rowOverlay:CreateFontString(nil, "OVERLAY")
-        health:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+        health:SetFont(NFUI_FONT, 12, "OUTLINE")
         health:SetPoint("CENTER", frame, "CENTER", 0, 0)
         health:SetTextColor(1, 1, 1)
         return {frame = frame, bar = bar, name = name, health = health}

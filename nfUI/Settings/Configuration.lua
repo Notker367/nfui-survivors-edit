@@ -1,10 +1,21 @@
 -- nfUI configuration: the original compact layout, adjustable live.
 local C=nfUIConfig
 local FLAT="Interface\\ChatFrame\\ChatFrameBackground"
-local FONT="Fonts\\FRIZQT__.TTF"
+local FONT=NFUI_FONT
 local categories={
     {key="layout",title="Overall layout",description="Overall scale. Use Movers to position each element independently.",
         fields={{"scale","Overall scale"}}},
+    {key="edit",title="Switches",description="Everything that turns on and off, in one place.",
+        fields={{"updates","Version","update"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},
+            {"risingDamage","Rising damage numbers above health","check"},{"plateTrail","Plate health drain animation","check"},{"farPlates","Bars for far enemies","check"},
+            {"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},
+            {"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},
+            {"skillStats","Rank and DPS under skills","check"},{"ownLoadout","Own jewelry panel","check"},
+            {"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"allyLoadout","Ally skills and jewelry","check"}}},
+    {key="blocks",title="Blocks",description="Size of each movable block. Drag them with Movers; right-click one to lock it.",
+        fields={{"farRadius","Far bars: radius (yards)"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
+            {"allyScale","Ally skills and jewelry"},{"risingScale","Rising damage: block"},{"risingFont","Rising damage: font"},
+            {"risingHeight","Rising damage: how high"},{"skillStatsFont","Rank and DPS font"},{"metresFont","Metres font"},{"ownLevelFont","Hero level font"}}},
     {key="player",title="Player frame",description="Player size, text placement, health formatting, portrait, colors and shields.",
         fields={{"scale","Frame scale"},{"width","Health / power width"},{"height","Frame height"},{"portrait","Portrait size"},{"powerHeight","Power bar height"},{"nameFont","Name font"},{"valueFont","Health font"},{"hideName","Hide Name","check"},{"healthArea","Health display area","select"},{"showPortrait","Show portrait","check"},{"healthText","Health text","select"},{"healthColor","Color health by injury","check"},{"showShield","Show shields","check"},{"shieldHeight","Shield strip height"},{"shieldFont","Shield text font"}}},
     {key="target",title="Target frame",description="Target size, text, health formatting, portrait, colors and shields.",
@@ -27,12 +38,8 @@ local categories={
         fields={{"scale","Button scale"}}},
     {key="compassStyle",title="Compass",description="Heading strip and detected map markers.",
         fields={{"width","Strip width"},{"height","Strip height"},{"anchor","Anchor position","select"},{"scale","Strip scale"},{"fullWidth","Full screen width","check"},{"iconSize","Icon size"},{"labelFont","Label size"},{"compass","Show compass","check","root"}}},
-    {key="statsDisplay",title="Character stats",description="Persistent live character stats. Use Movers to position it.",
-        fields={{"width","Panel width"},{"height","Panel height"},{"scale","Panel scale"},{"font","Label font size"},{"valueFont","Value font size"},{"headingFont","Heading font size"},{"backdrop","Show backdrop","check"},{"headings","Show headings","check"}}},
-    {key="dpsDisplay",title="DPS Meter",description="Automatic dimensions fit the current damage-source entries.",
+     {key="dpsDisplay",title="DPS Meter",description="Automatic dimensions fit the current damage-source entries.",
         fields={{"backdropOpacity","Backdrop opacity"},{"autoWidth","Fit width to entries","check"},{"autoHeight","Fit height to entries","check"},{"width","Expanded width"},{"height","Expanded height"},{"scale","Panel scale"},{"dpsCollapsed","Expanded","check","root",true}}},
-    {key="runDisplay",title="Run Stats",description="Upward-opening panel with a fixed bottom header and saved placement.",
-        fields={{"width","Expanded width"},{"height","Expanded height"},{"scale","Panel scale"},{"font","Text size"},{"backdrop","Show backdrop","check"},{"runPanel","Show Run Stats","check","root"},{"runCollapsed","Expanded","check","root",true},{"resetRun","Reset local run tracking","action"}}},
     {key="combatText",title="Combat text",description="Scrolling styles apply to icon combat text.",
         fields={{"damageMode","Damage text mode","select","root"},{"sctStyle","Scrolling text style","select","root"}}}
 }
@@ -51,15 +58,30 @@ local function SelectedSettings(key)
     local field=SelectedField(key)
     return field and field[4]=="root" and C.Settings() or C.Settings()[SettingsCategory(key)]
 end
+-- A switch moved here from its own section still lives in that section's settings.
+local function StoreOf(store)
+    if store.root then return C.Settings() end
+    return C.Settings()[store.category]
+end
 local function ReadValue(key)
-    local value=SelectedSettings(key)[key]
     local field=SelectedField(key)
+    if field and field.store then
+        local value=StoreOf(field.store)[field.store.key]
+        if field.store.invert then return not value end
+        return value
+    end
+    local value=SelectedSettings(key)[key]
     if field and field[5] then return not value end
     return value
 end
 local function WriteValue(key,value)
     local field=SelectedField(key)
-    if field and field[5] then value=not value end
+    local store=field and field.store
+    if store then
+        key=store.key
+        if store.invert then value=not value end
+        if key~="runCollapsed" and key~="dpsCollapsed" then StoreOf(store)[key]=value;return end
+    elseif field and field[5] then value=not value end
     if key=="sctStyle" then C.SetSCTStyle(value)
     elseif key=="damageMode" then C.SetDamageMode(value)
     elseif key=="runCollapsed" then C.SetRunCollapsed(value)
@@ -112,7 +134,7 @@ local function Button(name,parent,text,x,y,width,callback)
 end
 
 local function Format(key,value)
-    if key=="scale" or key=="editScale" or key=="backdropOpacity" then return math.floor(value*100+0.5).."%" end
+    if key=="scale" or string.find(key,"Scale$") or key=="backdropOpacity" then return math.floor(value*100+0.5).."%" end
     return tostring(math.floor(value+0.5)).." px"
 end
 
@@ -124,11 +146,11 @@ function C.Refresh()
     content.description:SetText(selected.description)
     for key,button in pairs(buttons) do
         if key==selected.key then
-            button.back:SetVertexColor(0.08,0.35,0.46,1)
-            button.label:SetTextColor(0.35,0.85,1)
+            button.back:SetVertexColor(nfUIEdit.COLORS.surface[1],nfUIEdit.COLORS.surface[2],nfUIEdit.COLORS.surface[3],1)
+            button.label:SetTextColor(nfUIEdit.COLORS.mauve[1],nfUIEdit.COLORS.mauve[2],nfUIEdit.COLORS.mauve[3])
         else
-            button.back:SetVertexColor(0.10,0.12,0.15,1)
-            button.label:SetTextColor(0.8,0.82,0.85)
+            button.back:SetVertexColor(nfUIEdit.COLORS.mantle[1],nfUIEdit.COLORS.mantle[2],nfUIEdit.COLORS.mantle[3],1)
+            button.label:SetTextColor(nfUIEdit.COLORS.text[1],nfUIEdit.COLORS.text[2],nfUIEdit.COLORS.text[3])
         end
     end
     content:SetHeight(math.max(435,60+table.getn(selected.fields)*49))
@@ -143,7 +165,10 @@ function C.Refresh()
             local lo,hi,step=C.Range(SettingsCategory(key),key)
             row.label:SetText(field[2])
             row.check:Hide(); row.choice:Hide(); row.menu:Hide(); row.slider:Hide(); row.value:Hide();row.color:Hide();row.action:Hide()
-            if field[3]=="action" then
+            if field[3]=="update" then
+                row.label:SetText(field[2].." "..(GetAddOnMetadata("nfUI","Version") or "?"))
+                row.action:SetText("Check for updates");row.action:Show()
+            elseif field[3]=="action" then
                 row.action:SetText("Reset tracking");row.action:Show()
             elseif field[3]=="check" then
                 row.check:SetChecked(ReadValue(key)); row.check:Show()
@@ -179,6 +204,58 @@ local function EditLayout()
     end
 end
 
+-- The game gives addons no network and no files, so checking and installing happen outside it:
+-- this shows where the releases are and how to run the updater.
+local RELEASES="https://github.com/Notker367/nfui-survivors-edit/releases"
+local updates
+function C.ShowUpdates()
+    if not updates then
+        updates=CreateFrame("Frame","nfUIUpdates",UIParent)
+        updates:SetWidth(460);updates:SetHeight(150);updates:SetPoint("CENTER",UIParent,"CENTER",0,40)
+        updates:SetFrameStrata("FULLSCREEN_DIALOG");updates:EnableMouse(true)
+        Flat(updates,0.055,0.065,0.085)
+        Text(updates,nfUIEdit.Text("\208\158\208\177\208\189\208\190\208\178\208\187\208\181\208\189\208\184\209\143","Updates"),14,-12,14,{0.3,0.82,1})
+        local note=Text(updates,nfUIEdit.Text(
+            "\208\152\208\179\209\128\208\176 \208\189\208\181 \208\180\208\176\209\145\209\130 \208\176\208\180\208\180\208\190\208\189\208\176\208\188 \208\178\209\139\209\133\208\190\208\180\208\176 \208\178 \209\129\208\181\209\130\209\140. \208\151\208\176\208\191\209\131\209\129\209\130\208\184\209\130\208\181 update-nfUI.bat \208\178 \208\191\208\176\208\191\208\186\208\181 \208\184\208\179\209\128\209\139 \208\184\208\187\208\184 \208\190\209\130\208\186\209\128\208\190\208\185\209\130\208\181 \209\129\209\129\209\139\208\187\208\186\209\131:",
+            "The game gives addons no network access. Run update-nfUI.bat in the game folder, or open this link:"),14,-38,11)
+        note:SetWidth(432);note:SetJustifyH("LEFT")
+        local link=CreateFrame("EditBox","nfUIUpdatesLink",updates)
+        link:SetWidth(432);link:SetHeight(22);link:SetPoint("TOPLEFT",updates,"TOPLEFT",14,-78)
+        link:SetFont(FONT,11);link:SetAutoFocus(false);Flat(link,0.1,0.12,0.15)
+        link:SetScript("OnEscapePressed",function() this:ClearFocus();updates:Hide() end)
+        link:SetScript("OnTextChanged",function() if this:GetText()~=RELEASES then this:SetText(RELEASES);this:HighlightText() end end)
+        updates.link=link
+        Button("nfUIUpdatesClose",updates,"Done",346,-110,100,function() updates:Hide() end)
+        table.insert(UISpecialFrames,"nfUIUpdates")
+    end
+    updates:Show();updates.link:SetText(RELEASES);updates.link:SetFocus();updates.link:HighlightText()
+end
+
+-- Gathers each section's on and off choices into the Switches tab. The long list of character-sheet
+-- stats stays in its own section.
+local switchesMoved
+local function MoveSwitches()
+    if switchesMoved then return end
+    switchesMoved=true
+    local tab
+    for _,category in ipairs(categories) do if category.key=="edit" then tab=category end end
+    for _,category in ipairs(categories) do
+        if category~=tab and category.key~="statsDisplay" then
+            local kept={}
+            for _,field in ipairs(category.fields) do
+                if field[3]=="check" then
+                    local owner=category.key
+                    if (owner=="player" or owner=="target") and C.defaults[owner.."Style"][field[1]]~=nil then owner=owner.."Style" end
+                    local label=string.gsub(field[2],"^Nameplates? ","")
+                    table.insert(tab.fields,{category.key.."."..field[1],category.title..": "..label,"check",
+                        store={category=owner,key=field[1],root=field[4]=="root",invert=field[5]}})
+                else table.insert(kept,field) end
+            end
+            category.fields=kept
+        end
+    end
+end
+
 local function Build()
     if panel then return end
     rows={}
@@ -190,15 +267,16 @@ local function Build()
                 end
             end
         end
-        rowCount=math.max(rowCount,table.getn(category.fields))
     end
+    MoveSwitches()
+    for _,category in ipairs(categories) do rowCount=math.max(rowCount,table.getn(category.fields)) end
     panel=CreateFrame("Frame","nfUISettings",UIParent)
     local window=C.Settings().settingsWindow or {width=594.1,height=555}
     panel:Hide(); panel:SetWidth(window.width); panel:SetHeight(window.height)
     panel:SetPoint("CENTER",UIParent,"CENTER",0,40)
     panel:SetFrameStrata("DIALOG"); panel:SetMovable(true); panel:SetClampedToScreen(true)
     panel:EnableMouse(true)
-    Flat(panel,0.055,0.065,0.085)
+    Flat(panel,nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3])
     panel:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=12,
         insets={left=2,right=2,top=2,bottom=2}})
     panel:SetBackdropBorderColor(0.16,0.2,0.26,1)
@@ -206,8 +284,8 @@ local function Build()
     body:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0);body:SetWidth(594.1);body:SetHeight(555)
     local header=CreateFrame("Frame","nfUISettingsHeader",body)
     header:SetWidth(590.1); header:SetHeight(48); header:SetPoint("TOP",body,"TOP",0,-2)
-    Flat(header,0.085,0.11,0.15)
-    Text(header,"nfUI",18,-12,20,{0.3,0.82,1})
+    Flat(header,nfUIEdit.COLORS.mantle[1],nfUIEdit.COLORS.mantle[2],nfUIEdit.COLORS.mantle[3])
+    Text(header,"nfUI",18,-12,20,nfUIEdit.COLORS.mauve)
     Text(header,"CONFIGURATION",170,-18,11)
     header:EnableMouse(true)
     header:SetScript("OnMouseDown",function() panel:StartMoving() end)
@@ -223,7 +301,7 @@ local function Build()
         sideOffset=math.max(0,math.min(math.max(0,sidebar:GetHeight()-sidebarScroll:GetHeight()),sideOffset-(arg1 or 0)*28))
         sidebarScroll:SetVerticalScroll(sideOffset)
     end)
-    Flat(sidebar,0.075,0.085,0.11)
+    Flat(sidebar,nfUIEdit.COLORS.mantle[1],nfUIEdit.COLORS.mantle[2],nfUIEdit.COLORS.mantle[3])
     for i,category in ipairs(categories) do
         local choice=category
         buttons[choice.key]=Button("nfUISettingsCategory"..i,sidebar,choice.title,4,-5-(i-1)*28,157,
@@ -251,7 +329,7 @@ local function Build()
         option.label=Text(option,"",0,0,12)
         option.value=C.CreateNumberInput("nfUISettingsInput"..i,option,86,20,{
             get=function() return SelectedSettings(option.key)[option.key] end,
-            percent=function() return option.key=="scale" or option.key=="editScale" or option.key=="backdropOpacity" end,
+            percent=function() return option.key=="scale" or string.find(option.key or "","Scale$") or option.key=="backdropOpacity" end,
             range=function() return C.Range(SettingsCategory(option.key),option.key) end,
             set=function(value)
                 SelectedSettings(option.key)[option.key]=value
@@ -270,15 +348,17 @@ local function Build()
         option.check:SetScript("OnClick",function()
             if refreshing or not option.key then return end
             WriteValue(option.key,this:GetChecked() and true or false)
-            if selected.key=="nameplates" then
+            local store=SelectedField(option.key).store
+            if store and store.category=="nameplates" then
                 local settings=C.Settings().nameplates
-                if option.key=="stacking" and settings.stacking then settings.collision=true end
-                if option.key=="collision" and not settings.collision then settings.stacking=false end
+                if store.key=="stacking" and settings.stacking then settings.collision=true end
+                if store.key=="collision" and not settings.collision then settings.stacking=false end
             end
             C.Apply(); C.Refresh()
         end)
         option.action=Button("nfUISettingsAction"..i,option,"",235,0,275,function()
-            if option.key=="resetRun" then nfUI_ResetRun();C.Refresh() end
+            if option.key=="resetRun" then nfUI_ResetRun();C.Refresh()
+            elseif option.key=="updates" then C.ShowUpdates() end
         end)
         option.choice=Button("nfUISettingsChoice"..i,option,"",235,0,275,function()
             if option.menu:IsShown() then option.menu:Hide() else option.menu:Show() end
@@ -347,13 +427,19 @@ local function Build()
         if selected.key=="compassStyle" then C.Settings().compass=true
         elseif selected.key=="runDisplay" then C.Settings().runPanel=true;C.SetRunCollapsed(true)
         elseif selected.key=="dpsDisplay" then C.SetDPSCollapsed(true)
-        elseif selected.key=="combatText" then C.SetDamageMode("sct");C.SetSCTStyle("Explosive") end
-        C.Reset(selected.key);C.Refresh()
+        elseif selected.key=="combatText" then C.SetDamageMode("quick");C.SetSCTStyle("Explosive")
+        elseif selected.key=="edit" then
+            for _,field in ipairs(selected.fields) do
+                local store=field.store
+                if store and not store.root then C.Settings()[store.category][store.key]=C.defaults[store.category][store.key] end
+            end
+        end
+        C.ResetSection(selected.key);C.Refresh()
     end)
     Button("nfUISettingsResetAll",footer,"Reset all",262,-6,105,function()
         C.Settings().compass=true;C.Settings().runPanel=true
-        C.SetRunCollapsed(true);C.SetDPSCollapsed(true);C.SetDamageMode("sct");C.SetSCTStyle("Explosive")
-        C.Reset();C.Refresh()
+        C.SetRunCollapsed(true);C.SetDPSCollapsed(true);C.SetDamageMode("quick");C.SetSCTStyle("Explosive")
+        C.ResetAll();C.Refresh()
     end)
     Button("nfUISettingsDone",footer,"Done",625,-6,100,function() panel:Hide() end)
     Text(footer,"Saved automatically",381,-13,10)

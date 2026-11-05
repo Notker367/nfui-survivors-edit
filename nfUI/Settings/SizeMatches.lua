@@ -95,15 +95,16 @@ function C.ShowMoverMenu(item)
     if C.finePanel then C.finePanel:Hide() end
     if not menu then
         menu=CreateFrame("Frame","nfUIMoverMenu",UIParent)
-        menu:SetWidth(220);menu:SetHeight(178);menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetFrameLevel(150)
+        menu:SetWidth(220);menu:SetHeight(205);menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:SetFrameLevel(150)
         menu:EnableMouse(true);menu:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
         menu:SetBackdropColor(0.04,0.07,0.1,0.98)
-        menu.title=menu:CreateFontString(nil,"OVERLAY");menu.title:SetFont("Fonts\\FRIZQT__.TTF",11)
+        menu.title=menu:CreateFontString(nil,"OVERLAY");menu.title:SetFont(NFUI_FONT,11)
         menu.title:SetPoint("TOP",menu,"TOP",0,-8);menu.title:SetWidth(208);menu.title:SetHeight(28)
         local function Button(text,index,callback)
             local button=CreateFrame("Button","nfUIMoverMenuButton"..index,menu,"UIPanelButtonTemplate")
             button:SetWidth(204);button:SetHeight(24);button:SetPoint("TOPLEFT",menu,"TOPLEFT",8,-38-(index-1)*27)
             button:SetText(text);button:SetScript("OnClick",callback)
+            return button
         end
         for index,axis in ipairs({"width","height"}) do
             local dimension=axis
@@ -114,12 +115,14 @@ function C.ShowMoverMenu(item)
         end
         Button("Adjustments",3,function() local selected=menu.item;C.CancelSizeMatch();C.ShowFineAdjustments(selected) end)
         Button("Clear size matches",4,function() Links()[menu.item.key]=nil;C.CancelSizeMatch();C.Apply() end)
-        Button("Cancel",5,C.CancelSizeMatch)
+        menu.lock=Button("Lock",5,function() C.ToggleMoverLock(menu.item.key);C.CancelSizeMatch() end)
+        Button("Cancel",6,C.CancelSizeMatch)
         table.insert(UISpecialFrames,"nfUIMoverMenu")
         menu:SetScript("OnHide",function() pending=nil end)
         C.moverMenu=menu
     end
     menu.item=item;menu.title:SetText(item.label)
+    menu.lock:SetText(C.IsMoverLocked(item.key) and "Unlock" or "Lock")
     local x,y=GetCursorPosition();local scale=UIParent:GetEffectiveScale()
     menu:ClearAllPoints();menu:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",math.max(0,math.min(UIParent:GetWidth()-220,x/scale)),math.max(0,math.min(UIParent:GetHeight()-178,y/scale)))
     menu:Show()

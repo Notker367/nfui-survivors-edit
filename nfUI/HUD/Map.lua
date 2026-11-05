@@ -35,7 +35,7 @@ local function Install()
             if button then if shown then button:Show() else button:Hide() end end
         end
     end
-    ZoomButtons(true) -- local tweak: always clickable
+    ZoomButtons(true) -- Always clickable
     local hoverAge=0
     local hover=CreateFrame("Frame","nfUIMapHover",UIParent)
     hover:SetScript("OnUpdate",function()

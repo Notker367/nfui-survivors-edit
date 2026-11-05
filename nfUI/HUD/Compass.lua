@@ -1,7 +1,7 @@
 -- Skyrim-style bearing strip. Reads only revealed map landmarks and registered marker providers.
 local C=nfUIConfig
 local FLAT="Interface\\Buttons\\WHITE8X8"
-local FONT="Fonts\\FRIZQT__.TTF"
+local FONT=NFUI_FONT
 -- Lua 5.0 has math.mod but no modulo operator; fmod needs positive wrapping.
 local function Mod(value,divisor)
     local remainder=math.mod(value,divisor)

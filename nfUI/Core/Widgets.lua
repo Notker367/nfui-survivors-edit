@@ -1,5 +1,5 @@
 -- Shared drawing operations keep nfUI panels and HUD elements consistent.
-nfUIWidgets={font="Fonts\\FRIZQT__.TTF",texture="Interface\\Buttons\\WHITE8X8"}
+nfUIWidgets={font=NFUI_FONT,texture="Interface\\Buttons\\WHITE8X8"}
 local W=nfUIWidgets
 function W.Fill(parent,color,layer,inset)
     local texture=parent:CreateTexture(nil,layer or "BACKGROUND")

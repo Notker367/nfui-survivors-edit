@@ -1,7 +1,7 @@
 -- Native run-wide meter data, rendered in nfUI's own flat collapsible panel.
 nfUIModules:NewMod("DPSMeter",5,function()
     local C=nfUIConfig
-    local FONT="Fonts\\FRIZQT__.TTF"
+    local FONT=NFUI_FONT
     local panel=CreateFrame("Frame","nfUIDPSMeter",UIParent)
     panel:SetWidth(112);panel:SetHeight(32);panel:SetFrameStrata("MEDIUM")
     panel:EnableMouse(true)
@@ -85,7 +85,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if value>=1000 then return string.format("%.1fk",value/1000) end
         return string.format("%.0f",value)
     end
-    -- Local tweak: skill icons by name, for the hero's own meter and the party's.
+    -- Skill icons by name, for the hero's own meter and the party's.
     local topIcons,topIconsAge={},-1000
     local function RefreshTopIcons()
         if GetTime()-topIconsAge<15 then return end
@@ -160,16 +160,16 @@ nfUIModules:NewMod("DPSMeter",5,function()
                 row.icon:SetPoint("LEFT",row,"LEFT",2,0);row.icon:SetTexCoord(0.08,0.92,0.08,0.92)
                 row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",21,0);row.name:SetJustifyH("LEFT")
                 row.valueText=row:CreateFontString(nil,"OVERLAY");row.valueText:SetFont(FONT,11,"OUTLINE");row.valueText:SetPoint("RIGHT",row,"RIGHT",-4,0)
-                -- Local tweak: details on hover.
+                -- Details on hover.
                 row:EnableMouse(true)
                 row:SetScript("OnEnter",function()
                     local info=this.info
                     if not info then return end
                     GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(info.name,1,1,1)
-                    GameTooltip:AddDoubleLine("Урон за забег",Short(info.dmg),1,0.82,0,1,1,1)
+                    GameTooltip:AddDoubleLine(nfUIEdit.Text("Урон за забег","Run damage"),Short(info.dmg),1,0.82,0,1,1,1)
                     GameTooltip:AddDoubleLine("DPS",Short(info.dps),1,0.82,0,1,1,1)
-                    GameTooltip:AddDoubleLine("Доля урона",string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1)
-                    if info.proc==1 then GameTooltip:AddLine("Срабатывающий эффект",0.6,0.8,1) end
+                    GameTooltip:AddDoubleLine(nfUIEdit.Text("Доля урона","Damage share"),string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1)
+                    if info.proc==1 then GameTooltip:AddLine(nfUIEdit.Text("Срабатывающий эффект","Proc"),0.6,0.8,1) end
                     GameTooltip:Show()
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -197,7 +197,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
     driver:SetScript("OnEvent",function() if event=="PLAYER_ENTERING_WORLD" then inWorld=true;C.RefreshDPSMeter() else inWorld=false;Restore() end end)
     driver:SetScript("OnUpdate",function() age=age+(arg1 or 0);if age<0.2 then return end;age=0;if inWorld then C.RefreshDPSMeter() end end)
     C.RefreshDPSMeter()
-    -- Local tweak: the party's meter, left of the hero's own.
+    -- The party's meter, left of the hero's own.
     local party=CreateFrame("Frame","nfUIPartyDPS",UIParent)
     party:SetWidth(190);party:SetHeight(32);party:SetFrameStrata("MEDIUM")
     party:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"});party:SetBackdropColor(0.04,0.05,0.07,0.7)
@@ -213,14 +213,14 @@ nfUIModules:NewMod("DPSMeter",5,function()
         for _,line in ipairs(lines) do
             if type(line.top)=="string" and not topIcons[line.top] then pcall(RefreshTopIcons);break end
         end
-        partyTitle:SetText("\208\147\209\128\209\131\208\191\208\191\208\176: "..Short(dps).." DPS")
+        partyTitle:SetText(nfUIEdit.Text("\208\147\209\128\209\131\208\191\208\191\208\176: ","Party: ")..Short(dps).." DPS")
         for index,line in ipairs(lines) do
             local row=partyRows[index]
             if not row then
                 row=CreateFrame("StatusBar",nil,party);row:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
                 row:SetMinMaxValues(0,1);row:SetHeight(20);row:SetWidth(174);row:EnableMouse(true)
                 row:SetPoint("TOPLEFT",party,"TOPLEFT",8,-24-(index-1)*37)
-                -- Local tweak: under each hero, their top skill: icon, share of their damage, DPS.
+                -- Under each hero, their top skill: icon, share of their damage, DPS.
                 row.top=CreateFrame("StatusBar",nil,row);row.top:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
                 row.top:SetMinMaxValues(0,1);row.top:SetHeight(13);row.top:SetWidth(158)
                 row.top:SetPoint("TOPRIGHT",row,"BOTTOMRIGHT",0,-1)
@@ -238,10 +238,10 @@ nfUIModules:NewMod("DPSMeter",5,function()
                     local info=this.info
                     if not info then return end
                     GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(type(info.name)=="string" and info.name or "?",1,1,1)
-                    if Number(info.dmg) then GameTooltip:AddDoubleLine("Урон за забег",Short(info.dmg),1,0.82,0,1,1,1) end
+                    if Number(info.dmg) then GameTooltip:AddDoubleLine(nfUIEdit.Text("Урон за забег","Run damage"),Short(info.dmg),1,0.82,0,1,1,1) end
                     if Number(info.dps) then GameTooltip:AddDoubleLine("DPS",Short(info.dps),1,0.82,0,1,1,1) end
-                    if Number(info.share) then GameTooltip:AddDoubleLine("Доля урона",string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1) end
-                    if type(info.top)=="string" then GameTooltip:AddDoubleLine("Лучшее: "..info.top,Number(info.topdps) and Short(info.topdps).." DPS" or "",0.6,0.8,1,1,1,1) end
+                    if Number(info.share) then GameTooltip:AddDoubleLine(nfUIEdit.Text("Доля урона","Damage share"),string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1) end
+                    if type(info.top)=="string" then GameTooltip:AddDoubleLine(nfUIEdit.Text("Лучшее: ","Top: ")..info.top,Number(info.topdps) and Short(info.topdps).." DPS" or "",0.6,0.8,1,1,1,1) end
                     GameTooltip:Show()
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end)

@@ -12,7 +12,7 @@ end
 function C.CreateNumberInput(name,parent,width,height,options)
     local box=CreateFrame("EditBox",name,parent)
     box:SetWidth(width);box:SetHeight(height);box:SetAutoFocus(false)
-    box:SetFont("Fonts\\FRIZQT__.TTF",12,"OUTLINE");box:SetJustifyH("RIGHT")
+    box:SetFont(NFUI_FONT,12,"OUTLINE");box:SetJustifyH("RIGHT")
     box:SetTextColor(0.3,0.82,1)
     box:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"});box:SetBackdropColor(0.07,0.1,0.14,0.95)
     box.options=options

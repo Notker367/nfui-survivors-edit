@@ -1,0 +1,241 @@
+-- Run panels from the game's own data: the bosses to come, the guardians and when they return, what has hurt the
+-- hero, and this run's damage per second against earlier runs at the same moment.
+local E=nfUIEdit
+local ROW_HEIGHT,ROWS,WIDTH=14,5,200
+local SOURCES={
+    ["mob melee"]={"Удары врагов","Enemy melee"},["mob spell"]={"Заклинания врагов","Enemy spells"},
+    ["boss melee"]={"Удары боссов","Boss melee"},["boss spell"]={"Заклинания боссов","Boss spells"},
+    ["area"]={"Урон по области","Area damage"},
+}
+local RUN_PHASES={playing=true,choosing=true,paused=true}
+local DONE={0.5,0.5,0.56}
+
+local function Panel(frame,title,key,rowCount,moverKey)
+    local c=E.COLORS
+    local fill=frame:CreateTexture(nil,"BACKGROUND");fill:SetTexture(E.FLAT)
+    fill:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0);fill:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0)
+    frame.fill=fill;frame.key=key;frame.fullHeight=frame:GetHeight();frame.moverKey=moverKey
+    fill:SetVertexColor(c.base[1],c.base[2],c.base[3],0.75)
+    local function Fold()
+        local folded=E.IsCollapsed(key)
+        fill:SetHeight(folded and 20 or frame.fullHeight)
+        -- The panel really shrinks, so the ones below move up; one placed by hand keeps its top where it is.
+        local height=folded and 20 or frame.fullHeight
+        local spot=frame.moverKey and type(nfUIDB)=="table" and type(nfUIDB.positions)=="table" and nfUIDB.positions[frame.moverKey]
+        if spot and type(spot.y)=="number" and frame:GetHeight()~=height then
+            spot.y=spot.y+(frame:GetHeight()-height)*frame:GetEffectiveScale()/UIParent:GetEffectiveScale()
+        end
+        frame:SetHeight(height)
+        if spot and nfUIConfig.ApplyPositions then nfUIConfig.ApplyPositions() end
+        for _,row in ipairs(frame.rows or {}) do
+            if folded then row.left:Hide();row.right:Hide();row.bar:SetAlpha(0) else row.left:Show();row.right:Show();row.bar:SetAlpha(1) end
+        end
+    end
+    frame.Fold=Fold
+    E.Collapsible(frame,key,title,Fold)
+    frame.rows={}
+    for index=1,rowCount or ROWS do
+        local row={}
+        local y=-20-(index-1)*ROW_HEIGHT
+        row.bar=frame:CreateTexture(nil,"BORDER");row.bar:SetTexture(E.FLAT);row.bar:SetHeight(ROW_HEIGHT-2)
+        row.bar:SetPoint("TOPLEFT",frame,"TOPLEFT",4,y+1);row.bar:SetVertexColor(c.red[1],c.red[2],c.red[3],0.35);row.bar:Hide()
+        row.left=frame:CreateFontString(nil,"OVERLAY");row.left:SetFont(E.FONT,10,"OUTLINE");row.left:SetPoint("TOPLEFT",frame,"TOPLEFT",6,y)
+        row.left:SetWidth(WIDTH-72);row.left:SetHeight(ROW_HEIGHT-2);row.left:SetJustifyH("LEFT")
+        row.right=frame:CreateFontString(nil,"OVERLAY");row.right:SetFont(E.FONT,10,"OUTLINE");row.right:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-6,y)
+        frame.rows[index]=row
+    end
+    Fold()
+end
+local function Clear(row) row.left:SetText("");row.right:SetText("");row.bar:Hide() end
+local function Clock(seconds)
+    seconds=math.max(0,math.floor(seconds+0.5))
+    return string.format("%d:%02d",math.floor(seconds/60),math.mod(seconds,60))
+end
+
+local bossFrame,takenFrame=E.blocks.bosses,E.blocks.taken
+Panel(bossFrame,E.Text("Боссы","Bosses"),"bosses",nil,"blockBosses")
+Panel(takenFrame,E.Text("Кто бьёт героя","Damage taken"),"taken",nil,"blockTaken")
+local lairFrame,historyFrame=E.blocks.lairs,E.blocks.history
+local LAIR_ROWS,HISTORY_ROWS=4,6
+Panel(lairFrame,E.Text("Стражи","Guardians"),"lairs",LAIR_ROWS,"blockLairs")
+Panel(historyFrame,E.Text("История: DPS сейчас","History: DPS now"),"history",HISTORY_ROWS,"blockHistory")
+local foldedOnce
+
+local function UpdateBosses()
+    local now=AZS_GetRunTime and AZS_GetRunTime() or 0
+    local c=E.COLORS
+    local shown=0
+    for _,boss in ipairs(type(AZS_SCHEDULE)=="table" and AZS_SCHEDULE or {}) do
+        if shown<ROWS and type(boss)=="table" and tonumber(boss.at) then
+            shown=shown+1
+            local row=bossFrame.rows[shown]
+            local left=boss.at-now
+            local color=c.text
+            row.left:SetText(boss.name or "?")
+            if boss.state=="due" then
+                row.right:SetText(Clock(left))
+                if left<=10 then color=c.red elseif left<=30 then color=c.yellow elseif boss.final==1 then color=c.mauve end
+            else
+                -- Up or already beaten: the game only says it is no longer to come.
+                row.right:SetText("-");color=DONE
+            end
+            row.left:SetTextColor(color[1],color[2],color[3]);row.right:SetTextColor(color[1],color[2],color[3])
+        end
+    end
+    for index=shown+1,ROWS do Clear(bossFrame.rows[index]) end
+    return shown>0
+end
+local function ByDamage(a,b) return a.dmg>b.dmg end
+local function UpdateTaken()
+    local lines,total={},0
+    for _,line in ipairs(type(AZS_TAKEN)=="table" and AZS_TAKEN or {}) do
+        local amount=type(line)=="table" and tonumber(line.dmg)
+        if amount and amount>0 then total=total+amount;table.insert(lines,{source=line.source,dmg=amount}) end
+    end
+    table.sort(lines,ByDamage)
+    local language=E.IsRussian() and 1 or 2
+    for index=1,ROWS do
+        local row,line=takenFrame.rows[index],lines[index]
+        if line then
+            local name=SOURCES[line.source]
+            row.left:SetText(name and name[language] or tostring(line.source))
+            row.left:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
+            row.right:SetText(E.Short(line.dmg).." "..math.floor(line.dmg/total*100+0.5).."%")
+            row.right:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
+            row.bar:SetWidth(math.max(1,(WIDTH-8)*line.dmg/total));row.bar:Show()
+        else Clear(row) end
+    end
+    return total>0
+end
+-- Guardians. An empty lair counts down to its guardian; one killed is remembered with the time of its death.
+local killedAt,wasHolding={},{}
+local function UpdateLairs()
+    local c=E.COLORS
+    local now=AZS_GetRunTime and AZS_GetRunTime() or 0
+    local health={}
+    for _,unit in ipairs(type(AZS_UNITS)=="table" and AZS_UNITS or {}) do
+        if type(unit)=="table" and unit.id then health[unit.id]=unit end
+    end
+    local shown=0
+    for _,lair in ipairs(type(AZS_LAIRS)=="table" and AZS_LAIRS or {}) do
+        if shown<LAIR_ROWS and type(lair)=="table" then
+            shown=shown+1
+            local row=lairFrame.rows[shown]
+            local index=lair.index or shown
+            local empty=lair.state=="empty"
+            if wasHolding[index] and empty then killedAt[index]=now end
+            wasHolding[index]=not empty
+            if not empty then killedAt[index]=nil end
+            local unit=lair.id and health[lair.id]
+            local color,text=c.text,""
+            if empty then
+                local left=tonumber(lair.left)
+                if left and left>=0 then
+                    text=Clock(left);color=left<=10 and c.yellow or c.text
+                else text="-";color=DONE end
+            elseif lair.state=="asleep" then text=E.Text("спит","asleep");color=DONE
+            else
+                text=E.Text("активен","awake");color=c.peach
+                if unit and tonumber(unit.hpm) and tonumber(unit.hpm)>0 then text=math.floor(unit.hp/unit.hpm*100+0.5).."%" end
+            end
+            if killedAt[index] then text=E.Text("убит ","slain ")..Clock(killedAt[index]).."  "..text end
+            row.left:SetText((lair.flag==1 and "> " or "")..(lair.name or "?"))
+            row.left:SetTextColor(color[1],color[2],color[3]);row.right:SetText(text);row.right:SetTextColor(color[1],color[2],color[3])
+        end
+    end
+    for index=shown+1,LAIR_ROWS do Clear(lairFrame.rows[index]) end
+    return shown>0
+end
+
+-- History. Every 30 seconds of a run its total damage is written down, so any moment of it can be compared later.
+local STEP,KEEP_RUNS,MAX_STEPS=30,30,240
+local current
+local function History()
+    if type(nfUIDB.runHistory)~="table" then nfUIDB.runHistory={} end
+    return nfUIDB.runHistory
+end
+local function Record()
+    local run=type(AZS_ZONE)=="table" and AZS_ZONE.run
+    local t,dealt=tonumber(AZS_RUN and AZS_RUN.t),tonumber(AZS_RUN and AZS_RUN.dealt)
+    if not run or not t or not dealt then return nil end
+    local list=History()
+    if not current or current.run~=run then
+        current=nil
+        for _,entry in ipairs(list) do if entry.run==run then current=entry end end
+        if not current then
+            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,marks={[0]=0}}
+            table.insert(list,current)
+            while table.getn(list)>KEEP_RUNS do table.remove(list,1) end
+        end
+    end
+    current.t=t;current.dealt=dealt;current.level=tonumber(AZS_RUN.lvl)
+    local step=math.floor(t/STEP)
+    if step>0 and step<=MAX_STEPS and not current.marks[step] then current.marks[step]=dealt end
+    return current,t,dealt
+end
+-- Damage per second a run had reached by this moment, or nil if it did not last that long.
+local function RateAt(entry,t)
+    if not entry.t or entry.t<t or t<=0 then return nil end
+    local step=math.floor(t/STEP)
+    local low,high=entry.marks[step],entry.marks[step+1]
+    if not low then return nil end
+    high=high or entry.dealt
+    return (low+(high-low)*(t-step*STEP)/STEP)/t
+end
+local function Compare(row,label,rate,now)
+    row.left:SetText(label)
+    row.left:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
+    if not rate or rate<=0 then
+        row.right:SetText(E.Text("нет данных","no data"));row.right:SetTextColor(DONE[1],DONE[2],DONE[3]);return
+    end
+    local gain=math.floor((now/rate-1)*100+0.5)
+    row.right:SetText(E.Short(rate).." ("..(gain>=0 and "+" or "")..gain.."%)")
+    local color=gain>=0 and E.COLORS.green or E.COLORS.enemy
+    row.right:SetTextColor(color[1],color[2],color[3])
+end
+local function UpdateHistory()
+    local entry,t,dealt=Record()
+    if not entry then return false end
+    local now=t>0 and dealt/t or 0
+    local c=E.COLORS
+    local rows=historyFrame.rows
+    rows[1].left:SetText(E.Text("Сейчас ","Now ")..Clock(t));rows[1].left:SetTextColor(c.text[1],c.text[2],c.text[3])
+    rows[1].right:SetText(E.Short(now).." DPS");rows[1].right:SetTextColor(c.yellow[1],c.yellow[2],c.yellow[3])
+    local list=History()
+    local previous,best
+    for index=table.getn(list),1,-1 do
+        local other=list[index]
+        if other~=entry and other.class==entry.class and other.zone==entry.zone then
+            local rate=RateAt(other,t)
+            if rate then
+                if not previous then previous=rate end
+                if not best or rate>best then best=rate end
+            end
+        end
+    end
+    Compare(rows[2],E.Text("Прошлый забег","Last run"),previous,now)
+    Compare(rows[3],E.Text("Лучший забег","Best run"),best,now)
+    local row=4
+    for index=table.getn(list),1,-1 do
+        local other=list[index]
+        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 then
+            rows[row].left:SetText((other.class or "?").." "..Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or ""))
+            rows[row].left:SetTextColor(DONE[1],DONE[2],DONE[3])
+            rows[row].right:SetText(E.Short((other.dealt or 0)/other.t));rows[row].right:SetTextColor(DONE[1],DONE[2],DONE[3])
+            row=row+1
+        end
+    end
+    for index=row,HISTORY_ROWS do Clear(rows[index]) end
+    return true
+end
+E.Every(0.25,function()
+    -- Saved choices arrive after this file loads.
+    if not foldedOnce and type(nfUIDB)=="table" then
+        foldedOnce=true;bossFrame.Fold();takenFrame.Fold();lairFrame.Fold();historyFrame.Fold()
+    end
+    local inRun=AZS_GetPhase and RUN_PHASES[AZS_GetPhase() or ""]
+    if inRun and E.On("bossSchedule") and UpdateBosses() then bossFrame:Show() else E.Conceal(bossFrame) end
+    if inRun and E.On("takenPanel") and UpdateTaken() then takenFrame:Show() else E.Conceal(takenFrame) end
+    if inRun and E.On("lairPanel") and UpdateLairs() then lairFrame:Show() else E.Conceal(lairFrame) end
+    if inRun and E.On("historyPanel") and UpdateHistory() then historyFrame:Show() else E.Conceal(historyFrame) end
+end)

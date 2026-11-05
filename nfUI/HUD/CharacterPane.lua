@@ -8,7 +8,7 @@ W.Fill(view,{0.05,0.05,0.07,0.96});W.Fill(view,{0,0,0,1},"BACKGROUND",-1)
 local stats=CreateFrame("Frame","nfUICharacterStats",view)
 stats:SetWidth(204);stats:SetHeight(430);stats:SetPoint("TOPRIGHT",view,"TOPRIGHT",0,0)
 local heading=W.Label(stats,18,"TOP",0,-14,"-",{0.72,0.45,1})
-local caption=W.Label(stats,10,"TOP",0,-38,"Бонус урона",{0.7,0.7,0.7})
+local caption=W.Label(stats,10,"TOP",0,-38,nfUIEdit.Text("Бонус урона","Damage bonus"),{0.7,0.7,0.7})
 local scroll=CreateFrame("ScrollFrame","nfUICharacterScroll",stats)
 scroll:SetWidth(180);scroll:SetHeight(368);scroll:SetPoint("TOPLEFT",stats,"TOPLEFT",12,-54)
 local list=CreateFrame("Frame",nil,scroll);list:SetWidth(180);list:SetHeight(1);scroll:SetScrollChild(list)
@@ -27,11 +27,11 @@ Execute={"Добивание","Бонус урона по врагам с низ
 Shielded={"Под щитом","Бонус урона, пока на герое щит."},Melee={"Ближний бой","Бонус урона автоатак."},["Pet Damage"]={"Питомцы","Бонус урона питомцев."}}
 local cells={}
 for _,section in ipairs(C.CharacterStatSections) do
-    local label=W.Label(list,10,"TOPLEFT",0,0,RU[section.title] or section.title,section.color)
+    local label=W.Label(list,10,"TOPLEFT",0,0,nfUIEdit.IsRussian() and RU[section.title] or section.title,section.color)
     local group={header=label,rows={}}
     for _,source in ipairs(section.rows) do
         local row=CreateFrame("Frame",nil,list);row:SetWidth(180);row:SetHeight(14);row:EnableMouse(true)
-        local words=STAT[source[1]] or {source[1],source[3]}
+        local words=nfUIEdit.IsRussian() and STAT[source[1]] or {source[1],source[3]}
         row.caption=W.Label(row,11,"LEFT",2,0,words[1],{0.82,0.82,0.82})
         row.amount=W.Label(row,11,"RIGHT",-2,0,"",section.color)
         row.source=source
@@ -92,7 +92,7 @@ local function Refresh()
     end
     local damage=AZS_STATS and AZS_STATS.dmg
     heading:SetText(type(damage)=="number" and string.format("%+.0f%%",(damage-1)*100) or "-")
-    caption:SetText(damage and "Бонус урона | колесо: прокрутка" or "Начни забег, чтобы увидеть")
+    caption:SetText(damage and nfUIEdit.Text("Бонус урона | колесо: прокрутка","Damage bonus | wheel: scroll") or nfUIEdit.Text("Начни забег, чтобы увидеть","Start a run to see modifiers"))
     local visible,total={},0
     for _,group in ipairs(cells) do
         local values={}

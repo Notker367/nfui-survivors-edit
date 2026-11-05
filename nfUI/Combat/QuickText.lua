@@ -5,19 +5,28 @@ layer:SetAllPoints(UIParent);layer:SetFrameStrata("HIGH")
 local pool={}
 local events={"CHAT_MSG_COMBAT_SELF_HITS","CHAT_MSG_SPELL_SELF_DAMAGE","CHAT_MSG_COMBAT_PET_HITS","CHAT_MSG_SPELL_PET_DAMAGE","CHAT_MSG_SPELL_PERIODIC_CREATURE_DAMAGE","COMBAT_TEXT_UPDATE"}
 local incoming={DAMAGE=true,DAMAGE_CRIT=true,SPELL_DAMAGE=true}
+local originTurn=0
 local function Origin(name)
     if name then
+        -- Enemies of one name take turns, so their numbers do not all land on the first plate.
+        local plates={}
         for _,entry in ipairs(nfUIPlatesRegistry or {}) do
-            if entry.plate:IsVisible() and entry.stock.name:GetText()==name then
-                local region=entry.bar
-                local x,y=region:GetCenter()
-                if x and y then local factor=C.RegionEffectiveScale(region)/UIParent:GetEffectiveScale();return x*factor,y*factor end
-            end
+            if entry.plate:IsVisible() and entry.stock.name:GetText()==name then table.insert(plates,entry) end
         end
+        local total=table.getn(plates)
+        if total>0 then
+            originTurn=originTurn+1
+            local region=plates[math.mod(originTurn,total)+1].bar
+            local x,y=region:GetCenter()
+            if x and y then local factor=C.RegionEffectiveScale(region)/UIParent:GetEffectiveScale();return x*factor,y*factor,true end
+        end
+        -- No plate: the enemy's own place on screen, from the game's anchors.
+        local x,y=nfUIEdit.EnemySpot(name)
+        if x then return x,y,true end
     end
-    return UIParent:GetWidth()/2,UIParent:GetHeight()/2+(name and 30 or -15)
+    return UIParent:GetWidth()/2,UIParent:GetHeight()/2+(name and 30 or -15),false
 end
--- Local tweak: a small skill icon beside the number, from the hero's spellbook.
+-- A small skill icon beside the number, from the hero's spellbook.
 local spellIcons
 local function SpellIcon(spell)
     if not spell or spell=="" then return nil end
@@ -33,7 +42,7 @@ local function SpellIcon(spell)
     end
     return spellIcons[spell]
 end
--- Local tweak: readable numbers: short format, repeat hits merged, and each target's numbers fanned out.
+-- Readable numbers: short format, repeat hits merged, and each target's numbers fanned out.
 local function ShortAmount(value)
     value=tonumber(value) or 0
     if value>=1000000 then return string.format("%.1fm",value/1000000) end
@@ -41,17 +50,38 @@ local function ShortAmount(value)
     if value>=1000 then return string.format("%.1fk",value/1000) end
     return string.format("%.0f",value)
 end
-local MERGE_TIME=0.3
-local LANES={0,-34,34,-17,17}
+-- Calm on purpose: hits merge for longer, the numbers stay close together and move slowly.
+local MERGE_TIME=0.5
+local LANES={0,-18,18}
+local LANE_COUNT=6
+-- The bigger the hit compared with recent ones, the larger the number and the longer it stays.
+local peak=0
+local function Weight(value)
+    peak=math.max(value,peak*0.995)
+    return peak>0 and math.sqrt(value/peak) or 0
+end
+local function Emphasize(state,periodic)
+    local weight=Weight(state.amount or 0)
+    state.life=(state.critical and 1.3 or 1.0)+1.0*weight
+    state.label:SetFont(W.font,(periodic and 10 or 11)+(state.critical and 2 or 0)+8*weight,"OUTLINE")
+end
 local laneByTarget={}
+local CROWD=14
 local function Emit(amount,name,critical,periodic,spell)
-    local key=(name or "self").."|"..(spell or "")
     local now=GetTime()
+    local x,y,placed=Origin(name)
+    -- Hits on enemies that cannot be placed all become one number, instead of a pile in the middle of the screen.
+    local key=(placed or not name) and ((name or "self").."|"..(spell or "")) or "unplaced"
+    if key=="unplaced" then spell=nil end
+    -- In a crowd the small numbers give way, so the big ones can be read.
+    local active=0
+    for _,entry in ipairs(pool) do if entry.active then active=active+1 end end
+    if active>=CROWD and not critical and (tonumber(amount) or 0)<peak*0.35 then return end
     for _,entry in ipairs(pool) do
         if entry.active and entry.key==key and now-entry.born<MERGE_TIME then
             entry.amount=(entry.amount or 0)+(tonumber(amount) or 0)
             entry.label:SetText((name and "" or "-")..ShortAmount(entry.amount))
-            entry.born=now;entry.label:SetAlpha(1);entry.icon:SetAlpha(1)
+            Emphasize(entry,periodic)
             return
         end
     end
@@ -63,17 +93,16 @@ local function Emit(amount,name,critical,periodic,spell)
         state.icon=layer:CreateTexture(nil,"OVERLAY");state.icon:SetTexCoord(0.07,0.93,0.07,0.93)
         state.icon:SetWidth(14);state.icon:SetHeight(14);state.icon:SetPoint("RIGHT",state.label,"LEFT",-2,0);state.icon:Hide()
     end
-    local x,y=Origin(name)
-    state.active=true;state.settled=nil;state.born=GetTime();state.life=critical and 0.715 or 0.55
+    state.active=true;state.settled=nil;state.born=GetTime();state.life=critical and 1.5 or 1.2
     local target=name or "self"
-    local lane=math.mod((laneByTarget[target] or 0),table.getn(LANES))+1
+    local lane=math.mod((laneByTarget[target] or 0),LANE_COUNT)+1
     laneByTarget[target]=lane
     state.key=key;state.amount=tonumber(amount) or 0
-    state.x=x+LANES[lane];state.y=y+math.mod(lane,3)*9;state.drift=LANES[lane]*0.25
-    state.rise=(name and 1 or -1)*(critical and 80.6 or 62);state.critical=critical
+    state.x=x+LANES[math.mod(lane-1,3)+1];state.y=y+math.floor((lane-1)/3)*14;state.drift=0
+    state.rise=(name and 1 or -1)*28;state.critical=critical
     local color=not name and {1,0.22,0.22} or critical and {1,0.76,0.08} or periodic and {0.8,0.8,0.8} or {1,1,1}
     local label=state.label
-    label:SetFont(W.font,critical and 18 or periodic and 11 or 12,"OUTLINE")
+    Emphasize(state,periodic)
     label:SetText((name and "" or "-")..ShortAmount(amount))
     label:SetTextColor(unpack(color));label:SetAlpha(1);label:Show()
     local texture=name and SpellIcon(spell)
@@ -85,17 +114,17 @@ layer:SetScript("OnUpdate",function()
         local elapsed=now-state.born;local t=elapsed/state.life
         if t>=1 then state.active=false;state.label:Hide();state.icon:Hide()
         else
-            local ease=t*(2-t)
-            if state.critical and elapsed>=0.09 and not state.settled then state.label:SetFont(W.font,15,"OUTLINE");state.settled=true end
+            local ease=t
             state.label:ClearAllPoints();state.label:SetPoint("CENTER",UIParent,"BOTTOMLEFT",state.x+state.drift*ease,state.y+state.rise*ease)
-            state.label:SetAlpha(math.min(1,(1-t)/0.34));state.icon:SetAlpha(math.min(1,(1-t)/0.34))
+            local fade=math.min(1,(1-t)/0.6);state.label:SetAlpha(fade*fade);state.icon:SetAlpha(fade*fade)
         end
     end end
 end)
 local reader=CreateFrame("Frame","nfUIQuickTextEvents",UIParent)
 reader:SetScript("OnEvent",function()
     if event=="COMBAT_TEXT_UPDATE" then
-        if incoming[arg1] and tonumber(arg2) then Emit(arg2,nil,arg1=="DAMAGE_CRIT") end
+        -- The hero's own damage has its slow column above the health bar; this is for when that is off.
+        if incoming[arg1] and tonumber(arg2) and not nfUIEdit.On("risingDamage") then Emit(arg2,nil,arg1=="DAMAGE_CRIT") end
     else
         local parser=nfUIModules.tools.ParseNameplateCombatEvent
         local hit=parser and parser(event,arg1 or "")

@@ -20,18 +20,20 @@
 --   /nfplates scale N    plate size, 0.6 to 2 (default 1)
 
 local FLAT = "Interface\\ChatFrame\\ChatFrameBackground"
-local FONT = "Fonts\\FRIZQT__.TTF"
+local FONT = NFUI_PLATE_FONT
+local PlateLevelTag
 local BORDER_TEXTURE = "Interface\\Tooltips\\Nameplate-Border"
 
 local EXECUTE_RANGE = 0.30      -- the game's execute effects start below this share of health
 
 local KINDS = {
-	normal   = { width = 100, height = 9,  nameSize = 9,  color = { 0.84, 0.20, 0.20 } },
-	elite    = { width = 130, height = 11, nameSize = 11, color = { 1.00, 0.55, 0.10 } },
-	guardian = { width = 150, height = 12, nameSize = 12, color = { 0.20, 0.75, 0.95 } },
-	boss     = { width = 170, height = 14, nameSize = 13, color = { 1.00, 0.10, 0.80 } },
+	normal   = { width = 100, height = 9,  nameSize = 9,  color = nfUIEdit.COLORS.enemy },
+	elite    = { width = 130, height = 11, nameSize = 11, color = nfUIEdit.COLORS.peach },
+	guardian = { width = 150, height = 12, nameSize = 12, color = nfUIEdit.COLORS.sapphire },
+	boss     = { width = 170, height = 14, nameSize = 13, color = nfUIEdit.COLORS.mauve },
 }
 local EXECUTE_COLOR = { 0.80, 0.10, 0.10 }
+nfUIConfig.PlateKinds = KINDS
 
 -- The five bosses of each zone.
 local BOSSES = {
@@ -77,7 +79,7 @@ for index = 1, table.getn(BOSSES) do
 	kindByName[BOSSES[index]] = "boss"
 end
 
--- Local tweak: the same elites and bosses under their Russian names, from the game's own tables.
+-- The same elites and bosses under their Russian names, from the game's own tables.
 for _,name in ipairs({"Кобольд-надсмотрщик","Сердитый Быстрокус","Брюхоед","Вожак воргов из Ночной Погибели","Паук-трупоед","Поганище-пожиратель плоти","Элитный страж Скверны","Инфернал","Стражник ужаса","Громила Гордунни","Древень Криводрева","Защитник Железной Коры","Берсерк Гурубаши","Зулианский кроколиск","Чемпион Гурубаши","Альтеракский повелитель йети","Горный великан","Полководець Зимосокир","Гончая Недр","Черный дракон","Огненный великан","Чемпион киражи","Анубисат-часовой","Обсидиановый разрушитель"}) do kindByName[name]="elite" end
 for _,name in ipairs({"Дробитель","Матушка Клык","Рак'Зор","Мистер Шлеп","Эдвин ван Клиф","Наракис","Мор'Ладим","Стежок","Лупос","Морбент Злоб","Командир стражников ужаса","Глашатай Маннорота","Вариматрас","Владыка Хел'нурат","Владыка Каззак","Лоскутик","Ануб'Рекан","Кел'Тузад","Зеврим Терновое Копыто","Алззин Перевертень","Тендрис Криводрев","Иммол'тар","Король Гордок","Верховная жрица Джеклик","Верховный жрец Веноксис","Мандокир Повелитель Крови","Джин'до Проклинатель","Хаккар Свежеватель Душ","Коррак Кровожадный","Ивус Лесной Властелин","Локолар Владыка Льда","Гляциус Замёрзший Титан","Азурегос","Генерал Кузня Гнева","Вождь Ренд Чернорук","Император Дагран Тауриссан","Мажордом Экзекутус","Нефариан","Куриннакс","Генерал Раджакс","Принцесса Хухуран","Оссириан Неуязвимый","К'Тун"}) do kindByName[name]="boss" end
 
@@ -128,7 +130,8 @@ local function ApplyKind(overlay, kind)
 	overlay.name:SetFont(FONT, settings.nameFont * scale, "OUTLINE")
 	overlay.name:SetWidth(math.max(110,overlay.bar:GetWidth()));overlay.name:SetHeight(settings.nameFont*scale+4)
 	overlay.health:SetFont(FONT, settings.healthFont * scale, "OUTLINE")
-	overlay.name:SetText(settings.abbreviate and nfUI_AbbreviateName(overlay.stock.name:GetText()) or overlay.stock.name:GetText())
+	overlay.levelTag = PlateLevelTag(overlay.stock)
+	overlay.name:SetText(overlay.levelTag .. (settings.abbreviate and nfUI_AbbreviateName(overlay.stock.name:GetText()) or overlay.stock.name:GetText() or ""))
 
 	overlay.named = settings.showNames
 	if overlay.named and not overlay.put then
@@ -144,7 +147,7 @@ end
 -- screen only the target's can be told apart (it alone keeps full alpha).
 local PLATE_DEBUFFS = 6
 local DEBUFF_SIZE = 11
--- Local tweak: which unit a plate's debuffs can be read from: the target, or an ally by name.
+-- Which unit a plate's debuffs can be read from: the target, or an ally by name.
 -- The party is looked up twice a second, not for every plate on every frame.
 local partyUnits,partyColors,partyPets,partyRead={},{},{},-1
 local function ReadParty()
@@ -173,6 +176,13 @@ local function PartyUnitByName(name)
     if not name then return nil end
     ReadParty()
     return partyUnits[name]
+end
+
+-- An ally's level comes from the party; everyone else's from the plate.
+function PlateLevelTag(stock)
+    local ally=stock.name and PartyUnitByName(stock.name:GetText())
+    if ally then return nfUIEdit.LevelTag(UnitLevel(ally)) end
+    return nfUIEdit.LevelTag(stock.level and stock.level:GetText())
 end
 
 local function UpdatePlateDebuffs(overlay,target)
@@ -213,7 +223,7 @@ local function SuppressStock(overlay)
     if stock.fill and stock.fill:IsShown() then stock.fill:Hide() end
 end
 
--- Local tweak: allies' plates alongside enemies': allies in their class colour, others in the game's own
+-- Allies' plates alongside enemies': allies in their class colour, others in the game's own
 -- friendly colour, and the party's pets left out.
 local function FriendlyColor(overlay)
 	local r,g,b=overlay.stock.health:GetStatusBarColor()
@@ -232,16 +242,29 @@ local function IsPartyPet(overlay)
     return partyPets[name]==true
 end
 
+-- The game's own word for what this enemy is, which works in every language.
+local GAME_KINDS={enemy="normal",elite="elite",guardian="guardian",boss="boss",finalBoss="boss"}
+function nfUIConfig.SetPlateKind(overlay,gameKind)
+    local kind=GAME_KINDS[gameKind]
+    if kind and overlay.kind~=kind then ApplyKind(overlay,kind) end
+end
+
 local function UpdatePlate()
 	local overlay = this
 	local stock = overlay.stock
     SuppressStock(overlay)
 
 	local name = stock.name:GetText()
-	if name ~= overlay.lastName then
+	local levelTag = PlateLevelTag(stock)
+	if name ~= overlay.lastName or levelTag ~= overlay.levelTag then
+		if name ~= overlay.lastName then
+			ApplyKind(overlay, Classify(name))
+			overlay.shownShare = nil
+			overlay.trailShare = nil
+		end
 		overlay.lastName = name
-		overlay.name:SetText(Settings().abbreviate and nfUI_AbbreviateName(name) or name)
-		ApplyKind(overlay, Classify(name))
+		overlay.levelTag = levelTag
+		overlay.name:SetText(levelTag .. ((Settings().abbreviate and nfUI_AbbreviateName(name) or name) or ""))
 	end
 
 	-- The client dims every plate but the target's.
@@ -253,8 +276,36 @@ local function UpdatePlate()
 	local value = stock.health:GetValue()
 	local share = high > low and (value - low) / (high - low) or 0
 	local percent = math.floor(share * 100 + 0.5)
-	overlay.bar:SetValue(share)
-	overlay.bar:SetAlpha(isTarget and 1 or 0.6)
+	-- Health drains smoothly and leaves a pale trail. A rise is instant: plates are reused for new enemies.
+	local elapsed = arg1 or 0
+	local shown = overlay.shownShare or share
+	if share >= shown then
+		shown = share
+	else
+		shown = shown + (share - shown) * math.min(1, elapsed * 12)
+		if shown - share < 0.002 then shown = share end
+	end
+	overlay.shownShare = shown
+	local trail = overlay.trailShare or share
+	if trail < share then trail = share else trail = math.max(share, trail - elapsed * 0.45) end
+	if not nfUIEdit.On("plateTrail") then
+		shown = share
+		trail = share
+		overlay.shownShare = share
+	end
+	overlay.trailShare = trail
+	if trail - shown > 0.002 then
+		local barWidth = overlay.bar:GetWidth()
+		overlay.ghost:ClearAllPoints()
+		overlay.ghost:SetPoint("LEFT", overlay.bar, "LEFT", barWidth * shown, 0)
+		overlay.ghost:SetWidth(math.max(1, barWidth * (trail - shown)))
+		overlay.ghost:SetHeight(overlay.bar:GetHeight())
+		overlay.ghost:Show()
+	else
+		overlay.ghost:Hide()
+	end
+	overlay.bar:SetValue(shown)
+	overlay.bar:SetAlpha(isTarget and 1 or 0.85)
 
 	-- A 0 to 100 bar means the client only knows the percentage; anything else
 	-- is the unit's real health.
@@ -271,8 +322,8 @@ local function UpdatePlate()
 	end
 	overlay.bar:SetStatusBarColor(color[1], color[2], color[3], 1)
 
-	-- Local tweak: red edge when the target is looking at the hero. The game names only the target's target.
-	if overlay.nearHero or (isTarget and UnitExists("targettarget") and UnitIsUnit("targettarget","player") and UnitCanAttack("player","target")) then
+	-- Red edge when the target is looking at the hero. The game names only the target's target.
+	if nfUIEdit.On("redEdge") and (overlay.nearHero or (isTarget and UnitExists("targettarget") and UnitIsUnit("targettarget","player") and UnitCanAttack("player","target"))) then
 		overlay.border:SetVertexColor(1, 0.08, 0.08, 1)
 	elseif isTarget or overlay.kind == "boss" then
 		overlay.border:SetVertexColor(1, 1, 1, 1)
@@ -316,12 +367,15 @@ local function SkinPlate(plate)
     overlay.bar=CreateFrame("StatusBar",nil,overlay)
     overlay.bar:SetMinMaxValues(0,1);overlay.bar:SetStatusBarTexture(W.texture);overlay.bar:SetPoint("CENTER",overlay,"CENTER",0,8)
     overlay.border=W.Fill(overlay.bar,{0.12,0.13,0.16,0.55},"BACKGROUND",-1)
-    overlay.backing=W.Fill(overlay.bar,{0.2,0.22,0.27,0.22},"BORDER")
+    -- Dark enough that the edge behind it shows only around the bar, not through the lost health.
+    overlay.backing=W.Fill(overlay.bar,{nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3],0.95},"BORDER")
     overlay.marker=W.Fill(overlay.bar,{1,1,1,0.7},"OVERLAY");overlay.marker:ClearAllPoints();overlay.marker:SetWidth(1)
-    overlay.name=W.Label(overlay,11,"BOTTOM",0,0,nil,{1,1,1})
+    overlay.ghost=overlay.bar:CreateTexture(nil,"ARTWORK");overlay.ghost:SetTexture("Interface\\Buttons\\WHITE8X8")
+    overlay.ghost:SetVertexColor(nfUIEdit.COLORS.yellow[1],nfUIEdit.COLORS.yellow[2],nfUIEdit.COLORS.yellow[3],0.9);overlay.ghost:Hide()
+    overlay.name=W.Label(overlay,11,"BOTTOM",0,0,nil,{1,1,1});overlay.name:SetFont(FONT,11,"OUTLINE")
     overlay.name:ClearAllPoints();overlay.name:SetPoint("BOTTOMLEFT",overlay.bar,"TOPLEFT",0,2);overlay.name:SetJustifyH("LEFT")
     overlay.name:SetTextColor(1,1,1);overlay.name:SetShadowColor(0,0,0,1);overlay.name:SetShadowOffset(1,-1)
-    overlay.health=W.Label(overlay.bar,10,"CENTER",0,0,nil,{1,1,1});overlay.health:SetJustifyH("CENTER")
+    overlay.health=W.Label(overlay.bar,10,"CENTER",0,0,nil,{1,1,1});overlay.health:SetFont(FONT,10,"OUTLINE");overlay.health:SetJustifyH("CENTER")
     ApplyKind(overlay,"normal")
     overlay:SetScript("OnUpdate",UpdatePlate)
     plate.nfUIPlateOverlay=overlay;table.insert(overlays,overlay)
@@ -361,7 +415,7 @@ local function Nearer(a,b)
     return a.index<b.index
 end
 local function MotionValue(state,now)
-    local t=math.max(0,math.min(1,(now-state.started)/0.1)) -- local tweak: was 2 s, plates lagged behind
+    local t=math.max(0,math.min(1,(now-state.started)/0.1)) -- Was 2 s, plates lagged behind
     local ease=t*t*(3-2*t)
     return state.from+(state.target-state.from)*ease,t
 end
@@ -456,7 +510,7 @@ local function LayoutPlates()
         end
         if not blocked then
             local overlay=entry.overlay;overlay.put=nil;overlay.layoutAccepted=true
-            -- Local tweak: enemies low on the screen are nearer and look bigger, so their plate sits higher.
+            -- Enemies low on the screen are nearer and look bigger, so their plate sits higher.
             local nearness=1-math.max(0,math.min(1,entry.y/UIParent:GetHeight()))
             local offset=(y-entry.y)/entry.ratio+math.floor(nearness*16+0.5)
             overlay.collisionOffset=offset

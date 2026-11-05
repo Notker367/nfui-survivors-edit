@@ -25,7 +25,7 @@
 -- frame to move the whole row.
 
 local FLAT = "Interface\\ChatFrame\\ChatFrameBackground"
-local FONT = "Fonts\\FRIZQT__.TTF"
+local FONT = NFUI_FONT
 
 local BAR_BUTTONS = { 1, 2, 3, 4, 5, 6, 12 }     -- 12 is the = key
 local BUTTON_SIZE = 36
@@ -141,18 +141,23 @@ local function UnitFrame(unit,name,side,dropdown)
     nfUIWidgets.Fill(portrait,{0.04,0.04,0.04,1},"BACKGROUND")
     portrait.texture=portrait:CreateTexture(nil,"ARTWORK");portrait.texture:SetAllPoints(portrait)
     portrait.texture:SetTexCoord(0.15,0.85,0.15,0.85);widget.portrait=portrait
-    -- Local tweak: a live face over the static one; the static one stays if the model cannot show.
+    -- A live face over the static one; the static one stays if the model cannot show.
     local modelOk,model=pcall(CreateFrame,"PlayerModel",nil,portrait)
     if modelOk and model then model:SetAllPoints(portrait);portrait.model=model end
     local flashLayer=CreateFrame("Frame",nil,portrait);flashLayer:SetAllPoints(portrait)
     flashLayer:SetFrameLevel(portrait:GetFrameLevel()+3)
     portrait.flash=flashLayer:CreateTexture(nil,"OVERLAY");portrait.flash:SetTexture(FLAT)
     portrait.flash:SetVertexColor(0.9,0.1,0.1,1);portrait.flash:SetAllPoints(flashLayer);portrait.flash:SetAlpha(0)
+    -- The hero's level on the portrait, as on the classic frame.
+    if isPlayer then
+        widget.levelText=flashLayer:CreateFontString(nil,"OVERLAY");widget.levelText:SetFont(FONT,10,"OUTLINE")
+        widget.levelText:SetPoint("BOTTOM",portrait,"BOTTOM",0,0);widget.levelText:SetTextColor(1,1,0)
+    end
     widget.health=FlatBar(widget,FRAME_WIDTH,HEALTH_HEIGHT)
     local corner=isPlayer and "TOPRIGHT" or "TOPLEFT"
     widget.health:SetPoint(corner,widget,corner,0,0)
     widget.power=FlatBar(widget,FRAME_WIDTH,POWER_HEIGHT);widget.power:SetPoint("TOP",widget.health,"BOTTOM",0,-1)
-    -- Local tweak: see-through backing, a soft shadow around the bars and a sheen on them.
+    -- See-through backing, a soft shadow around the bars and a sheen on them.
     for _,bar in ipairs({widget.health,widget.power}) do
         for _,region in ipairs({bar:GetRegions()}) do
             if region:GetObjectType()=="Texture" then region:SetAlpha(0.55) end
@@ -167,8 +172,8 @@ local function UnitFrame(unit,name,side,dropdown)
     shine:SetPoint("TOPLEFT",widget.health,"TOPLEFT",0,0);shine:SetPoint("TOPRIGHT",widget.health,"TOPRIGHT",0,0);shine:SetHeight(1)
     local shade=widget.health:CreateTexture(nil,"OVERLAY");shade:SetTexture(FLAT);shade:SetVertexColor(0,0,0,0.16)
     shade:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);shade:SetPoint("BOTTOMRIGHT",widget.health,"BOTTOMRIGHT",0,0);shade:SetHeight(5)
-    -- Local tweak: a pale trail of lost health, and smooth bars.
-    local ghost=widget.health:CreateTexture(nil,"ARTWORK");ghost:SetTexture(FLAT);ghost:SetVertexColor(1,0.86,0.62,0.75);ghost:Hide()
+    -- A pale trail of lost health, and smooth bars.
+    local ghost=widget.health:CreateTexture(nil,"ARTWORK");ghost:SetTexture(FLAT);ghost:SetVertexColor(nfUIEdit.COLORS.yellow[1],nfUIEdit.COLORS.yellow[2],nfUIEdit.COLORS.yellow[3],0.85);ghost:Hide()
     widget:SetScript("OnUpdate",function()
         local elapsed=arg1 or 0
         local step=math.min(1,elapsed*12)
@@ -202,7 +207,7 @@ local function UnitFrame(unit,name,side,dropdown)
             this.powerShown=level;this.power:SetValue(level)
         end
     end)
-    -- Local tweak: all text sits in its own layer above the bars and the shield.
+    -- All text sits in its own layer above the bars and the shield.
     local textLayer=CreateFrame("Frame",nil,widget.health);textLayer:SetAllPoints(widget.health)
     textLayer:SetFrameLevel(widget.health:GetFrameLevel()+4)
     widget.name=Text(textLayer,11,"LEFT",5,0);widget.name:SetWidth(FRAME_WIDTH-82);widget.name:SetHeight(12);widget.name:SetJustifyH("LEFT")
@@ -211,10 +216,10 @@ local function UnitFrame(unit,name,side,dropdown)
     widget.name:SetTextColor(1,1,1);widget.value:SetTextColor(1,1,1);widget.percent:SetTextColor(0.92,0.92,0.92)
     for _,label in ipairs({widget.name,widget.value,widget.percent}) do label:SetShadowColor(0,0,0,0.9);label:SetShadowOffset(1,-1) end
     local absorb=CreateFrame("StatusBar",nil,widget.health)
-    absorb:SetMinMaxValues(0,1);absorb:SetStatusBarTexture(FLAT);absorb:SetStatusBarColor(0.45,0.8,1,0.5)
+    absorb:SetMinMaxValues(0,1);absorb:SetStatusBarTexture(FLAT);absorb:SetStatusBarColor(nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3],0.6)
     absorb:SetWidth(FRAME_WIDTH);absorb:SetHeight(3);absorb:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);absorb:Hide()
     widget.shield=absorb;widget.shieldText=Text(textLayer,11,"CENTER",0,0)
-    widget.shieldText:SetTextColor(0.6,0.92,1);widget.shieldText:SetShadowColor(0,0,0,0.9);widget.shieldText:SetShadowOffset(1,-1);widget.shieldText:Hide()
+    widget.shieldText:SetTextColor(nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3]);widget.shieldText:SetShadowColor(0,0,0,0.9);widget.shieldText:SetShadowOffset(1,-1);widget.shieldText:Hide()
     widget:RegisterForClicks("LeftButtonUp","RightButtonUp");widget:RegisterForDrag("LeftButton")
     widget:SetScript("OnClick",function()
         local menu=dropdown and getglobal(dropdown)
@@ -258,22 +263,29 @@ local function UpdateUnitFrame(widget)
     local options=nfUIDB and nfUIDB[unit.."Style"] or {}
     local red,green,blue=HealthColor(unit)
     if options.healthColor~=false then
-        local value=math.max(0,math.min(1,fraction));red=0.82-0.62*value;green=0.18+0.57*value;blue=0.18
+        -- From the palette's red when hurt to its green when whole.
+        local value=math.max(0,math.min(1,fraction));local low,high=nfUIEdit.COLORS.red,nfUIEdit.COLORS.green
+        red=low[1]+(high[1]-low[1])*value;green=low[2]+(high[2]-low[2])*value;blue=low[3]+(high[3]-low[3])*value
     end
-    widget.health:SetStatusBarColor(red,green,blue,0.85)
+    widget.health:SetStatusBarColor(red,green,blue,0.95)
     if widget.shownFor~=UnitName(unit) then widget.shownFor=UnitName(unit);widget.healthShown=nil;widget.healthTrail=nil end
     widget.healthGoal=math.max(0,math.min(1,fraction))
-    widget.name:SetText(nfUI_AbbreviateName(UnitName(unit)))
+    widget.name:SetText((unit=="target" and nfUIEdit.LevelTag(UnitLevel(unit)) or "")..nfUI_AbbreviateName(UnitName(unit)))
+    if widget.levelText then
+        local levelFont=nfUIEdit.Size("ownLevelFont",10)
+        if widget.levelFont~=levelFont then widget.levelFont=levelFont;widget.levelText:SetFont(FONT,levelFont,"OUTLINE") end
+        widget.levelText:SetText(nfUIEdit.On("ownLevel") and UnitLevel(unit) or "")
+    end
     local value=percent.."%"
     if UnitIsDead(unit) or UnitIsGhost(unit) then value="Dead"
-    elseif options.healthText=="Numerical" then value=string.format("%.0f",current)
+    elseif options.healthText=="Numerical" then value=string.format("%.0f",current);widget.percent:SetText("")
     elseif options.healthText=="CurrentHP+%" or (not options.healthText and unit=="player") then value=Short(current);widget.percent:SetText(percent.."%") end
     if value==percent.."%" or value=="Dead" then widget.percent:SetText("") end
     widget.value:SetText(value)
     local total=nfUIConfig.GetShield and nfUIConfig.GetShield(unit)
     widget.shieldAvailable=total~=nil
     if options.showShield and total and total>0 and maximum>0 then
-        -- Local tweak: the shield continues the health bar, its number right after it.
+        -- The shield continues the health bar, its number right after it.
         local barWidth=widget.health:GetWidth()
         local share=math.min(1,total/maximum)
         local start=math.max(0,math.min(1-share,math.min(1,fraction)))
@@ -308,7 +320,7 @@ for index = 1, DEBUFFS do
 	icon.texture:SetTexCoord(0, 1, 0, 1)
 
 	icon.count = Text(icon, 9, "BOTTOMRIGHT", -1, 1)
-	-- Local tweak: read a target's debuff on hover.
+	-- Read a target's debuff on hover.
 	icon.debuffIndex = index
 	icon:EnableMouse(true)
 	icon:SetScript("OnEnter", function()
@@ -423,6 +435,8 @@ local function LayoutBar()
 
 	for _, name in pairs({
 		"MainMenuBarTexture0", "MainMenuBarTexture1", "MainMenuBarTexture2", "MainMenuBarTexture3",
+		-- The game's own piece of the old bar, behind the racial slot.
+		"AZS_MainMenuBarTexture4", "AZS_RacialRim",
 		"MainMenuBarLeftEndCap", "MainMenuBarRightEndCap",
 		"ActionBarUpButton", "ActionBarDownButton", "MainMenuBarPageNumber",
 		"KeyRingButton", "MainMenuBarPerformanceBarFrame",
@@ -509,7 +523,7 @@ local function UpdateAuras()
             local remaining=GetPlayerBuffTimeLeft(entry.id);local stacks=GetPlayerBuffApplications(entry.id)
             widget.time:SetText(remaining and remaining>0 and TimeText(remaining) or "")
             widget.count:SetText(stacks and stacks>1 and stacks or "");widget:Show()
-            -- Local tweak: green edge for buffs, red for debuffs.
+            -- Green edge for buffs, red for debuffs.
             if entry.helpful then widget.border:SetVertexColor(0.2,0.8,0.3,1) else widget.border:SetVertexColor(0.95,0.15,0.15,1) end
             widget.border:Show()
         elseif nfUIConfig.editing then
@@ -681,26 +695,28 @@ local function StyleChat()
 
 			-- Plain text with a soft shadow in place of the stock look.
 			local _, size = chat:GetFont()
-			chat:SetFont(FONT, size or 13)
+			chat:SetFont(nfUIEdit.On("chatNarrowFont") and NFUI_PLATE_FONT or FONT, size or 13)
 			chat:SetShadowColor(0, 0, 0, 1)
 			chat:SetShadowOffset(1, -1)
+			if chat.SetSpacing then chat:SetSpacing(2) end
 
 			chat:EnableMouseWheel(true)
 			chat:SetScript("OnMouseWheel", ChatWheel)
 
 			if not chat.nfuiPanel then
 				local panel = CreateFrame("Frame", nil, chat)
-				panel:SetPoint("TOPLEFT", chat, "TOPLEFT", -6, 6)
-				panel:SetPoint("BOTTOMRIGHT", chat, "BOTTOMRIGHT", 6, -6)
+				panel:SetPoint("TOPLEFT", chat, "TOPLEFT", -9, 9)
+				panel:SetPoint("BOTTOMRIGHT", chat, "BOTTOMRIGHT", 9, -9)
 				panel:SetFrameLevel(math.max(0, chat:GetFrameLevel() - 1))
 				local fill = panel:CreateTexture(nil, "BACKGROUND")
 				fill:SetTexture(FLAT)
-				fill:SetVertexColor(0.04, 0.04, 0.06, 0.55)
+				fill:SetVertexColor(nfUIEdit.COLORS.base[1], nfUIEdit.COLORS.base[2], nfUIEdit.COLORS.base[3], 0.75)
 				fill:SetAllPoints(panel)
+				nfUIEdit.Edge(panel, nfUIEdit.COLORS.surface[1], nfUIEdit.COLORS.surface[2], nfUIEdit.COLORS.surface[3], 1).Show()
 				-- An accent line down the left edge.
 				local accent = panel:CreateTexture(nil, "BORDER")
 				accent:SetTexture(FLAT)
-				accent:SetVertexColor(1, 0.82, 0, 0.8)
+				accent:SetVertexColor(nfUIEdit.COLORS.mauve[1], nfUIEdit.COLORS.mauve[2], nfUIEdit.COLORS.mauve[3], 0.9)
 				accent:SetWidth(2)
 				accent:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
 				accent:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
@@ -722,7 +738,12 @@ local function StyleChat()
 		end
 	end
 
-	-- The edit box: a flat field under the chat.
+	-- System messages in the palette's softer yellow.
+	if ChatTypeInfo and ChatTypeInfo.SYSTEM then
+		ChatTypeInfo.SYSTEM.r, ChatTypeInfo.SYSTEM.g, ChatTypeInfo.SYSTEM.b = nfUIEdit.COLORS.yellow[1], nfUIEdit.COLORS.yellow[2], nfUIEdit.COLORS.yellow[3]
+	end
+
+	-- The edit box: a flat field above the chat, as wide as its panel.
 	local edit = getglobal("ChatFrameEditBox")
 	if edit then
 		for _, piece in pairs({ "Left", "Mid", "Right" }) do
@@ -734,7 +755,7 @@ local function StyleChat()
 		if not edit.nfuiBack then
 			edit.nfuiBack = edit:CreateTexture(nil, "BACKGROUND")
 			edit.nfuiBack:SetTexture(FLAT)
-			edit.nfuiBack:SetVertexColor(0.04, 0.04, 0.06, 0.8)
+			edit.nfuiBack:SetVertexColor(nfUIEdit.COLORS.base[1], nfUIEdit.COLORS.base[2], nfUIEdit.COLORS.base[3], 0.9)
 			edit.nfuiBack:SetPoint("TOPLEFT", edit, "TOPLEFT", 4, -5)
 			edit.nfuiBack:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", -4, 5)
 		end
@@ -888,11 +909,15 @@ end)
 nfUIConfig = {}
 local Config = nfUIConfig
 Config.defaults = {
+    blocks = {bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
+        farRadius=100, risingFont=13, risingHeight=42, skillStatsFont=9, metresFont=9, ownLevelFont=10},
+    edit = {levels=true, ownLevel=true, risingDamage=true, plateTrail=true, metres=true, redEdge=true, targetOfTarget=true,
+        chestIcon=true, chatNarrowFont=true, chatTabs=true, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
     layout = {scale=1, x=0, y=-150, sectionGap=6},
     player = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11,hideName=false,healthArea="Right"},
     target = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11},
-    playerStyle = {showPortrait=true, healthText="CurrentHP+%", healthColor=true, showShield=true, shieldHeight=3, shieldFont=10},
-    targetStyle = {showPortrait=true, healthText="Percentage", healthColor=true, showShield=true, shieldHeight=3, shieldFont=10},
+    playerStyle = {showPortrait=true, healthText="Numerical", healthColor=true, showShield=true, shieldHeight=3, shieldFont=10},
+    targetStyle = {showPortrait=true, healthText="Numerical", healthColor=true, showShield=true, shieldHeight=3, shieldFont=10},
     action = {scale=1, size=36, gap=2, hotkeyFont=10, cooldownFont=14, countFont=12},
     auras = {size=22, gap=3, timeFont=10, stackFont=9},
     debuffs = {size=18, gap=3, stackFont=9},
@@ -900,10 +925,12 @@ Config.defaults = {
     minimap = {size=140, scale=1},
     chat = {width=380, height=150, font=13, tabFont=11, editScale=1, editFont=13,backdropOpacity=0.55},
     dpsDisplay={width=250,height=240,scale=1,backdropOpacity=0.88,autoWidth=false,autoHeight=false},
-    nameplates={enabled=true,amount="All",collision=false,stacking=false,scale=1,width=100,height=9,color={0.84,0.2,0.2},rankColors=true,showNames=true,abbreviate=true,nameFont=11,healthFont=10,healthText="Percentage"},
+    nameplates={enabled=true,amount="All",collision=false,stacking=false,scale=1,width=100,height=9,color={0.84,0.2,0.2},rankColors=true,showNames=true,abbreviate=true,nameFont=11,healthFont=10,healthText="Numerical"},
     micro = {scale=1}
 }
 Config.limits = {
+    bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
+    farRadius={20,300,5}, risingFont={8,32,1}, risingHeight={10,150,1}, skillStatsFont={7,24,1}, metresFont={7,24,1}, ownLevelFont={7,24,1},
     scale={0.5,2,0.05}, x={-800,800,5}, y={-600,600,5}, sectionGap={0,50,1},
     width={80,600,5}, height={16,100,1}, portrait={16,100,1}, powerHeight={1,16,1},
     nameFont={8,24,1}, valueFont={8,24,1},
@@ -1089,8 +1116,8 @@ function Config.Apply()
         local chat=getglobal("ChatFrame"..i)
         if chat then
             chat:SetWidth(db.chat.width); chat:SetHeight(db.chat.height)
-            chat:SetFont(FONT,db.chat.font)
-          if chat.nfuiBackdrop then chat.nfuiBackdrop:SetVertexColor(0.04,0.04,0.06,db.chat.backdropOpacity) end
+            chat:SetFont(nfUIEdit.On("chatNarrowFont") and NFUI_PLATE_FONT or FONT,db.chat.font)
+          if chat.nfuiBackdrop then chat.nfuiBackdrop:SetVertexColor(nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3],db.chat.backdropOpacity) end
           if chat.nfuiAccent then chat.nfuiAccent:SetAlpha(math.min(1,db.chat.backdropOpacity/0.55)) end
             local tab=getglobal("ChatFrame"..i.."TabText")
             if tab then tab:SetFont(FONT,db.chat.tabFont,"OUTLINE") end
@@ -1098,9 +1125,9 @@ function Config.Apply()
     end
     if ChatFrameEditBox then
         ChatFrameEditBox:SetScale(editBaseScale*db.chat.editScale)
-        ChatFrameEditBox:SetFont(FONT,db.chat.editFont)
-        -- Local tweak: a moved input box loses the stock anchors that gave it its width.
-        ChatFrameEditBox:SetWidth(db.chat.width/db.chat.editScale);ChatFrameEditBox:SetHeight(32)
+        ChatFrameEditBox:SetFont(nfUIEdit.On("chatNarrowFont") and NFUI_PLATE_FONT or FONT,db.chat.editFont)
+        -- A moved input box loses the stock anchors that gave it its width.
+        ChatFrameEditBox:SetWidth((db.chat.width+26)/db.chat.editScale);ChatFrameEditBox:SetHeight(32)
         ChatFrameEditBox:SetFrameStrata("DIALOG")
     end
     for _,name in ipairs(MICRO_BUTTONS) do
@@ -1130,6 +1157,38 @@ function Config.SaveRowPosition()
     end
 end
 
+-- Everything back to the edit's own settings, as on a first start.
+function Config.ResetAll()
+    Config.Reset()
+    local fresh=nfUIEdit.FreshProfile()
+    -- The record of past runs and this run's marks are not settings.
+    fresh.runHistory=nfUIDB.runHistory;fresh.banished=nfUIDB.banished
+    for key in pairs(nfUIDB) do nfUIDB[key]=nil end
+    for key,value in pairs(fresh) do nfUIDB[key]=value end
+    Config.Apply()
+end
+-- One section back to the edit's own settings: its values and the positions of its panels.
+function Config.ResetSection(category)
+    Config.Reset(category)
+    local fresh=nfUIEdit.FreshProfile()
+    local db=Config.Settings()
+    for _,name in ipairs({category,category.."Style"}) do
+        if type(fresh[name])=="table" and type(db[name])=="table" then
+            for key,value in pairs(fresh[name]) do db[name][key]=value end
+        end
+    end
+    for _,entry in ipairs(Config.moverRegistry or {}) do
+        if entry.category==category and fresh.positions[entry.key] then db.positions[entry.key]=fresh.positions[entry.key] end
+    end
+    Config.Apply()
+end
+function Config.ResetPositions()
+    Config.ClearPositions()
+    local fresh=nfUIEdit.FreshProfile()
+    local db=Config.Settings()
+    for key,spot in pairs(fresh.positions) do db.positions[key]=spot end
+    Config.Apply()
+end
 function Config.Reset(category)
     local db=Config.Settings()
     for name,defaults in pairs(Config.defaults) do
