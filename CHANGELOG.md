@@ -10,6 +10,16 @@
 - Jewelry pool: every ring, trinket and amulet, dimmed once the slots are full.
 - Banished cards: click an icon in a pool to cross it out and list it.
 - Bars for enemies beyond the game's own nameplates.
+- Hero stats and a DPS graph against your last run, in the new detailed mode.
+
+**Warnings and map**
+- A warning with a sound 10 seconds before each boss.
+- Guardians and caches on the minimap, with pins at its edge for those further off.
+
+**Modes and history**
+- Default, detailed and hidden modes: `/nfui mode`, a button in Switches, or a key you bind.
+- Hover a past run for its summary; `/nfui export` gives all runs as text.
+- A colour-blind palette.
 
 **Numbers**
 - Bigger hits are larger and stay longer.

@@ -26,6 +26,8 @@ An unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous. Ev
 | 12 | Damage you take | One slow column rising above your health and dissolving; bigger hits are larger |
 | 13 | DPS meter | Click to expand: every skill with its icon, and the party's in co-op |
 
+Also on the screen: a warning with a sound 10 seconds before each boss, and guardians (blue when asleep, orange when awake) and caches (yellow) on the minimap. A pin at the map's edge points the way to one further off.
+
 ## What you can do
 
 **Move and lock anything.** Open `/nfui` and press **Movers**, then drag a panel. Right-click one for exact sizes and **Lock**: a locked panel turns red and stays put.
@@ -40,11 +42,19 @@ An unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous. Ev
 
 ![Banished cards at the top right](media/banished.jpg)
 
+**Choose how much you see.** Three modes: default, detailed and hidden. Detailed adds hero stats and a graph of your DPS (bars) against your last run (marks). Hidden removes the info panels for a clean screen. Switch with `/nfui mode`, the button in **Switches**, or a key: **Key Bindings > nfUI > Cycle interface detail**.
+
+![Detailed mode: hero stats, panels and the DPS graph](media/detailed.jpg)
+
+**Compare your runs.** Hover a past run in **History** for its damage and best skills. `/nfui export` gives all your runs as text to copy.
+
 **Switch things off.** Every on/off choice is in one place, the **Switches** tab. Sizes of the new panels and fonts are in **Blocks**.
 
 | Switches | Blocks |
 |---|---|
 | ![Switches tab](media/switches.jpg) | ![Blocks tab](media/blocks.jpg) |
+
+**Colour-blind palette.** One switch in **Switches** replaces the red and green pair, then `/reload`.
 
 **Reset safely.** `Reset section`, `Reset all` and `Reset positions` return to this edit's layout, fitted to your screen. Your run history is kept.
 
