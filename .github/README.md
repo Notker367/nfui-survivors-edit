@@ -12,18 +12,18 @@ An unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous. Ev
 
 | # | Part | What it does |
 |---|---|---|
-| 1 | Hero frame | Current health as a number, level on the portrait, shield amount, a chest icon when you can afford one |
+| 1 | Hero frame | Current health as a number, regeneration per second at the bar's end, level on the portrait, shield amount, a chest icon when you can afford one |
 | 2 | Skill bar | Cooldown numbers on every skill, with rank and DPS under each |
 | 3 | Bosses | Countdown to every boss of the run: yellow under 30 sec, red under 10, the final boss in violet |
 | 4 | Guardians | Each lair: countdown until its guardian appears, then asleep or its health. The `>` marks the one the game points at |
 | 5 | Damage taken | What has hurt you this run: enemy or boss, melee, spell or area, with shares |
 | 6 | History | Your DPS now against your last and best run with the same class in the same zone, **at the same moment of the run** |
-| 7 | Skill pool | Picked skills on top in a green edge, what can still come up below. Dims when all 6 are picked |
-| 8 | Jewelry pool | Every ring, trinket and amulet. Rings and trinkets dim once both slots are full. Hover to read them |
+| 7 | Skill pool | Picked skills on their own row with a green edge, what can still come up below. Dims when all 6 are picked |
+| 8 | Jewelry pool | A row for each kind, same order of effects: damage, survival, utility. Worn pieces have a green edge, your class's legendary amulets come first. Rings and trinkets dim once both slots are full. Hover to read them |
 | 9 | Chat | A clear narrow font, even margins, tabs always visible, the input box above it |
 | 10 | Enemy bars | Level coloured as in classic WoW (grey, green, yellow, orange, red), current health, distance in metres, a red edge on enemies next to you. Health drains smoothly and leaves a trail. Pale bars are enemies beyond the game's own nameplates |
-| 11 | Damage numbers | Bigger hits are larger and stay longer. Hits that cannot be placed merge into one number instead of a pile |
-| 12 | Damage you take | One slow column rising above your health and dissolving; bigger hits are larger |
+| 11 | Damage numbers | Your hits, also above the target's health with the skill's icon. Bigger hits are larger and stay longer. Hits that cannot be placed merge into one number instead of a pile |
+| 12 | Damage and healing on you | Slow columns rising above your health and dissolving: red for damage, green for active healing beside it; bigger numbers are larger |
 | 13 | DPS meter | Click to expand: every skill with its icon, and the party's in co-op |
 
 Also on the screen: a warning with a sound 10 seconds before each boss, and guardians (blue when asleep, orange when awake) and caches (yellow) on the minimap. A pin at the map's edge points the way to one further off.
@@ -53,6 +53,12 @@ Also on the screen: a warning with a sound 10 seconds before each boss, and guar
 | Switches | Blocks |
 |---|---|
 | ![Switches tab](media/switches.jpg) | ![Blocks tab](media/blocks.jpg) |
+
+**Read your stats.** The character page shows them in two columns; click a group to fold what your build does not need.
+
+![Character page with foldable groups](media/character.jpg)
+
+**Keep settings simple.** The common ones are shown first; **Show advanced** opens the rest.
 
 **Colour-blind palette.** One switch in **Switches** replaces the red and green pair, then `/reload`.
 
