@@ -60,7 +60,13 @@ local LAIR_ROWS,HISTORY_ROWS=4,6
 Panel(lairFrame,E.Text("Стражи","Guardians"),"lairs",LAIR_ROWS,"blockLairs")
 Panel(historyFrame,E.Text("История: DPS сейчас","History: DPS now"),"history",HISTORY_ROWS,"blockHistory")
 local foldedOnce
+local statsFrame,graphFrame=E.blocks.stats,E.blocks.graph
+local STAT_ROWS,GRAPH_BARS,GRAPH_HEIGHT=10,24,38
+Panel(statsFrame,E.Text("Герой","Hero"),"stats",STAT_ROWS,"blockStats")
+Panel(graphFrame,E.Text("DPS по времени","DPS over time"),"graph",0,"blockGraph")
+for _,row in ipairs(statsFrame.rows) do row.left:SetWidth(90) end
 
+local warned={}
 local function UpdateBosses()
     local now=AZS_GetRunTime and AZS_GetRunTime() or 0
     local c=E.COLORS
@@ -74,6 +80,13 @@ local function UpdateBosses()
             row.left:SetText(boss.name or "?")
             if boss.state=="due" then
                 row.right:SetText(Clock(left))
+                if left>0 and left<=10 and E.On("bossAlert") then
+                    local key=tostring(type(AZS_ZONE)=="table" and AZS_ZONE.run).."/"..tostring(boss.index)
+                    if not warned[key] then
+                        warned[key]=true
+                        E.Alert(E.Text("Босс через 10 сек: ","Boss in 10 sec: ")..(boss.name or "?"))
+                    end
+                end
                 if left<=10 then color=c.red elseif left<=30 then color=c.yellow elseif boss.final==1 then color=c.mauve end
             else
                 -- Up or already beaten: the game only says it is no longer to come.
@@ -169,6 +182,14 @@ local function Record()
         end
     end
     current.t=t;current.dealt=dealt;current.level=tonumber(AZS_RUN.lvl)
+    -- The run's best skills, for its summary.
+    if type(AZS_METER)=="table" and AZS_METER[1] then
+        current.skills={}
+        for index=1,math.min(5,table.getn(AZS_METER)) do
+            local line=AZS_METER[index]
+            if type(line)=="table" and line.name then table.insert(current.skills,{name=line.name,dmg=tonumber(line.dmg) or 0}) end
+        end
+    end
     local step=math.floor(t/STEP)
     if step>0 and step<=MAX_STEPS and not current.marks[step] then current.marks[step]=dealt end
     return current,t,dealt
@@ -192,6 +213,30 @@ local function Compare(row,label,rate,now)
     row.right:SetText(E.Short(rate).." ("..(gain>=0 and "+" or "")..gain.."%)")
     local color=gain>=0 and E.COLORS.green or E.COLORS.enemy
     row.right:SetTextColor(color[1],color[2],color[3])
+end
+-- Hovering a past run shows its summary.
+local hovers={}
+local function SummaryHover(index,run)
+    local hover=hovers[index]
+    if not hover then
+        hover=CreateFrame("Frame",nil,historyFrame);hover:SetHeight(ROW_HEIGHT-1)
+        hover:SetPoint("TOPLEFT",historyFrame,"TOPLEFT",2,-20-(index-1)*ROW_HEIGHT);hover:SetPoint("TOPRIGHT",historyFrame,"TOPRIGHT",-2,-20-(index-1)*ROW_HEIGHT)
+        hover:EnableMouse(true)
+        hover:SetScript("OnEnter",function()
+            local shown=this.run
+            if not shown then return end
+            GameTooltip:SetOwner(this,"ANCHOR_LEFT")
+            GameTooltip:SetText((shown.class or "?").." "..Clock(shown.t or 0),1,1,1)
+            GameTooltip:AddDoubleLine(E.Text("Урон","Damage"),E.Short(shown.dealt or 0),1,0.82,0,1,1,1)
+            GameTooltip:AddDoubleLine("DPS",E.Short((shown.dealt or 0)/math.max(1,shown.t or 1)),1,0.82,0,1,1,1)
+            for _,skill in ipairs(shown.skills or {}) do GameTooltip:AddDoubleLine(skill.name,E.Short(skill.dmg),0.8,0.8,0.85,1,1,1) end
+            GameTooltip:Show()
+        end)
+        hover:SetScript("OnLeave",function() GameTooltip:Hide() end)
+        hovers[index]=hover
+    end
+    hover.run=run
+    if run and not E.IsCollapsed("history") then hover:Show() else hover:Hide() end
 end
 local function UpdateHistory()
     local entry,t,dealt=Record()
@@ -222,20 +267,107 @@ local function UpdateHistory()
             rows[row].left:SetText((other.class or "?").." "..Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or ""))
             rows[row].left:SetTextColor(DONE[1],DONE[2],DONE[3])
             rows[row].right:SetText(E.Short((other.dealt or 0)/other.t));rows[row].right:SetTextColor(DONE[1],DONE[2],DONE[3])
+            SummaryHover(row,other)
             row=row+1
         end
     end
-    for index=row,HISTORY_ROWS do Clear(rows[index]) end
+    for index=row,HISTORY_ROWS do Clear(rows[index]);SummaryHover(index,nil) end
+    return true
+end
+-- The hero's numbers, from the line the game's own character pane reads.
+local function Percent(value) return string.format("%.0f%%",(value or 0)*100) end
+local function Plus(value) return string.format("%+.0f%%",((value or 1)-1)*100) end
+local STATS={
+    {"Урон","Damage",function(s) return Plus(s.dmg) end},
+    {"Шанс крита","Crit chance",function(s) return Percent(s.crit) end},
+    {"Урон крита","Crit damage",function(s) return Percent(s.cm) end},
+    {"Перезарядка","Cooldowns",function(s) return Plus(s.cd) end},
+    {"Броня","Armor",function(s) return Percent(s.arm) end},
+    {"Реген","Regen",function(s) return string.format("%.1f/s",s.reg or 0) end},
+    {"Область","Area",function(s) return Plus(s.area) end},
+    {"Скорость","Speed",function(s) return Plus(s.spd) end},
+    {"Подбор","Pickup",function(s) return string.format("%.0f",s.pick or 0) end},
+    {"Удача","Luck",function(s) return Percent(s.luck) end},
+}
+local function UpdateStats()
+    if type(AZS_STATS)~="table" then return false end
+    local language=E.IsRussian() and 1 or 2
+    for index,stat in ipairs(STATS) do
+        local row=statsFrame.rows[index]
+        row.left:SetText(stat[language]);row.left:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
+        row.right:SetText(stat[3](AZS_STATS));row.right:SetTextColor(E.COLORS.yellow[1],E.COLORS.yellow[2],E.COLORS.yellow[3])
+    end
+    return true
+end
+-- Damage per second in each 30 seconds of this run, with the last run's as marks.
+local bars,marks={},{}
+local function GraphPiece(list,index,layer)
+    local piece=list[index]
+    if not piece then
+        piece=graphFrame:CreateTexture(nil,layer);piece:SetTexture(E.FLAT)
+        list[index]=piece
+    end
+    return piece
+end
+local function RatesOf(entry)
+    local rates={}
+    if not entry or type(entry.marks)~="table" then return rates end
+    local step=1
+    while entry.marks[step] do
+        rates[step]=(entry.marks[step]-(entry.marks[step-1] or 0))/STEP
+        step=step+1
+    end
+    return rates
+end
+local function UpdateGraph()
+    local entry=current
+    if not entry then return false end
+    if E.IsCollapsed("graph") then
+        for _,piece in ipairs(bars) do piece:Hide() end
+        for _,piece in ipairs(marks) do piece:Hide() end
+        return true
+    end
+    local previous
+    local list=History()
+    for index=table.getn(list),1,-1 do
+        local other=list[index]
+        if other~=entry and other.class==entry.class and other.zone==entry.zone then previous=other;break end
+    end
+    local own,theirs=RatesOf(entry),RatesOf(previous)
+    local count=table.getn(own)
+    local first=math.max(1,count-GRAPH_BARS+1)
+    local top=1
+    for index=first,math.max(count,first+GRAPH_BARS-1) do
+        top=math.max(top,own[index] or 0,theirs[index] or 0)
+    end
+    local width=(graphFrame:GetWidth()-12)/GRAPH_BARS
+    for slot=1,GRAPH_BARS do
+        local index=first+slot-1
+        local bar,mark=GraphPiece(bars,slot,"BORDER"),GraphPiece(marks,slot,"ARTWORK")
+        local x=6+(slot-1)*width
+        if own[index] then
+            bar:ClearAllPoints();bar:SetPoint("BOTTOMLEFT",graphFrame,"BOTTOMLEFT",x,6)
+            bar:SetWidth(math.max(1,width-1));bar:SetHeight(math.max(1,GRAPH_HEIGHT*own[index]/top))
+            bar:SetVertexColor(E.COLORS.yellow[1],E.COLORS.yellow[2],E.COLORS.yellow[3],0.8);bar:Show()
+        else bar:Hide() end
+        if theirs[index] then
+            mark:ClearAllPoints();mark:SetPoint("BOTTOMLEFT",graphFrame,"BOTTOMLEFT",x,6+GRAPH_HEIGHT*theirs[index]/top)
+            mark:SetWidth(math.max(1,width-1));mark:SetHeight(2)
+            mark:SetVertexColor(E.COLORS.mauve[1],E.COLORS.mauve[2],E.COLORS.mauve[3],1);mark:Show()
+        else mark:Hide() end
+    end
     return true
 end
 E.Every(0.25,function()
     -- Saved choices arrive after this file loads.
     if not foldedOnce and type(nfUIDB)=="table" then
-        foldedOnce=true;bossFrame.Fold();takenFrame.Fold();lairFrame.Fold();historyFrame.Fold()
+        foldedOnce=true;bossFrame.Fold();takenFrame.Fold();lairFrame.Fold();historyFrame.Fold();statsFrame.Fold();graphFrame.Fold()
     end
     local inRun=AZS_GetPhase and RUN_PHASES[AZS_GetPhase() or ""]
     if inRun and E.On("bossSchedule") and UpdateBosses() then bossFrame:Show() else E.Conceal(bossFrame) end
     if inRun and E.On("takenPanel") and UpdateTaken() then takenFrame:Show() else E.Conceal(takenFrame) end
     if inRun and E.On("lairPanel") and UpdateLairs() then lairFrame:Show() else E.Conceal(lairFrame) end
     if inRun and E.On("historyPanel") and UpdateHistory() then historyFrame:Show() else E.Conceal(historyFrame) end
+    if inRun and E.On("heroStats") and UpdateStats() then statsFrame:Show() else E.Conceal(statsFrame) end
+    if inRun and E.On("dpsGraph") and UpdateGraph() then graphFrame:Show() else E.Conceal(graphFrame) end
 end)

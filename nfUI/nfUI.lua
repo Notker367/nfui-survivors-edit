@@ -909,10 +909,10 @@ end)
 nfUIConfig = {}
 local Config = nfUIConfig
 Config.defaults = {
-    blocks = {bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
+    blocks = {graphScale=1, statsScale=1, bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
         farRadius=100, risingFont=13, risingHeight=42, skillStatsFont=9, metresFont=9, ownLevelFont=10},
     edit = {levels=true, ownLevel=true, risingDamage=true, plateTrail=true, metres=true, redEdge=true, targetOfTarget=true,
-        chestIcon=true, chatNarrowFont=true, chatTabs=true, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
+        chestIcon=true, chatNarrowFont=true, chatTabs=true, bossAlert=true, mapPins=true, heroStats=true, dpsGraph=true, colorblind=false, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
     layout = {scale=1, x=0, y=-150, sectionGap=6},
     player = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11,hideName=false,healthArea="Right"},
     target = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11},
@@ -929,7 +929,7 @@ Config.defaults = {
     micro = {scale=1}
 }
 Config.limits = {
-    bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
+    graphScale={0.5,3,0.05}, statsScale={0.5,3,0.05}, bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
     farRadius={20,300,5}, risingFont={8,32,1}, risingHeight={10,150,1}, skillStatsFont={7,24,1}, metresFont={7,24,1}, ownLevelFont={7,24,1},
     scale={0.5,2,0.05}, x={-800,800,5}, y={-600,600,5}, sectionGap={0,50,1},
     width={80,600,5}, height={16,100,1}, portrait={16,100,1}, powerHeight={1,16,1},

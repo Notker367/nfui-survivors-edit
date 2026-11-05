@@ -28,8 +28,17 @@ E.COLORS={enemy=RGB("ee6b83"),base=RGB("1e1e2e"),mantle=RGB("181825"),surface=RG
 -- The action buttons the game uses: 1 to 6 and the = key.
 E.BUTTONS={1,2,3,4,5,6,12}
 
+function E.Mode()
+    return type(nfUIDB)=="table" and nfUIDB.uiMode or "default"
+end
+-- What the hidden mode takes away, and what only the detailed mode adds.
+local INFO_PANELS={bossSchedule=true,lairPanel=true,takenPanel=true,historyPanel=true,skillPool=true,jewelPool=true,heroStats=true,dpsGraph=true}
+local DETAILED_ONLY={heroStats=true,dpsGraph=true}
 -- A switch from the settings' Switches tab. Anything not switched off counts as on.
 function E.On(key)
+    local mode=E.Mode()
+    if mode=="hidden" and INFO_PANELS[key] then return false end
+    if mode~="detailed" and DETAILED_ONLY[key] then return false end
     local switches=type(nfUIDB)=="table" and nfUIDB.edit
     return not switches or switches[key]~=false
 end

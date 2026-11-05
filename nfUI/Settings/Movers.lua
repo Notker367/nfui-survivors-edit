@@ -419,6 +419,8 @@ local originalCommand=SlashCmdList["NFUI"]
 SlashCmdList["NFUI"]=function(message)
     local text=string.lower(message or "")
     if text=="move" or text=="movers" then C.ToggleMovers()
+    elseif text=="mode" then nfUIEdit.CycleMode()
+    elseif text=="export" then C.ToggleMovers(false);C.ShowExport()
     else C.ToggleMovers(false); originalCommand() end
 end
 local driver=CreateFrame("Frame","nfUIMoverUpdater",UIParent)

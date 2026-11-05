@@ -19,6 +19,8 @@ E.blocks={
 E.blocks.lairs=Block("nfUILairPanel",200,80,"TOPRIGHT",E.blocks.bosses,"BOTTOMRIGHT",0,-6)
 E.blocks.taken=Block("nfUITakenPanel",200,94,"TOPRIGHT",E.blocks.lairs,"BOTTOMRIGHT",0,-6)
 E.blocks.history=Block("nfUIHistoryPanel",200,108,"TOPRIGHT",E.blocks.taken,"BOTTOMRIGHT",0,-6)
+E.blocks.graph=Block("nfUIDpsGraph",200,70,"TOPRIGHT",E.blocks.history,"BOTTOMRIGHT",0,-6)
+E.blocks.stats=Block("nfUIHeroStats",150,160,"TOPRIGHT",E.blocks.bosses,"TOPLEFT",-6,0)
 E.blocks.rising:Show()
 -- The two pools stand over the chat and its input, as wide as the chat, below the party frames.
 E.blocks.jewelPool=Block("nfUIJewelPool",336,105,"BOTTOMLEFT",ChatFrame1,"TOPLEFT",-9,70)
@@ -37,6 +39,8 @@ E.blockList={
     {"blockLairs","Guardians",E.blocks.lairs,C.row,"lairsScale"},
     {"blockTaken","Damage taken",E.blocks.taken,C.row,"takenScale"},
     {"blockHistory","Run history",E.blocks.history,C.row,"historyScale"},
+    {"blockGraph","DPS graph",E.blocks.graph,C.row,"graphScale"},
+    {"blockStats","Hero stats",E.blocks.stats,C.row,"statsScale"},
 }
 function E.SyncBlocks()
     local sizes=C.Settings().blocks

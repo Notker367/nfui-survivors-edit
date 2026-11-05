@@ -44,3 +44,4 @@ Edit/Loadout.lua
 Edit/DamageTaken.lua
 Edit/FarPlates.lua
 Edit/RunPanels.lua
+Edit/Extras.lua

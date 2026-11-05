@@ -6,14 +6,14 @@ local categories={
     {key="layout",title="Overall layout",description="Overall scale. Use Movers to position each element independently.",
         fields={{"scale","Overall scale"}}},
     {key="edit",title="Switches",description="Everything that turns on and off, in one place.",
-        fields={{"updates","Version","update"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},
+        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},
             {"risingDamage","Rising damage numbers above health","check"},{"plateTrail","Plate health drain animation","check"},{"farPlates","Bars for far enemies","check"},
             {"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},
-            {"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},
+            {"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"colorblind","Colour-blind palette (then /reload)","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},
             {"skillStats","Rank and DPS under skills","check"},{"ownLoadout","Own jewelry panel","check"},
             {"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"allyLoadout","Ally skills and jewelry","check"}}},
     {key="blocks",title="Blocks",description="Size of each movable block. Drag them with Movers; right-click one to lock it.",
-        fields={{"farRadius","Far bars: radius (yards)"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
+        fields={{"farRadius","Far bars: radius (yards)"},{"statsScale","Hero stats"},{"graphScale","DPS graph"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
             {"allyScale","Ally skills and jewelry"},{"risingScale","Rising damage: block"},{"risingFont","Rising damage: font"},
             {"risingHeight","Rising damage: how high"},{"skillStatsFont","Rank and DPS font"},{"metresFont","Metres font"},{"ownLevelFont","Hero level font"}}},
     {key="player",title="Player frame",description="Player size, text placement, health formatting, portrait, colors and shields.",
@@ -165,7 +165,11 @@ function C.Refresh()
             local lo,hi,step=C.Range(SettingsCategory(key),key)
             row.label:SetText(field[2])
             row.check:Hide(); row.choice:Hide(); row.menu:Hide(); row.slider:Hide(); row.value:Hide();row.color:Hide();row.action:Hide()
-            if field[3]=="update" then
+            if field[3]=="mode" then
+                row.action:SetText(nfUIEdit.ModeName());row.action:Show()
+            elseif field[3]=="export" then
+                row.action:SetText("Export");row.action:Show()
+            elseif field[3]=="update" then
                 row.label:SetText(field[2].." "..(GetAddOnMetadata("nfUI","Version") or "?"))
                 row.action:SetText("Check for updates");row.action:Show()
             elseif field[3]=="action" then
@@ -229,6 +233,26 @@ function C.ShowUpdates()
         table.insert(UISpecialFrames,"nfUIUpdates")
     end
     updates:Show();updates.link:SetText(RELEASES);updates.link:SetFocus();updates.link:HighlightText()
+end
+
+-- Past runs as text, to select and copy.
+local exportBox
+function C.ShowExport()
+    if not exportBox then
+        exportBox=CreateFrame("Frame","nfUIExport",UIParent)
+        exportBox:SetWidth(560);exportBox:SetHeight(110);exportBox:SetPoint("CENTER",UIParent,"CENTER",0,40)
+        exportBox:SetFrameStrata("FULLSCREEN_DIALOG");exportBox:EnableMouse(true)
+        Flat(exportBox,nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3])
+        Text(exportBox,nfUIEdit.Text("История забегов: выделите и скопируйте","Run history: select and copy"),14,-12,12,nfUIEdit.COLORS.mauve)
+        local field=CreateFrame("EditBox","nfUIExportText",exportBox)
+        field:SetWidth(532);field:SetHeight(22);field:SetPoint("TOPLEFT",exportBox,"TOPLEFT",14,-38)
+        field:SetFont(FONT,11);field:SetAutoFocus(false);Flat(field,0.1,0.12,0.15)
+        field:SetScript("OnEscapePressed",function() this:ClearFocus();exportBox:Hide() end)
+        exportBox.field=field
+        Button("nfUIExportClose",exportBox,"Done",446,-70,100,function() exportBox:Hide() end)
+        table.insert(UISpecialFrames,"nfUIExport")
+    end
+    exportBox:Show();exportBox.field:SetText(nfUIEdit.ExportText());exportBox.field:SetFocus();exportBox.field:HighlightText()
 end
 
 -- Gathers each section's on and off choices into the Switches tab. The long list of character-sheet
@@ -358,7 +382,9 @@ local function Build()
         end)
         option.action=Button("nfUISettingsAction"..i,option,"",235,0,275,function()
             if option.key=="resetRun" then nfUI_ResetRun();C.Refresh()
-            elseif option.key=="updates" then C.ShowUpdates() end
+            elseif option.key=="updates" then C.ShowUpdates()
+            elseif option.key=="mode" then nfUIEdit.CycleMode()
+            elseif option.key=="export" then C.ShowExport() end
         end)
         option.choice=Button("nfUISettingsChoice"..i,option,"",235,0,275,function()
             if option.menu:IsShown() then option.menu:Hide() else option.menu:Show() end

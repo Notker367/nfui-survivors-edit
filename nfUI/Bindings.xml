@@ -1,0 +1,3 @@
+<Bindings>
+	<Binding name="NFUI_MODE" header="NFUI">nfUIEdit.CycleMode()</Binding>
+</Bindings>
