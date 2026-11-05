@@ -1,133 +1,83 @@
-# nfUI — Survivors Edit
+# nfUI Survivors Edit
 
-Неофициальная доработка [nfUI](https://github.com/nfmous/nfui_AZSRV) для **Azeroth Survivors**: компактный интерфейс с упором на читаемость в толпе и игру в группе. Подробное описание исходного аддона находится [ниже](#nfui).
+**A readable HUD for Azeroth Survivors: see what is hitting you, what your run is worth and what can still come up, even in a swarm.**
 
-> Это не официальный релиз nfUI. По вопросам этой сборки пишите в Issues этого репозитория, а не автору оригинала.
+An unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous. Everything can be moved, resized, folded and switched off.
 
-## Структура репозитория
+[Русская версия](README.ru.md) · [What's new](../CHANGELOG.md) · [Original nfUI readme](ORIGINAL-README.md)
 
-- `nfUI/` — исходный код аддона.
-- `web/` — готовый архив и инструкция для браузерной версии.
+![The HUD at 3:00 of a real run, with numbered parts](media/overview.jpg)
 
-## Статус
+## What is on the screen
 
-Сборка настроена на экране **3440×1440** с русским клиентом. Раскладка сама подстраивается под разрешение и масштаб интерфейса: центральные блоки держатся у центра, остальное у своих углов, а размеры следуют за высотой экрана. Подгонка проверена расчётом и автоматическими одиночными забегами, кооператив так не проверялся. Часть функций помечена ниже как непроверенная.
+| # | Part | What it does |
+|---|---|---|
+| 1 | Hero frame | Current health as a number, level on the portrait, shield amount, a chest icon when you can afford one |
+| 2 | Skill bar | Cooldown numbers on every skill, with rank and DPS under each |
+| 3 | Bosses | Countdown to every boss of the run: yellow under 30 sec, red under 10, the final boss in violet |
+| 4 | Guardians | Each lair: countdown until its guardian appears, then asleep or its health. The `>` marks the one the game points at |
+| 5 | Damage taken | What has hurt you this run: enemy or boss, melee, spell or area, with shares |
+| 6 | History | Your DPS now against your last and best run with the same class in the same zone, **at the same moment of the run** |
+| 7 | Skill pool | Picked skills on top in a green edge, what can still come up below. Dims when all 6 are picked |
+| 8 | Jewelry pool | Every ring, trinket and amulet. Rings and trinkets dim once both slots are full. Hover to read them |
+| 9 | Chat | A clear narrow font, even margins, tabs always visible, the input box above it |
+| 10 | Enemy bars | Level coloured as in classic WoW (grey, green, yellow, orange, red), current health, distance in metres, a red edge on enemies next to you. Health drains smoothly and leaves a trail. Pale bars are enemies beyond the game's own nameplates |
+| 11 | Damage numbers | Bigger hits are larger and stay longer. Hits that cannot be placed merge into one number instead of a pile |
+| 12 | Damage you take | One slow column rising above your health and dissolving; bigger hits are larger |
+| 13 | DPS meter | Click to expand: every skill with its icon, and the party's in co-op |
 
-## Установка
+## What you can do
 
-1. Скачайте `nfUI-survivors-edit.zip` со страницы [Releases](../../releases).
-2. Удалите старую папку `nfUI`, если она была.
-3. Распакуйте архив так, чтобы получилось `benilla-config/AddOns/nfUI`.
-4. Включите **nfUI** в списке аддонов и начните забег.
+**Move and lock anything.** Open `/nfui` and press **Movers**, then drag a panel. Right-click one for exact sizes and **Lock**: a locked panel turns red and stays put.
 
-**В браузерной версии** ([wow.aethus.pl](https://wow.aethus.pl/)) распаковывать ничего не нужно:
+![Movers with the right-click menu](media/movers.jpg)
 
-1. Скачайте [`web/nfUI-survivors-edit.zip`](https://github.com/Notker367/nfui-survivors-edit/raw/main/web/nfUI-survivors-edit.zip).
-2. В игре откройте **Настройки → AddOns → Install AddOns** и выберите этот файл.
-3. Аддон загрузится со следующего забега. Он хранится в этом браузере, на другом устройстве его нужно ставить заново.
+**Fold what you do not need.** Click a panel's `[-]` title; the panels below move up.
 
-Подробности: [`web/README.md`](../web/README.md).
+![The same panels open and folded](media/panels-fold.jpg)
 
-При первом запуске раскладка заменит прежнюю настройку nfUI. Двигать элементы можно через `/nfui` → **Movers**.
+**Mark banished cards.** Click any icon in a pool. It is crossed out and listed at the top right with a count, for this run. The game does not tell addons about banishes, so this is by hand.
 
-## Что изменено
+![Banished cards at the top right](media/banished.jpg)
 
-**Исправления**
-- Падение `Plates.lua` с `out of Lua stack` при большом числе врагов.
-- Ошибки `Font not set` в счётчике забега, полосках боссов и цифрах урона.
-- Определение щитов и элиток на русском клиенте.
+**Switch things off.** Every on/off choice is in one place, the **Switches** tab. Sizes of the new panels and fonts are in **Blocks**.
 
-**Панели героя и цели**
-- Компактные зеркальные панели с портретами, плавным здоровьем и следом потерянного здоровья.
-- Щит внутри полоски здоровья, с числом поверх неё.
-- Цель цели и красная обводка, когда цель смотрит на вас.
+| Switches | Blocks |
+|---|---|
+| ![Switches tab](media/switches.jpg) | ![Blocks tab](media/blocks.jpg) |
 
-**Скилы и предметы**
-- Заблокированная панель скилов, цифры перезарядки у всех умений, ранг и DPS под каждым скилом.
-- Панель бижутерии с пустыми ячейками и подсказками.
-- Пул ещё не выбранных скилов; когда выбраны все 6, значки становятся бледнее.
-- Значок сундука, когда на него хватает золота.
+**Reset safely.** `Reset section`, `Reset all` and `Reset positions` return to this edit's layout, fitted to your screen. Your run history is kept.
 
-**Полоски над персонажами**
-- Враги и союзники одновременно, полупрозрачные, строго над моделью.
-- Цвета по рангу врага и классу союзника, дебаффы цели и союзников.
-- Метры справа от полоски каждого врага и красная обводка у тех, кто подошёл вплотную.
+## Install
 
-**Группа и бой**
-- Значки скилов в панелях DPS. Панель DPS группы с лучшим скилом каждого героя, подробности при наведении.
-- При выборе союзника показываются его скилы и бижутерия.
-- Короткие цифры урона со значками: удары объединяются и расходятся веером.
-- Панели таймера, боссов, убийств и золота из самой игры вместо версий аддона.
-- Окно персонажа на русском со всеми параметрами.
+1. Download `nfUI-survivors-edit.zip` from [Releases](../../../releases).
+2. Delete any old `nfUI` folder.
+3. Unzip so that you get `benilla-config/AddOns/nfUI`.
+4. Enable **nfUI** in the addon list and restart the game fully.
 
-## Что пока не проверено
+The first start replaces an earlier nfUI layout with this one. It fits your screen and UI scale by itself.
 
-- Живые портреты: камера на лицо может работать не у всех моделей.
-- Долгие забеги с боссами и большой толпой: автоматические забеги длились до 3 минут и шли на английском клиенте.
-- Панель группы и данные союзников при автоматических проверках: они работают только в кооперативе.
-- Заблокированные карты в пуле скилов не отмечаются: игра не отдаёт эти данные напрямую.
+**Browser version** ([wow.aethus.pl](https://wow.aethus.pl/)): see [web/README.md](../web/README.md). No unzipping needed.
 
-## Авторство и лицензия
+## Update
 
-Исходный nfUI создан [nfmous](https://github.com/nfmous). Этот репозиторий является форком, а уведомления о стороннем коде сохранены в [`nfUI/Resources/licenses`](nfUI/Resources/licenses).
+The game gives addons no network or file access, so nothing can update from inside it. In the game, `/nfui` > **Switches** > **Check for updates** shows your version and the link. To update in one step, put [`tools/update-nfUI.bat`](../tools/update-nfUI.bat) next to `benilla-config` and run it: it checks the latest release, keeps a copy of the old version and leaves your settings alone.
 
-У репозитория оригинала нет отдельной лицензии на весь аддон, поэтому и здесь она не добавлена. Права на оригинальный код остаются у его автора. Связаться по вопросам этой сборки можно через Issues.
+## What has and has not been tested
 
----
+Tested with automatic runs on the desktop game, all without errors: 14 client language settings, all 9 classes, 5 window shapes from 4:3 to ultrawide, `/reload`, and upgrades from the original nfUI and from earlier builds. The longest run reached the first boss at 3:00.
 
-# nfUI
-## LESS CLUTTER. MORE GAME.
+Not tested yet, so tell me if something looks wrong:
 
-A clean, customizable HUD for **Azeroth Survivors**. Built to keep the information you need in view—and the rest out of your way.
+- **Co-op:** two clients connect, but a run together has not been played. Ally levels and panels are unverified.
+- **Browser:** installation is checked, a full run is not.
+- **Chinese, Japanese, Korean clients:** the addon falls back safely if the game's font is missing, and runs without errors in that state. Whether the fonts load on a real client of these languages is unverified.
+- **Late game:** runs past a few minutes, later bosses, killed guardians returning.
 
-## ✨ THE GOOD STUFF
+Other limits: 19 pieces of jewelry show only their name and slot rule, because the game's table has no text for their effect. Bars for far enemies have no level, and show the health last seen on a real plate (guardians and bosses show their real health). In-game text is Russian or English; other languages get English.
 
-- **MINIMAL CLUTTER** — Thin bars, clean icons and compact panels.
-- **HIGHLY CUSTOMIZABLE** — Move, resize, recolor and tune your UI.
-- **LIGHTWEIGHT BY DESIGN** — Compact Lua modules, shared UI helpers and reusable display elements.
-- **READY TO PLAY** — Starts with our curated layout, adapted to your screen and UI scale.
-- **YOUR SETTINGS STAY YOURS** — Updates keep your existing layout.
+## Credits and license
 
-## 🧭 A COMPASS THAT KEEPS UP
+The original nfUI is by [nfmous](https://github.com/nfmous). This repository is a fork, and the notices for third-party code are kept in [`nfUI/Resources/licenses`](../nfUI/Resources/licenses). The original has no license for the whole addon, so none is added here, and the rights to the original code stay with its author. The colours follow [Catppuccin](https://catppuccin.com/) Mocha.
 
-- **Heading at a glance.** A smooth, Skyrim-style direction strip.
-- **Map landmarks in view.** Supported map markers appear along the compass.
-- **Lost the marker? Follow the edge.** Icons stick to the nearest side until you turn toward them.
-- **Thin bar. Big icons. Your call.** Adjust bar height, icon size and labels separately.
-- **Top or bottom.** Choose your anchor and width.
-
-### ⚠️ BATTLEGROUND CACHES
-
-**THE COMPASS CANNOT TRACK BATTLEGROUND CACHES: THEIR POSITIONS ARE NOT EXPOSED TO ADDONS THROUGH THE API.**
-
-- **Cache tracking is planned if the API adds that information.**
-- Cache counters and costs do **not** provide a cache's location.
-
-## 🎯 THE REST OF YOUR HUD, CLEANED UP
-
-- **Player & target frames** — Compact health, power and shield displays. Hide your name or change health-text placement.
-- **Smart nameplates** — Visibility limits, collision handling and upward-first stacking with smooth transitions.
-- **Borderless minimap** — Adjustable feathering and zoom buttons that appear on hover.
-- **Run progress** — A grey-to-green timer strip with boss-spawn ticks.
-- **Run Stats & DPS** — Compact panels that unfold upward. Expand or collapse them when you need them.
-- **Character stats** — Choose the stats you care about. Zero values stay hidden.
-- **Combat text** — Icon text, compact numbers, native text or off.
-- **Chat & tooltips** — Adjustable chat backdrop and movable tooltip placement.
-
-## 🛠️ MAKE IT YOURS
-
-- Type **`/nfui`**. Everything starts in settings.
-- **Unlock Movers** to drag your HUD into place.
-- **Snap to the grid** for clean alignment. Hold **Shift** to bypass it.
-- **Right-click a mover** for fine adjustments and **Width Match / Height Match**.
-- **Type exact numbers** into adjustment fields. Use **+ / −** for small changes.
-- **Resize the settings window** with its bottom-right grip.
-
-## 🚀 GET STARTED
-
-1. Download the install ZIP and extract its **`nfUI`** folder into your **AddOns** directory.
-   Using GitHub’s source archive? Open its outer repository folder and copy **`nfUI`** from inside it.
-2. Enable **nfUI** in your addon list.
-3. Play—or open **`/nfui`** and make it yours.
-
-**Updating? Use `/reload` after replacing the files.**
+Found a bug? Mention it in the thread in the game's Discord where you found this build, with a screenshot.
