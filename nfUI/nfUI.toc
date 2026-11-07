@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: nfUI
-## Version: 1.1.0
+## Version: 1.1.1
 ## DefaultState: enabled
 ## Notes: Configurable HUD, movers, nameplates, combat text, run panels and compass.
 ## SavedVariables: nfUIDB, nfUIPlatesDB
@@ -46,3 +46,4 @@ Edit/DamageTaken.lua
 Edit/FarPlates.lua
 Edit/RunPanels.lua
 Edit/Extras.lua
+Edit/QuickMenu.lua

@@ -1,5 +1,40 @@
 # What's new
 
+## 1.1.1
+
+**Quick menu and layouts**
+- Click the gear on the minimap for modes, the layout and on/off for the panels you use most. Shift+click opens all settings, right click moves panels, Esc closes. The gear stays faint until the mouse comes near.
+- Classic layout, as in the old WoW: your frame and the target's in the top left, buffs beside the minimap, the bar at the bottom centre. "Mine" brings your own layout back.
+- The DPS meter can be switched off.
+
+**Damage meter**
+- New "hit/s" column (last 10 seconds) and "max" (biggest hit in the last minute), now filled in every damage-text mode.
+- Pet hits are listed under the pet's name.
+- Columns and the party meter fit their names and numbers.
+
+**Panels**
+- Folded panels show their most important line, with the numbers always in full.
+- Right panels and pools move, scale and switch off together, or one by one.
+- Damage taken: per second and the biggest hit. Guardian health as a number.
+- Party loadouts under the party frames.
+
+**Nameplates**
+- Mobs, elites, guardians and bosses look different. Elite plates no longer flicker or shrink in crowds.
+- Your own debuffs are larger above the bars, allies' smaller.
+- Ally plates are narrower and taller; their height has its own setting. Their edge is in their class colour.
+- The party's pets get a thin bar without a name instead of none (or none, with one switch).
+- Enemy names have room and are no longer cut.
+- Automatic raid marks; right click a portrait for its menu.
+
+**Numbers**
+- One short format everywhere (999k, 99.9m, 1.2b); full numbers when you want them.
+- "Biggest hit" mode shows full numbers, crits in gold with "!".
+- Units on totals, DPS rows and guardian health.
+- Hover a skill for its DPS, share of damage and damage this run.
+
+**Legendaries**
+- The legendary row also learns legendaries worn by you and your allies (can be switched off).
+
 ## 1.1.0
 
 **New panels** (each can be moved, locked, resized, folded and switched off)

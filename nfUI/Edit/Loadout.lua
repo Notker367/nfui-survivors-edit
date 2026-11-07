@@ -71,15 +71,39 @@ local JEWEL_CELLS={
     {"ring",2,"Interface\\PaperDoll\\UI-PaperDoll-Slot-Finger","Пусто: кольцо","Empty: ring"},
     {"trinket",2,"Interface\\PaperDoll\\UI-PaperDoll-Slot-Trinket","Пусто: талисман","Empty: trinket"},
 }
+-- The game names only a few skill legendaries in data an addon can read. Each one a hero of the party wears is
+-- remembered with its skill, so the row of legendaries fills in as they turn up.
+local STATIC_LEGEND={}
+for _,jewel in ipairs(E.LEGENDARY or {}) do STATIC_LEGEND[jewel.spell]=true end
+local function Learn(loadout,class)
+    if type(loadout)~="table" or type(loadout.sources)~="table" or type(nfUIDB)~="table" then return end
+    for _,entry in ipairs(loadout.runJewelry or {}) do
+        local key=entry.sourceKey
+        local _,_,spell=string.find(type(key)=="string" and key or "","legendary[:%.]([%a_]+)")
+        local source=key and loadout.sources[key]
+        if spell and not STATIC_LEGEND[spell] and type(source)=="table" then
+            if type(nfUIDB.legendLearned)~="table" then nfUIDB.legendLearned={} end
+            local path=type(source.icon)=="table" and source.icon.path
+            local known=nfUIDB.legendLearned[spell] or {}
+            known.name=source.name or known.name;known.icon=path or known.icon;known.class=class or known.class
+            nfUIDB.legendLearned[spell]=known
+        end
+    end
+end
+local function ActorClass(loadout,owner)
+    local actor=type(loadout.actors)=="table" and loadout.actors[owner or loadout.ownerId]
+    return type(actor)=="table" and type(actor.classKey)=="string" and string.upper(actor.classKey) or nil
+end
 local function FillLoadout(holder,runId,owner,withSkills)
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=runId,ownerId=owner})
     if type(loadout)~="table" or type(loadout.sources)~="table" then return false end
+    pcall(Learn,loadout,ActorClass(loadout,owner))
     local count,x,y=0,0,0
     local function Place(entry)
         local source=entry.sourceKey and loadout.sources[entry.sourceKey]
         local path=source and type(source.icon)=="table" and source.icon.path
         if not path then return end
-        if x>=ALLY_PER_ROW then x=0;y=y+1 end
+        if x>=(holder.perRow or ALLY_PER_ROW) then x=0;y=y+1 end
         count=count+1
         local icon=LoadoutIcon(holder,count)
         icon:ClearAllPoints();icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",x*(ALLY_SIZE+ALLY_GAP),-y*(ALLY_SIZE+ALLY_GAP))
@@ -102,7 +126,7 @@ local function FillLoadout(holder,runId,owner,withSkills)
     end
     -- Local tweak: jewelry in fixed cells, with empty cells for what is not picked yet.
     local function PlaceEmpty(texture,label)
-        if x>=ALLY_PER_ROW then x=0;y=y+1 end
+        if x>=(holder.perRow or ALLY_PER_ROW) then x=0;y=y+1 end
         count=count+1
         local icon=LoadoutIcon(holder,count)
         icon:ClearAllPoints();icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",x*(ALLY_SIZE+ALLY_GAP),-y*(ALLY_SIZE+ALLY_GAP))
@@ -180,18 +204,12 @@ function E.CheckClass(class,picked)
     end
     return best
 end
-local function Folded(holder,key)
-    if not E.IsCollapsed(key) then return false end
-    for _,icon in ipairs(holder.icons) do icon:Hide() end
-    holder.frame:SetHeight(1)
-    return true
-end
 -- The pools grow upward from the chat, as many rows as they have.
 local function FitRows(holder,rows)
     holder.frame:SetHeight(math.max(1,rows*(ALLY_SIZE+ALLY_GAP)))
 end
 local function ShowPool(holder)
-    if Folded(holder,"pool") then return true end
+    local foldedPool=E.IsCollapsed("pool")
     local context=Context()
     if not context then return false end
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
@@ -230,7 +248,10 @@ local function ShowPool(holder)
     end
     for _,skill in ipairs(pool) do if picked[skill[1]] then Place(skill,true) end end
     if column>0 then column=0;row=row+1 end
-    for _,skill in ipairs(pool) do if not picked[skill[1]] then Place(skill,false) end end
+    -- Folded, only what is picked remains.
+    if not foldedPool then
+        for _,skill in ipairs(pool) do if not picked[skill[1]] then Place(skill,false) end end
+    end
     local usedRows=column>0 and row+1 or row
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
     FitRows(holder,usedRows)
@@ -243,7 +264,7 @@ local SLOTS={ring=2,trinket=2}
 local KIND_ORDER={"ring","trinket","amulet"}
 local COLUMN_ORDER={"dmg","crit","critdmg","cd","echo","area","dot","hp","dr","regen","leech","killheal","lives","speed","pickup","xp","gold","luck","buff","special"}
 local function ShowJewelPool(holder)
-    if Folded(holder,"jewelPool") then return true end
+    local foldedPool=E.IsCollapsed("jewelPool")
     local context=Context()
     if not context then return false end
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
@@ -274,26 +295,47 @@ local function ShowJewelPool(holder)
         end
     end
     class=E.CheckClass(class,known)
+    pcall(Learn,loadout,class)
     local legendaryColumn=0
+    local showLegend=E.On("legendRow")
     for _,jewel in ipairs(E.LEGENDARY or {}) do
-        if jewel.class==class then
+        if showLegend and jewel.class==class and not foldedPool then
             count=count+1
             local icon=LoadoutIcon(holder,count)
             icon:ClearAllPoints()
             icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
             icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
             icon.label=E.Pick(jewel.name);icon.effect=E.Pick(jewel.effect);icon.kindText=KindText("amulet");icon.rank:SetText("")
-            MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,false);icon:Show()
+            MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,worn[jewel.key] and true or false);icon:Show()
+            legendaryColumn=legendaryColumn+1
+        end
+    end
+    -- And those learned in play.
+    local skillNames={}
+    for _,skill in ipairs(SKILL_POOL[class or ""] or {}) do skillNames[skill[1]]=E.IsRussian() and skill[2] or EnglishName(skill[1]) end
+    for spell,jewel in pairs(showLegend and not foldedPool and type(nfUIDB.legendLearned)=="table" and nfUIDB.legendLearned or {}) do
+        if type(jewel)=="table" and jewel.class==class and jewel.icon then
+            count=count+1
+            local icon=LoadoutIcon(holder,count)
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
+            icon.texture:SetTexture(jewel.icon);icon.rankValue=nil
+            icon.label=jewel.name or spell
+            icon.effect=E.Text("Легендарный амулет · скилл «","Legendary amulet · skill ")..(skillNames[spell] or spell)..E.Text("»","")
+            icon.kindText=KindText("amulet");icon.rank:SetText("")
+            MarkBanish(icon,"legendary."..spell,known[spell] and 1 or 0.35,worn["legendary."..spell] and true or false);icon:Show()
             legendaryColumn=legendaryColumn+1
         end
     end
     if legendaryColumn>0 then row=1 end
+    -- Folded, only what is worn remains, on one row.
+    local foldedColumn=0
     for _,kind in ipairs(KIND_ORDER) do
         local full=SLOTS[kind] and (held[kind] or 0)>=SLOTS[kind]
-        local column=0
+        local column=foldedPool and foldedColumn or 0
         for _,effect in ipairs(COLUMN_ORDER) do
             for _,jewel in ipairs(E.JEWELS) do
-                if jewel.kind==kind and jewel.col==effect then
+                if jewel.kind==kind and jewel.col==effect and (not foldedPool or worn[jewel.key]) then
                     if column>=JEWEL_PER_ROW then column=0;row=row+1 end
                     count=count+1
                     local icon=LoadoutIcon(holder,count)
@@ -309,8 +351,9 @@ local function ShowJewelPool(holder)
                 end
             end
         end
-        if column>0 then row=row+1 end
+        if foldedPool then foldedColumn=column elseif column>0 then row=row+1 end
     end
+    if foldedPool and foldedColumn>0 then row=1 end
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
     FitRows(holder,row)
     return count>0
@@ -325,6 +368,38 @@ local function Refresh(holder,show)
 end
 
 local allyHolder,ownHolder,poolHolder,jewelHolder
+-- Each ally's skills and jewelry, always in view, under their frame at the left wall of the screen.
+local partyHolders={}
+local function PartyHolder(index)
+    local holder=partyHolders[index]
+    if holder then return holder end
+    local bar=getglobal("PartyMemberFrame"..index.."ManaBar")
+    if not bar then return nil end
+    local frame=CreateFrame("Frame","nfUIPartyLoadout"..index,UIParent)
+    frame:SetWidth(240);frame:SetHeight(19);frame:SetPoint("TOPLEFT",bar,"BOTTOMLEFT",-1,-3);frame:Hide()
+    holder={frame=frame,icons={},perRow=13}
+    partyHolders[index]=holder
+    return holder
+end
+local function UpdateParty()
+    for index=1,4 do
+        local unit="party"..index
+        local holder=PartyHolder(index)
+        if holder then
+            if E.On("partyLoadout") and UnitExists(unit) then
+                local bar=getglobal("PartyMemberFrame"..index.."ManaBar")
+                holder.frame:SetScale(0.8*bar:GetEffectiveScale()/UIParent:GetEffectiveScale())
+                Refresh(holder,function(one)
+                    local context=Context()
+                    if not context then return false end
+                    local owner=AllyOwnerId(UnitName(unit),context)
+                    if not owner then return false end
+                    return FillLoadout(one,context.runId,owner,true)
+                end)
+            else holder.frame:Hide() end
+        end
+    end
+end
 -- These calls ask the game for a lot, and a refused one sends a request to the server, so they
 -- wait for a run in progress and back off while the game is not ready.
 local RUN_PHASES={playing=true,choosing=true,paused=true}
@@ -350,6 +425,7 @@ driver:SetScript("OnUpdate",function()
         end
     end
     local isAlly=UnitExists("target") and UnitIsPlayer("target") and not UnitIsUnit("target","player") and not UnitCanAttack("player","target")
+    UpdateParty()
     if isAlly and E.On("allyLoadout") then Refresh(allyHolder,ShowAlly) else E.Conceal(allyHolder.frame) end
     if E.On("skillPool") then Refresh(poolHolder,ShowPool) else E.Conceal(poolHolder.frame) end
     if E.On("jewelPool") then Refresh(jewelHolder,ShowJewelPool) else E.Conceal(jewelHolder.frame) end

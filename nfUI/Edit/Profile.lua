@@ -1,5 +1,5 @@
 -- The edit's default profile, applied once, and the layout's fit to the screen.
-local PROFILE_VERSION=11
+local PROFILE_VERSION=17
 local SPOTS={
     actionBar={674,255},xp={674,282},player={674,292},playerAuras={674,318},
     target={1189,292},targetDebuffs={1189,318},
@@ -8,6 +8,10 @@ local SPOTS={
     -- Hidden unless switched on; without a spot here it would keep a position made for another screen.
     runPanel={2028,196},
 }
+-- The old game's places, on the same 3440x1440 basis: your frame and the target's in the top left, the debuffs
+-- under the target, the bar and the experience at the bottom centre. The buffs go beside the minimap.
+local CLASSIC={player={40,795},target={280,795},targetDebuffs={280,767},actionBar={921,8},xp={922,38}}
+local CLASSIC_CENTERED={actionBar=true,xp=true}
 local function Merge(target,values)
     if type(target)~="table" then return end
     for key,value in pairs(values) do target[key]=value end
@@ -20,7 +24,7 @@ local function ApplyProfile(db)
     end
     db.damageMode="quick";db.damageText=true;db.dpsCollapsed=true;db.compass=false
     Merge(db.nameplates,{amount="All",collision=false,stacking=false,rankColors=true,color={0.80,0.10,0.10},
-        healthText="Numerical",healthFont=10,nameFont=12,width=70,height=7,abbreviate=false})
+        healthText="Numerical",healthFont=10,nameFont=12,width=70,height=5,abbreviate=false})
     Merge(db.chat,{backdropOpacity=0.75,editScale=1,width=330,height=130,font=14})
     Merge(db.minimap,{size=200,feather=0})
     Merge(db.dpsDisplay,{scale=0.68,backdropOpacity=0.7})
@@ -74,6 +78,20 @@ loader:SetScript("OnEvent",function()
     end
     -- Version 6: the two pools move over the chat.
     if version<6 then positions.blockPool=nil;positions.blockJewelPool=nil end
+    -- Version 17: allies' bars narrower and taller.
+    if version<17 and type(nfUIDB.blocks)=="table" and nfUIDB.blocks.allyPlateWidth==150 then nfUIDB.blocks.allyPlateWidth=110 end
+    -- Version 16: the panels join their groups.
+    if version<16 then
+        for _,key in ipairs({"blockBosses","blockLairs","blockTaken","blockHistory","blockGraph","blockStats","blockPool","blockJewelPool"}) do positions[key]=nil end
+    end
+    -- Version 15: a chosen ally's panel returns under the target of target.
+    if version<15 then positions.blockAlly=nil end
+    -- Version 14: lower enemy bars.
+    if version<14 and type(nfUIDB.nameplates)=="table" and nfUIDB.nameplates.height==7 then nfUIDB.nameplates.height=5 end
+    -- Version 13: an ally's panel moves under the portrait.
+    if version<13 then positions.blockAlly=nil end
+    -- Version 12: rising numbers travel further, so that they do not cover each other.
+    if version<12 and type(nfUIDB.blocks)=="table" and nfUIDB.blocks.risingHeight==42 then nfUIDB.blocks.risingHeight=64 end
     -- Version 11: the jewelry pool is compact again, at full size.
     if version<11 and type(nfUIDB.blocks)=="table" then nfUIDB.blocks.jewelPoolScale=1 end
     -- Version 9: the game's own row of spells and jewelry goes.
@@ -118,9 +136,10 @@ end
 local LAYOUT_CENTERED={actionBar=true,xp=true,player=true,playerAuras=true,target=true,targetDebuffs=true}
 function nfUILayoutRescale(db,oldWidth,oldHeight,width,height)
     local k=height/oldHeight
+    local centered=db.layoutPreset=="classic" and CLASSIC_CENTERED or LAYOUT_CENTERED
     for key,spot in pairs(db.positions or {}) do
         if type(spot)=="table" and type(spot.x)=="number" and type(spot.y)=="number" and not spot.centered then
-            if LAYOUT_CENTERED[key] then
+            if centered[key] then
                 spot.x=width/2+(spot.x-oldWidth/2)*k
                 spot.y=spot.y*k
             else
@@ -156,3 +175,52 @@ nfUIEdit.Every(1,function()
         nfUIDB.layoutBasis=basis
     end
 end)
+
+local function Copy(value)
+    if type(value)~="table" then return value end
+    local copy={}
+    for key,item in pairs(value) do copy[key]=Copy(item) end
+    return copy
+end
+-- "classic" puts everything where the old game had it and keeps the player's layout; "mine" brings that back.
+function nfUIEdit.ApplyLayout(name)
+    local db=nfUIDB
+    if type(db)~="table" then return end
+    local width,height=ScreenUnits()
+    if not width or width<=0 or not height or height<=0 then return end
+    db.positions=type(db.positions)=="table" and db.positions or {}
+    if name=="classic" then
+        if db.layoutPreset~="classic" then db.savedLayout={positions=Copy(db.positions),basis=Copy(db.layoutBasis)} end
+        local temp={positions={},layoutPreset="classic"}
+        for key,spot in pairs(SPOTS) do temp.positions[key]={x=spot[1],y=spot[2]} end
+        for key,spot in pairs(CLASSIC) do temp.positions[key]={x=spot[1],y=spot[2]} end
+        nfUILayoutRescale(temp,BASIS_WIDTH,BASIS_HEIGHT,width,height)
+        for key,spot in pairs(temp.positions) do
+            db.positions[key]=type(db.positions[key])=="table" and db.positions[key] or {}
+            db.positions[key].x=spot.x;db.positions[key].y=spot.y
+        end
+        -- The buffs end just left of the minimap, at the top.
+        local map=db.positions.minimap
+        local count=table.getn(nfUIConfig.auras or {})
+        local auras=type(db.auras)=="table" and db.auras or {}
+        local size,gap=tonumber(auras.size) or 22,tonumber(auras.gap) or 2
+        local scale=type(db.layout)=="table" and tonumber(db.layout.scale) or 1
+        if map and count>0 then
+            -- Below the game's kill and gold counters, which sit in the same corner.
+            db.positions.playerAuras={x=math.max(4,map.x-12-count*(size+gap)*scale),y=height-40-size*scale}
+        end
+        db.layoutPreset="classic"
+    elseif name=="mine" then
+        local saved=db.savedLayout
+        if type(saved)~="table" or type(saved.positions)~="table" then return end
+        local temp={positions=Copy(saved.positions)}
+        local basis=type(saved.basis)=="table" and saved.basis or {width=width,height=height}
+        if math.abs(basis.width-width)>2 or math.abs(basis.height-height)>2 then
+            nfUILayoutRescale(temp,basis.width,basis.height,width,height)
+        end
+        db.positions=temp.positions
+        db.layoutPreset=nil
+    else return end
+    db.layoutBasis={width=width,height=height}
+    if nfUIConfig.Apply then pcall(nfUIConfig.Apply) end
+end

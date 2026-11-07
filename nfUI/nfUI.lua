@@ -81,7 +81,11 @@ end
 
 -- 439K, 1.2M
 local function Short(value)
-	if value >= 1000000 then
+	if value >= 999500000 then
+		return string.format(value >= 99950000000 and "%.0fB" or "%.1fB", value / 1000000000)
+	elseif value >= 99950000 then
+		return string.format("%.0fM", value / 1000000)
+	elseif value >= 1000000 then
 		return string.format("%.1fM", value / 1000000)
 	elseif value >= 10000 then
 		return math.floor(value / 1000 + 0.5).."K"
@@ -174,6 +178,8 @@ local function UnitFrame(unit,name,side,dropdown)
     shade:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);shade:SetPoint("BOTTOMRIGHT",widget.health,"BOTTOMRIGHT",0,0);shade:SetHeight(5)
     -- A pale trail of lost health, and smooth bars.
     local ghost=widget.health:CreateTexture(nil,"ARTWORK");ghost:SetTexture(FLAT);ghost:SetVertexColor(nfUIEdit.COLORS.yellow[1],nfUIEdit.COLORS.yellow[2],nfUIEdit.COLORS.yellow[3],0.85);ghost:Hide()
+    -- A brief white flare over the whole bar, stronger for a bigger hit.
+    local hitFill=widget.health:CreateTexture(nil,"OVERLAY");hitFill:SetTexture(FLAT);hitFill:SetVertexColor(1,1,1,1);hitFill:SetAllPoints(widget.health);hitFill:Hide()
     widget:SetScript("OnUpdate",function()
         local elapsed=arg1 or 0
         local step=math.min(1,elapsed*12)
@@ -184,13 +190,18 @@ local function UnitFrame(unit,name,side,dropdown)
             if this.flashAlpha and this.flashAlpha>0 then
                 this.flashAlpha=math.max(0,this.flashAlpha-elapsed*1.2);this.portrait.flash:SetAlpha(this.flashAlpha)
             end
-            local shown=this.healthShown or goal
-            shown=shown+(goal-shown)*step
-            if math.abs(goal-shown)<0.002 then shown=goal end
-            this.healthShown=shown;this.health:SetValue(shown)
-            local trail=this.healthTrail or goal
-            if trail<goal then trail=goal else trail=math.max(goal,trail-elapsed*0.3) end
-            this.healthTrail=trail
+            this.hitState=this.hitState or {}
+            if this.healthShown==nil then this.hitState={} end
+            local shown,trail,flash=nfUIEdit.HitTrail(this.hitState,goal,elapsed,this.health)
+            this.healthShown=shown;this.health:SetValue(shown);this.healthTrail=trail
+            if flash>0 then
+                local power=math.min(0.35,0.12+(this.hitState.hit or 0)*1.5)
+                hitFill:SetAlpha(flash*power);hitFill:Show()
+                ghost:SetVertexColor(nfUIEdit.TrailColor(flash))
+            else
+                hitFill:Hide()
+                ghost:SetVertexColor(nfUIEdit.TrailColor(0))
+            end
             local width=this.health:GetWidth()
             if trail-shown>0.002 then
                 ghost:ClearAllPoints()
@@ -919,10 +930,10 @@ end)
 nfUIConfig = {}
 local Config = nfUIConfig
 Config.defaults = {
-    blocks = {targetRisingScale=1, pickedEdgeSize=2, graphScale=1, statsScale=1, bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
-        farRadius=100, risingFont=13, risingHeight=42, skillStatsFont=9, metresFont=9, ownLevelFont=10},
+    blocks = {allyPlateWidth=110, allyPlateHeight=16, groupRightScale=1, groupLeftScale=1, mapPinSize=14, plateFadeScale=0.35, targetRisingScale=1, pickedEdgeSize=2, graphScale=1, statsScale=1, bossesScale=1, lairsScale=1, takenScale=1, historyScale=1, jewelPoolScale=1, banishedScale=1, totScale=1, chestScale=1, ownScale=1, poolScale=1, allyScale=1, risingScale=1,
+        farRadius=100, risingFont=13, risingHeight=64, skillStatsFont=9, metresFont=9, ownLevelFont=10},
     edit = {levels=true, ownLevel=true, risingDamage=true, plateTrail=true, metres=true, redEdge=true, targetOfTarget=true,
-        chestIcon=true, chatNarrowFont=true, chatTabs=true, risingHeal=true, targetRising=true, regenText=true, bossAlert=true, mapPins=true, heroStats=true, dpsGraph=true, colorblind=false, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
+        chestIcon=true, chatNarrowFont=true, chatTabs=true, plateFade=true, separateHits=true, fullHits=true, autoMarks=true, mapSettings=true, partyLoadout=true, skillRate=true, friendFade=true, hitImpact=true, risingHeal=true, targetRising=true, regenText=true, bossAlert=true, mapPins=true, heroStats=true, dpsGraph=true, colorblind=false, bossSchedule=true, lairPanel=true, takenPanel=true, historyPanel=true, jewelPool=true, banishMarks=true, farPlates=true, skillStats=true, ownLoadout=true, skillPool=true, allyLoadout=true},
     layout = {scale=1, x=0, y=-150, sectionGap=6},
     player = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11,hideName=false,healthArea="Right"},
     target = {scale=1, width=150, height=36, portrait=36, powerHeight=3, nameFont=11, valueFont=11},
@@ -939,7 +950,7 @@ Config.defaults = {
     micro = {scale=1}
 }
 Config.limits = {
-    targetRisingScale={0.5,3,0.05}, pickedEdgeSize={1,4,1}, graphScale={0.5,3,0.05}, statsScale={0.5,3,0.05}, bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
+    allyPlateWidth={60,300,5}, allyPlateHeight={6,30,1}, groupRightScale={0.5,2,0.05}, groupLeftScale={0.5,2,0.05}, mapPinSize={8,28,1}, plateFadeScale={0.1,1,0.05}, targetRisingScale={0.5,3,0.05}, pickedEdgeSize={1,4,1}, graphScale={0.5,3,0.05}, statsScale={0.5,3,0.05}, bossesScale={0.5,3,0.05}, lairsScale={0.5,3,0.05}, takenScale={0.5,3,0.05}, historyScale={0.5,3,0.05}, jewelPoolScale={0.5,3,0.05}, banishedScale={0.5,3,0.05}, totScale={0.5,3,0.05}, chestScale={0.5,3,0.05}, ownScale={0.5,3,0.05}, poolScale={0.5,3,0.05}, allyScale={0.5,3,0.05}, risingScale={0.5,3,0.05},
     farRadius={20,300,5}, risingFont={8,32,1}, risingHeight={10,150,1}, skillStatsFont={7,24,1}, metresFont={7,24,1}, ownLevelFont={7,24,1},
     scale={0.5,2,0.05}, x={-800,800,5}, y={-600,600,5}, sectionGap={0,50,1},
     width={80,600,5}, height={16,100,1}, portrait={16,100,1}, powerHeight={1,16,1},

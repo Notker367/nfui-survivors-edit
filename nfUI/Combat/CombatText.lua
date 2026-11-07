@@ -391,7 +391,14 @@ nfUIModules:NewMod("NameplateCombatText", 6, function()
         arcDirection = -arcDirection
         local color = SCHOOL_COLORS[info.school]
         if info.kind == "miss" or not color then color = {1, 0.82, 0} end
-        text.label:SetText(tostring(value))
+        -- Full numbers when chosen (Numbers > in full), and a crit carries a mark besides its size.
+        local shown = tostring(value)
+        if tonumber(value) and nfUIEdit.On("fullHits") then shown = nfUIEdit.Full(value) end
+        if info.critical and info.kind ~= "miss" then shown = shown .. "!" end
+        text.label:SetText(shown)
+        -- A reused label kept its old width and cut long numbers to "870...".
+        if text.label.GetStringWidth then text.label:SetWidth(math.ceil(text.label:GetStringWidth()) + 6) end
+        if info.critical and info.kind ~= "miss" then color = {1, 0.9, 0.25} end
         text.label:SetTextColor(color[1], color[2], color[3])
         text.label:Show()
         local texture=CombatIcon(info)

@@ -45,10 +45,8 @@ end
 -- Readable numbers: short format, repeat hits merged, and each target's numbers fanned out.
 local function ShortAmount(value)
     value=tonumber(value) or 0
-    if value>=1000000 then return string.format("%.1fm",value/1000000) end
-    if value>=10000 then return string.format("%.0fk",value/1000) end
-    if value>=1000 then return string.format("%.1fk",value/1000) end
-    return string.format("%.0f",value)
+    if nfUIEdit.On("fullHits") then return nfUIEdit.Full(value) end
+    return nfUIEdit.Short(value)
 end
 -- Calm on purpose: hits merge for longer, the numbers stay close together and move slowly.
 local MERGE_TIME=0.5
@@ -68,7 +66,18 @@ end
 local laneByTarget={}
 local CROWD=14
 local function Emit(amount,name,critical,periodic,spell)
-    if name then nfUIEdit.TargetHit(amount,name,SpellIcon(spell)) end
+    if name then
+        nfUIEdit.TargetHit(amount,name,SpellIcon(spell))
+        -- A hit on the target shows above its health; repeating it over the enemy would show it twice. Only a target
+        -- whose name is unique on screen can be told apart this way.
+        if nfUIEdit.On("targetRising") and name==UnitName("target") then
+            local same=0
+            for _,entry in ipairs(nfUIPlatesRegistry or {}) do
+                if entry.plate:IsVisible() and entry.stock.name:GetText()==name then same=same+1 end
+            end
+            if same<=1 then return end
+        end
+    end
     local now=GetTime()
     local x,y,placed=Origin(name)
     -- Hits on enemies that cannot be placed all become one number, instead of a pile in the middle of the screen.
@@ -77,9 +86,10 @@ local function Emit(amount,name,critical,periodic,spell)
     -- In a crowd the small numbers give way, so the big ones can be read.
     local active=0
     for _,entry in ipairs(pool) do if entry.active then active=active+1 end end
-    if active>=CROWD and not critical and (tonumber(amount) or 0)<peak*0.35 then return end
+    local value=tonumber(amount) or 0
+    if name and ((active>=CROWD and value<peak*0.6) or (active>=CROWD/2 and value<peak*0.3)) then return end
     for _,entry in ipairs(pool) do
-        if entry.active and entry.key==key and now-entry.born<MERGE_TIME then
+        if not nfUIEdit.On("separateHits") and entry.active and entry.key==key and now-entry.born<MERGE_TIME then
             entry.amount=(entry.amount or 0)+(tonumber(amount) or 0)
             entry.label:SetText((name and "" or "-")..ShortAmount(entry.amount))
             Emphasize(entry,periodic)
@@ -99,7 +109,7 @@ local function Emit(amount,name,critical,periodic,spell)
     local lane=math.mod((laneByTarget[target] or 0),LANE_COUNT)+1
     laneByTarget[target]=lane
     state.key=key;state.amount=tonumber(amount) or 0
-    state.x=x+LANES[math.mod(lane-1,3)+1];state.y=y+math.floor((lane-1)/3)*14;state.drift=0
+    state.x=x+LANES[math.mod(lane-1,3)+1];state.y=y+(placed and name and 26 or 0)+math.floor((lane-1)/3)*14;state.drift=0
     state.rise=(name and 1 or -1)*28;state.critical=critical
     local color=not name and {1,0.22,0.22} or critical and {1,0.76,0.08} or periodic and {0.8,0.8,0.8} or {1,1,1}
     local label=state.label
@@ -122,21 +132,30 @@ layer:SetScript("OnUpdate",function()
     end end
 end)
 local reader=CreateFrame("Frame","nfUIQuickTextEvents",UIParent)
+-- The meter's hit rates need the combat log in every damage text mode; only quick mode draws from it.
+local drawing=false
+for _,name in ipairs(events) do if name~="COMBAT_TEXT_UPDATE" then reader:RegisterEvent(name) end end
 reader:SetScript("OnEvent",function()
     if event=="COMBAT_TEXT_UPDATE" then
         -- The hero's own damage has its slow column above the health bar; this is for when that is off.
-        if incoming[arg1] and tonumber(arg2) and not nfUIEdit.On("risingDamage") then Emit(arg2,nil,arg1=="DAMAGE_CRIT") end
+        if incoming[arg1] and tonumber(arg2) then
+            nfUIEdit.HeroHit(arg2)
+            if not nfUIEdit.On("risingDamage") then Emit(arg2,nil,arg1=="DAMAGE_CRIT") end
+        end
     else
         local parser=nfUIModules.tools.ParseNameplateCombatEvent
         local hit=parser and parser(event,arg1 or "")
-        if hit and hit.kind=="damage" and hit.targetName and hit.targetName~="" then Emit(hit.amount,hit.targetName,hit.critical,hit.damageType=="periodic",hit.spell) end
+        if hit and hit.kind=="damage" and hit.targetName and hit.targetName~="" then
+            -- A pet's hit counts for the pet, as the meter lists it.
+            nfUIEdit.TrackHit(hit.sourceName or hit.spell,hit.amount)
+            if drawing then Emit(hit.amount,hit.targetName,hit.critical,hit.damageType=="periodic",hit.spell) end
+        end
     end
 end)
 function C.ApplyQuickText()
     local db=C.Settings();local on=db.damageText and db.damageMode~="default" and db.damageMode~="off"
-    for _,name in ipairs(events) do
-        if on and (db.damageMode=="quick" or name=="COMBAT_TEXT_UPDATE") then reader:RegisterEvent(name) else reader:UnregisterEvent(name) end
-    end
+    drawing=on and db.damageMode=="quick"
+    if on then reader:RegisterEvent("COMBAT_TEXT_UPDATE") else reader:UnregisterEvent("COMBAT_TEXT_UPDATE") end
     SetCVar("CombatDamage",db.damageMode=="default" and "1" or "0")
     for name in pairs(incoming) do if COMBAT_TEXT_TYPE_INFO and COMBAT_TEXT_TYPE_INFO[name] then COMBAT_TEXT_TYPE_INFO[name].show=not on and 1 or nil end end
     if not on then for _,state in ipairs(pool) do state.active=false;state.label:Hide();state.icon:Hide() end end

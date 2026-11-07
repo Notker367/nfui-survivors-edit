@@ -6,11 +6,9 @@ local categories={
     {key="layout",title="Overall layout",description="Overall scale. Use Movers to position each element independently.",
         fields={{"scale","Overall scale"}}},
     {key="edit",title="Switches",description="Everything that turns on and off, in one place.",
-        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},{"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"levels","Levels before names","check"},{"ownLevel","Hero level on the portrait","check"},{"risingDamage","Rising damage numbers above health","check"},{"risingHeal","Green healing numbers beside them","check"},{"targetRising","Your hits above the target's health","check"},{"regenText","Regeneration per second on the health bar","check"},{"plateTrail","Plate health drain animation","check"},{"farPlates","Bars for far enemies","check"},{"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},{"colorblind","Colour-blind palette (then /reload)","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"},{"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"skillStats","Rank and DPS under skills","check"},{"ownLoadout","Own jewelry panel","check"},{"allyLoadout","Ally skills and jewelry","check"}}},
+        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"colorblind","Colour-blind palette (then /reload)","check"},{"groupRight","Right panels","group",keys={"bossSchedule","lairPanel","takenPanel","historyPanel","heroStats","dpsGraph"}},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"groupLeft","Skill and jewelry pools","group",keys={"skillPool","jewelPool","legendRow","banishMarks","ownLoadout","skillStats"}},{"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"legendRow","Skill legendaries in the jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"ownLoadout","Own jewelry panel","check"},{"skillStats","Rank and DPS under skills","check"},{"groupNumbers","Numbers","group",keys={"risingDamage","risingHeal","targetRising","fullHits","separateHits","skillRate"}},{"risingDamage","Rising damage numbers above health","check"},{"risingHeal","Green healing numbers beside them","check"},{"targetRising","Your hits above the target's health","check"},{"fullHits","Damage numbers in full: 12 345, not 12k","check"},{"separateHits","Separate hits beside the total","check"},{"skillRate","DPS meter: hits per second and biggest hit","check"},{"groupBars","Enemy bars","group",keys={"levels","hitImpact","plateTrail","plateFade","farPlates","metres","redEdge","friendFade"}},{"levels","Levels before names","check"},{"hitImpact","Health bars react to hits","check"},{"plateTrail","Plate health drain animation","check"},{"plateFade","Far and covered bars fade","check"},{"farPlates","Bars for far enemies","check"},{"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},{"friendFade","Pets' bars stay faint","check"},{"groupHero","Hero and target","group",keys={"ownLevel","regenText","targetOfTarget","chestIcon"}},{"ownLevel","Hero level on the portrait","check"},{"regenText","Regeneration per second on the health bar","check"},{"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"groupParty","Allies","group",keys={"partyLoadout","autoMarks","allyLoadout"}},{"partyLoadout","Allies' skills and jewelry under their frames","check"},{"autoMarks","Marks: a star on you, a skull on a downed ally","check"},{"allyLoadout","Ally skills and jewelry","check"},{"groupMap","Map and chat","group",keys={"bossAlert","mapPins","mapSettings","chatNarrowFont","chatTabs"}},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"mapSettings","Settings button on the minimap","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"}}},
     {key="blocks",title="Blocks",description="Size of each movable block. Drag them with Movers; right-click one to lock it.",
-        fields={{"pickedEdgeSize","Picked items: edge thickness"},{"farRadius","Far bars: radius (yards)"},{"statsScale","Hero stats"},{"graphScale","DPS graph"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"ownScale","Own jewelry"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"banishedScale","Banished cards"},
-            {"allyScale","Ally skills and jewelry"},{"risingScale","Rising damage: block"},{"targetRisingScale","Damage on the target"},{"risingFont","Rising damage: font"},
-            {"risingHeight","Rising damage: how high"},{"skillStatsFont","Rank and DPS font"},{"metresFont","Metres font"},{"ownLevelFont","Hero level font"}}},
+        fields={{"headRight","Right panels","heading"},{"groupRightScale","Whole group"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"graphScale","DPS graph"},{"statsScale","Hero stats"},{"headLeft","Skill and jewelry pools","heading"},{"groupLeftScale","Whole group"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"pickedEdgeSize","Picked items: edge thickness"},{"banishedScale","Banished cards"},{"ownScale","Own jewelry"},{"headNumbers","Numbers","heading"},{"risingFont","Rising damage: font"},{"risingHeight","Rising damage: how high"},{"risingScale","Rising damage: block"},{"targetRisingScale","Damage on the target"},{"skillStatsFont","Rank and DPS font"},{"headBars","Enemy bars","heading"},{"farRadius","Far bars: radius (yards)"},{"allyPlateWidth","Ally bar width (%)"},{"allyPlateHeight","Ally bar height"},{"plateFadeScale","Farthest bars: opacity"},{"metresFont","Metres font"},{"headOther","Other","heading"},{"mapPinSize","Minimap icons: size"},{"ownLevelFont","Hero level font"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"allyScale","Ally skills and jewelry"}}},
     {key="player",title="Player frame",description="Player size, text placement, health formatting, portrait, colors and shields.",
         fields={{"scale","Frame scale"},{"width","Health / power width"},{"height","Frame height"},{"portrait","Portrait size"},{"powerHeight","Power bar height"},{"nameFont","Name font"},{"valueFont","Health font"},{"hideName","Hide Name","check"},{"healthArea","Health display area","select"},{"showPortrait","Show portrait","check"},{"healthText","Health text","select"},{"healthColor","Color health by injury","check"},{"showShield","Show shields","check"},{"shieldHeight","Shield strip height"},{"shieldFont","Shield text font"}}},
     {key="target",title="Target frame",description="Target size, text, health formatting, portrait, colors and shields.",
@@ -41,8 +39,8 @@ local categories={
 -- What most players reach for is shown first. Everything else waits behind "Show advanced", with its values kept.
 local ADVANCED_SECTIONS={auras=true,debuffs=true,xp=true,micro=true,compassStyle=true,statsDisplay=true,runDisplay=true}
 local COMMON_FIELDS={
-    edit={risingHeal=1,targetRising=1,regenText=1,updates=1,mode=1,export=1,levels=1,ownLevel=1,risingDamage=1,plateTrail=1,farPlates=1,metres=1,redEdge=1,bossAlert=1,mapPins=1,bossSchedule=1,lairPanel=1,takenPanel=1,historyPanel=1,skillPool=1,jewelPool=1,banishMarks=1,colorblind=1},
-    blocks={pickedEdgeSize=1,farRadius=1,bossesScale=1,lairsScale=1,takenScale=1,historyScale=1,poolScale=1,jewelPoolScale=1,banishedScale=1,risingFont=1,risingHeight=1},
+    edit={fullHits=1,autoMarks=1,chestIcon=1,mapSettings=1,partyLoadout=1,skillRate=1,friendFade=1,hitImpact=1,plateFade=1,separateHits=1,risingHeal=1,targetRising=1,regenText=1,updates=1,mode=1,export=1,levels=1,ownLevel=1,risingDamage=1,plateTrail=1,farPlates=1,metres=1,redEdge=1,bossAlert=1,mapPins=1,bossSchedule=1,lairPanel=1,takenPanel=1,historyPanel=1,skillPool=1,jewelPool=1,legendRow=1,banishMarks=1,colorblind=1},
+    blocks={allyPlateWidth=1,allyPlateHeight=1,groupRightScale=1,groupLeftScale=1,mapPinSize=1,plateFadeScale=1,pickedEdgeSize=1,farRadius=1,bossesScale=1,lairsScale=1,takenScale=1,historyScale=1,poolScale=1,jewelPoolScale=1,banishedScale=1,risingFont=1,risingHeight=1},
     player={scale=1,width=1,height=1,healthText=1,healthArea=1},
     target={scale=1,width=1,height=1,healthText=1},
     action={scale=1,size=1,gap=1},
@@ -58,7 +56,7 @@ local function ShownFields(category)
     if ShowingAdvanced() or not common then return category.fields end
     local shown={}
     for _,field in ipairs(category.fields) do
-        if common[field[1]] then table.insert(shown,field) end
+        if common[field[1]] or field[3]=="group" or field[3]=="heading" then table.insert(shown,field) end
     end
     return shown
 end
@@ -84,6 +82,13 @@ local function StoreOf(store)
 end
 local function ReadValue(key)
     local field=SelectedField(key)
+    -- A group's own switch is on while any of its members is.
+    if field and field.keys then
+        for _,member in ipairs(field.keys) do
+            if C.Settings().edit[member]~=false then return true end
+        end
+        return false
+    end
     if field and field.store then
         local value=StoreOf(field.store)[field.store.key]
         if field.store.invert then return not value end
@@ -95,6 +100,10 @@ local function ReadValue(key)
 end
 local function WriteValue(key,value)
     local field=SelectedField(key)
+    if field and field.keys then
+        for _,member in ipairs(field.keys) do C.Settings().edit[member]=value end
+        return
+    end
     local store=field and field.store
     if store then
         key=store.key
@@ -188,7 +197,14 @@ function C.Refresh()
             local lo,hi,step=C.Range(SettingsCategory(key),key)
             row.label:SetText(field.store and field[2] or nfUIEdit.L(field[2]))
             row.check:Hide(); row.choice:Hide(); row.menu:Hide(); row.slider:Hide(); row.value:Hide();row.color:Hide();row.action:Hide()
-            if field[3]=="mode" then
+            local isTitle=field[3]=="group" or field[3]=="heading"
+            local tint=isTitle and nfUIEdit.COLORS.mauve or {0.85,0.87,0.9}
+            row.label:SetTextColor(tint[1],tint[2],tint[3])
+            if field[3]=="heading" then
+                -- A title only.
+            elseif field[3]=="group" then
+                row.check:SetChecked(ReadValue(key));row.check:Show()
+            elseif field[3]=="mode" then
                 row.action:SetText(nfUIEdit.ModeName());row.action:Show()
             elseif field[3]=="export" then
                 row.action:SetText("Export");row.action:Show()

@@ -67,11 +67,30 @@ Panel(graphFrame,E.Text("DPS по времени","DPS over time"),"graph",0,"bl
 for _,row in ipairs(statsFrame.rows) do row.left:SetWidth(90) end
 
 local warned={}
+-- What a folded panel says in its title: words at the left, numbers at the right where they are never cut.
+local function Summarize(frame,text,color,value)
+    local header=frame.collapseHeader
+    if not header then return end
+    header.summary=text;header.summaryValue=value;header.summaryColor=color or E.COLORS.text
+    header.Refresh()
+end
+-- Each row's numbers keep their full width; the name beside them gives way.
+local function Fit(frame)
+    if E.IsCollapsed(frame.key) then return end
+    local width=frame:GetWidth()
+    for _,row in ipairs(frame.rows or {}) do
+        local text=row.right:GetText()
+        local used=(text and text~="") and (row.right:GetStringWidth()+8) or 0
+        row.left:SetWidth(math.max(20,width-12-used))
+    end
+end
 local function UpdateBosses()
     local now=AZS_GetRunTime and AZS_GetRunTime() or 0
     local c=E.COLORS
     local shown=0
+    bossFrame.nextBoss=nil
     for _,boss in ipairs(type(AZS_SCHEDULE)=="table" and AZS_SCHEDULE or {}) do
+        if boss.state=="due" and tonumber(boss.at) and not bossFrame.nextBoss then bossFrame.nextBoss=boss end
         if shown<ROWS and type(boss)=="table" and tonumber(boss.at) then
             shown=shown+1
             local row=bossFrame.rows[shown]
@@ -96,16 +115,37 @@ local function UpdateBosses()
         end
     end
     for index=shown+1,ROWS do Clear(bossFrame.rows[index]) end
+    local nextBoss=bossFrame.nextBoss
+    if nextBoss then
+        local left=nextBoss.at-now
+        Summarize(bossFrame,nextBoss.name or "?",left<=10 and c.red or left<=30 and c.yellow or c.text,Clock(left))
+    else Summarize(bossFrame,E.Text("Боссов больше нет","No bosses left"),DONE) end
     return shown>0
 end
 local function ByDamage(a,b) return a.dmg>b.dmg end
+-- Each source's damage per second over the last ten seconds, from the run's totals sampled as they come.
+local RATE_WINDOW=10
+local samples={}
+local function RateOf(source,amount,now)
+    local list=samples[source]
+    if not list then list={};samples[source]=list end
+    table.insert(list,{at=now,dmg=amount})
+    while list[2] and now-list[2].at>=RATE_WINDOW do table.remove(list,1) end
+    local first=list[1]
+    local span=math.max(1,now-first.at)
+    return math.max(0,(amount-first.dmg)/span)
+end
+local function ByRate(a,b) if a.rate~=b.rate then return a.rate>b.rate end;return a.dmg>b.dmg end
 local function UpdateTaken()
     local lines,total={},0
+    local now=GetTime()
     for _,line in ipairs(type(AZS_TAKEN)=="table" and AZS_TAKEN or {}) do
         local amount=type(line)=="table" and tonumber(line.dmg)
-        if amount and amount>0 then total=total+amount;table.insert(lines,{source=line.source,dmg=amount}) end
+        if amount and amount>0 then total=total+amount;table.insert(lines,{source=line.source,dmg=amount,rate=RateOf(tostring(line.source),amount,now)}) end
     end
-    table.sort(lines,ByDamage)
+    -- What hurts now comes first; the run's total is in brackets.
+    table.sort(lines,ByRate)
+    local perSecond=E.Text("/с","/s")
     local language=E.IsRussian() and 1 or 2
     for index=1,ROWS do
         local row,line=takenFrame.rows[index],lines[index]
@@ -113,10 +153,18 @@ local function UpdateTaken()
             local name=SOURCES[line.source]
             row.left:SetText(name and name[language] or tostring(line.source))
             row.left:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
-            row.right:SetText(E.Short(line.dmg).." "..math.floor(line.dmg/total*100+0.5).."%")
+            row.right:SetText(E.Short(line.rate)..perSecond.."  |cff8a8a96"..E.Text("всего ","total ")..E.Short(line.dmg).."|r")
             row.right:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
-            row.bar:SetWidth(math.max(1,(WIDTH-8)*line.dmg/total));row.bar:Show()
+            local top=math.max(1,lines[1].rate)
+            row.bar:SetWidth(math.max(1,(WIDTH-8)*line.rate/top));row.bar:Show()
         else Clear(row) end
+    end
+    if lines[1] then
+        local name=SOURCES[lines[1].source]
+        local biggest=E.BiggestRecentHit and E.BiggestRecentHit() or 0
+        local all=0
+        for _,line in ipairs(lines) do all=all+line.rate end
+        Summarize(takenFrame,name and name[language] or tostring(lines[1].source),E.COLORS.enemy,E.Short(all)..perSecond..(biggest>0 and (E.Text("  макс ","  max ")..E.Short(biggest)) or ""))
     end
     return total>0
 end
@@ -130,6 +178,8 @@ local function UpdateLairs()
         if type(unit)=="table" and unit.id then health[unit.id]=unit end
     end
     local shown=0
+    -- For the folded title: one awake first, then the nearest to appear, then the one the game points at.
+    local awake,soonest,flagged
     for _,lair in ipairs(type(AZS_LAIRS)=="table" and AZS_LAIRS or {}) do
         if shown<LAIR_ROWS and type(lair)=="table" then
             shown=shown+1
@@ -141,6 +191,9 @@ local function UpdateLairs()
             if not empty then killedAt[index]=nil end
             local unit=lair.id and health[lair.id]
             local color,text=c.text,""
+            if lair.state~="empty" and lair.state~="asleep" and not awake then awake=lair end
+            if empty and tonumber(lair.left) and tonumber(lair.left)>=0 and (not soonest or tonumber(lair.left)<tonumber(soonest.left)) then soonest=lair end
+            if lair.flag==1 then flagged=lair end
             if empty then
                 local left=tonumber(lair.left)
                 if left and left>=0 then
@@ -149,7 +202,7 @@ local function UpdateLairs()
             elseif lair.state=="asleep" then text=E.Text("спит","asleep");color=DONE
             else
                 text=E.Text("активен","awake");color=c.peach
-                if unit and tonumber(unit.hpm) and tonumber(unit.hpm)>0 then text=math.floor(unit.hp/unit.hpm*100+0.5).."%" end
+                if unit and tonumber(unit.hpm) and tonumber(unit.hpm)>0 then text=E.Short(tonumber(unit.hp))..E.Text(" ХП"," HP") end
             end
             if killedAt[index] then text=E.Text("убит ","slain ")..Clock(killedAt[index]).."  "..text end
             row.left:SetText((lair.flag==1 and "> " or "")..(lair.name or "?"))
@@ -157,6 +210,13 @@ local function UpdateLairs()
         end
     end
     for index=shown+1,LAIR_ROWS do Clear(lairFrame.rows[index]) end
+    if awake then
+        local unit=awake.id and health[awake.id]
+        local share=unit and tonumber(unit.hpm) and tonumber(unit.hpm)>0 and (E.Short(tonumber(unit.hp))..E.Text(" ХП"," HP")) or E.Text("активен","awake")
+        Summarize(lairFrame,awake.name or "?",c.peach,share)
+    elseif soonest then Summarize(lairFrame,soonest.name or "?",tonumber(soonest.left)<=10 and c.yellow or c.text,Clock(tonumber(soonest.left)))
+    elseif flagged then Summarize(lairFrame,"> "..(flagged.name or "?"),c.text)
+    else Summarize(lairFrame,E.Text("Стражи","Guardians"),DONE) end
     return shown>0
 end
 
@@ -214,7 +274,7 @@ local function Compare(row,label,rate,now)
         row.right:SetText(E.Text("нет данных","no data"));row.right:SetTextColor(DONE[1],DONE[2],DONE[3]);return
     end
     local gain=math.floor((now/rate-1)*100+0.5)
-    row.right:SetText(E.Short(rate).." ("..(gain>=0 and "+" or "")..gain.."%)")
+    row.right:SetText(E.Short(rate).." DPS ("..(gain>=0 and "+" or "")..gain.."%)")
     local color=gain>=0 and E.COLORS.green or E.COLORS.enemy
     row.right:SetTextColor(color[1],color[2],color[3])
 end
@@ -264,13 +324,17 @@ local function UpdateHistory()
     end
     Compare(rows[2],E.Text("Прошлый забег","Last run"),previous,now)
     Compare(rows[3],E.Text("Лучший забег","Best run"),best,now)
+    if best and best>0 then
+        local gain=math.floor((now/best-1)*100+0.5)
+        Summarize(historyFrame,E.Text("К лучшему","Vs best"),gain>=0 and c.green or E.COLORS.enemy,E.Short(now).." DPS  "..(gain>=0 and "+" or "")..gain.."%")
+    else Summarize(historyFrame,E.Text("Сейчас","Now"),c.yellow,E.Short(now).." DPS") end
     local row=4
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 then
-            rows[row].left:SetText((other.class or "?").." "..Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or ""))
+        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 and other.class==entry.class and other.zone==entry.zone then
+            rows[row].left:SetText(Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or ""))
             rows[row].left:SetTextColor(DONE[1],DONE[2],DONE[3])
-            rows[row].right:SetText(E.Short((other.dealt or 0)/other.t));rows[row].right:SetTextColor(DONE[1],DONE[2],DONE[3])
+            rows[row].right:SetText(E.Short((other.dealt or 0)/other.t).." DPS");rows[row].right:SetTextColor(DONE[1],DONE[2],DONE[3])
             SummaryHover(row,other)
             row=row+1
         end
@@ -301,6 +365,7 @@ local function UpdateStats()
         row.left:SetText(stat[language]);row.left:SetTextColor(E.COLORS.text[1],E.COLORS.text[2],E.COLORS.text[3])
         row.right:SetText(stat[3](AZS_STATS));row.right:SetTextColor(E.COLORS.yellow[1],E.COLORS.yellow[2],E.COLORS.yellow[3])
     end
+    Summarize(statsFrame,STATS[1][language],E.COLORS.yellow,STATS[1][3](AZS_STATS))
     return true
 end
 -- Damage per second in each 30 seconds of this run, with the last run's as marks.
@@ -326,6 +391,10 @@ end
 local function UpdateGraph()
     local entry=current
     if not entry then return false end
+    -- Folded, the last finished half minute: the history's title already gives the run's average.
+    local recent=RatesOf(entry)
+    local last=recent[table.getn(recent)]
+    Summarize(graphFrame,E.Text("За 30 сек","Last 30 sec"),E.COLORS.yellow,last and (E.Short(last).." DPS") or "-")
     if E.IsCollapsed("graph") then
         for _,piece in ipairs(bars) do piece:Hide() end
         for _,piece in ipairs(marks) do piece:Hide() end
@@ -374,4 +443,5 @@ E.Every(0.25,function()
     if inRun and E.On("historyPanel") and UpdateHistory() then historyFrame:Show() else E.Conceal(historyFrame) end
     if inRun and E.On("heroStats") and UpdateStats() then statsFrame:Show() else E.Conceal(statsFrame) end
     if inRun and E.On("dpsGraph") and UpdateGraph() then graphFrame:Show() else E.Conceal(graphFrame) end
+    if inRun then Fit(bossFrame);Fit(takenFrame);Fit(lairFrame);Fit(historyFrame);Fit(statsFrame) end
 end)

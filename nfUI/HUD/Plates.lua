@@ -27,10 +27,11 @@ local BORDER_TEXTURE = "Interface\\Tooltips\\Nameplate-Border"
 local EXECUTE_RANGE = 0.30      -- the game's execute effects start below this share of health
 
 local KINDS = {
-	normal   = { width = 100, height = 9,  nameSize = 9,  color = nfUIEdit.COLORS.enemy },
-	elite    = { width = 130, height = 11, nameSize = 11, color = nfUIEdit.COLORS.peach },
-	guardian = { width = 150, height = 12, nameSize = 12, color = nfUIEdit.COLORS.sapphire },
-	boss     = { width = 170, height = 14, nameSize = 13, color = nfUIEdit.COLORS.mauve },
+	-- Who is who at a glance: a thin plain bar for the crowd, then longer, thicker bars with a mark and a thicker edge.
+	normal   = { width = 100, height = 9,  nameScale = 0.85, nameAlpha = 0.8, edge = 1, color = nfUIEdit.COLORS.enemy },
+	elite    = { width = 130, height = 15, nameScale = 1.05, nameAlpha = 1, edge = 1, mark = "star", color = nfUIEdit.COLORS.peach, edgeColor = {0.95, 0.75, 0.3, 1} },
+	guardian = { width = 150, height = 18, nameScale = 1.15, nameAlpha = 1, edge = 2, mark = "shield", color = nfUIEdit.COLORS.sapphire, edgeColor = {0.55, 0.85, 1, 1} },
+	boss     = { width = 185, height = 24, nameScale = 1.3, nameAlpha = 1, edge = 2, mark = "skull", color = nfUIEdit.COLORS.mauve, edgeColor = {1, 0.85, 1, 1} },
 }
 local EXECUTE_COLOR = { 0.80, 0.10, 0.10 }
 nfUIConfig.PlateKinds = KINDS
@@ -83,6 +84,17 @@ end
 for _,name in ipairs({"Кобольд-надсмотрщик","Сердитый Быстрокус","Брюхоед","Вожак воргов из Ночной Погибели","Паук-трупоед","Поганище-пожиратель плоти","Элитный страж Скверны","Инфернал","Стражник ужаса","Громила Гордунни","Древень Криводрева","Защитник Железной Коры","Берсерк Гурубаши","Зулианский кроколиск","Чемпион Гурубаши","Альтеракский повелитель йети","Горный великан","Полководець Зимосокир","Гончая Недр","Черный дракон","Огненный великан","Чемпион киражи","Анубисат-часовой","Обсидиановый разрушитель"}) do kindByName[name]="elite" end
 for _,name in ipairs({"Дробитель","Матушка Клык","Рак'Зор","Мистер Шлеп","Эдвин ван Клиф","Наракис","Мор'Ладим","Стежок","Лупос","Морбент Злоб","Командир стражников ужаса","Глашатай Маннорота","Вариматрас","Владыка Хел'нурат","Владыка Каззак","Лоскутик","Ануб'Рекан","Кел'Тузад","Зеврим Терновое Копыто","Алззин Перевертень","Тендрис Криводрев","Иммол'тар","Король Гордок","Верховная жрица Джеклик","Верховный жрец Веноксис","Мандокир Повелитель Крови","Джин'до Проклинатель","Хаккар Свежеватель Душ","Коррак Кровожадный","Ивус Лесной Властелин","Локолар Владыка Льда","Гляциус Замёрзший Титан","Азурегос","Генерал Кузня Гнева","Вождь Ренд Чернорук","Император Дагран Тауриссан","Мажордом Экзекутус","Нефариан","Куриннакс","Генерал Раджакс","Принцесса Хухуран","Оссириан Неуязвимый","К'Тун"}) do kindByName[name]="boss" end
 
+-- What the game said each name is, counted only from unambiguous matches: in a crowd the nearest anchor is often
+-- a neighbour, and one wrong guess would shrink an elite's bar or swell a plain one.
+local learned = {}
+local function LearnedKind(name)
+	local votes = learned[name]
+	if not votes then return nil end
+	local top, count = nil, 0
+	for kind, n in pairs(votes) do if n > count then top, count = kind, n end end
+	if count >= 2 then return top end
+	return nil
+end
 local function Classify(name)
 	if not name then
 		return "normal"
@@ -91,7 +103,7 @@ local function Classify(name)
 	if string.find(name, "(Guardian)", 1, true) then
 		return "guardian"
 	end
-	return kindByName[name] or "normal"
+	return kindByName[name] or LearnedKind(name) or "normal"
 end
 
 local function Settings()
@@ -106,7 +118,11 @@ end
 
 -- 1234, 12.3k, 1.2m
 local function Short(value)
-	if value >= 1000000 then
+	if value >= 999500000 then
+		return string.format(value >= 99950000000 and "%.0fb" or "%.1fb", value / 1000000000)
+	elseif value >= 99950000 then
+		return string.format("%.0fm", value / 1000000)
+	elseif value >= 1000000 then
 		return string.format("%.1fm", value / 1000000)
 	elseif value >= 10000 then
 		return string.format("%.1fk", value / 1000)
@@ -117,18 +133,37 @@ end
 local overlays = {}
 nfUIPlatesRegistry = overlays
 
+-- The game's raid marks and skull.
+local RAID_MARKS = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
+local MARKS = {
+	star = {RAID_MARKS, 0, 0.25, 0, 0.25},
+	shield = {RAID_MARKS, 0.5, 0.75, 0, 0.25},
+	skull = {"Interface\\TargetingFrame\\UI-TargetingFrame-Skull", 0, 1, 0, 1},
+}
 local function ApplyKind(overlay, kind)
 	local style = KINDS[kind]
 	local settings = Settings()
 	local scale = settings.scale
 	overlay.kind = kind
 	overlay.style = style
+	-- The ally sizing below runs again over the new size.
+	overlay.allyWidth = nil
+	overlay.petThin = nil
 	overlay.bar:SetWidth(settings.width * style.width / 100 * scale)
 	overlay.bar:SetHeight(settings.height * style.height / 9 * scale)
 	overlay.marker:SetHeight(settings.height * style.height / 9 * scale)
 	overlay.marker:SetPoint("LEFT", overlay.bar, "LEFT", settings.width * style.width / 100 * scale * EXECUTE_RANGE, 0)
-	overlay.name:SetFont(FONT, settings.nameFont * scale, "OUTLINE")
-	overlay.name:SetWidth(math.max(110,overlay.bar:GetWidth()));overlay.name:SetHeight(settings.nameFont*scale+4)
+	local nameSize = math.floor(settings.nameFont * scale * style.nameScale + 0.5)
+	overlay.name:SetFont(FONT, nameSize, "OUTLINE")
+	overlay.name:SetWidth(math.max(170,overlay.bar:GetWidth()+40));overlay.name:SetHeight(nameSize+4)
+	overlay.nameAlpha = style.nameAlpha
+	overlay.border.SetSize(style.edge)
+	if style.mark then
+		local mark = MARKS[style.mark]
+		overlay.mark:SetTexture(mark[1]);overlay.mark:SetTexCoord(mark[2],mark[3],mark[4],mark[5])
+		local markSize = math.max(12,overlay.bar:GetHeight()+6)
+		overlay.mark:SetWidth(markSize);overlay.mark:SetHeight(markSize);overlay.mark:Show()
+	else overlay.mark:Hide() end
 	overlay.health:SetFont(FONT, settings.healthFont * scale, "OUTLINE")
 	overlay.levelTag = PlateLevelTag(overlay.stock)
 	overlay.name:SetText(overlay.levelTag .. (settings.abbreviate and nfUI_AbbreviateName(overlay.stock.name:GetText()) or overlay.stock.name:GetText() or ""))
@@ -185,30 +220,91 @@ function PlateLevelTag(stock)
     return nfUIEdit.LevelTag(stock.level and stock.level:GetText())
 end
 
+-- The hero's own spells by icon: the game does not say who cast a debuff, so a debuff wearing one of these is the hero's.
+local ownIcons,ownRead={},-10
+local function IconKey(texture)
+    if not texture then return nil end
+    local _,_,last=string.find(string.lower(texture),"([^\\/]+)$")
+    return last
+end
+local function IsOwn(texture)
+    local now=GetTime()
+    if now-ownRead>5 then
+        ownRead=now;ownIcons={}
+        local index=1
+        while GetSpellName(index,"spell") do
+            local key=IconKey(GetSpellTexture(index,"spell"))
+            if key then ownIcons[key]=true end
+            index=index+1
+        end
+    end
+    local key=IconKey(texture)
+    return key and ownIcons[key]
+end
+-- A boss's or guardian's debuffs come from the game by its id; any other enemy's only while it is the target.
+local function GameDebuffs(name)
+    if not name or not AZS_GetDebuffs then return nil end
+    for _,unit in ipairs(type(AZS_UNITS)=="table" and AZS_UNITS or {}) do
+        if unit.name==name and unit.id then
+            local ok,list=pcall(AZS_GetDebuffs,unit.id)
+            if ok and type(list)=="table" and list[1] then return list end
+        end
+    end
+    return nil
+end
+local OWN_SIZE,ALLY_SIZE=15,10
+local found={}
 local function UpdatePlateDebuffs(overlay,target)
-    local source=target and "target" or PartyUnitByName(overlay.stock.name:GetText())
-    if not source then
+    local name=overlay.stock.name:GetText()
+    local count=0
+    local unit=target and "target" or PartyUnitByName(name)
+    if unit then
+        for index=1,16 do
+            local texture,stacks=UnitDebuff(unit,index)
+            if not texture then break end
+            count=count+1;found[count]={texture,stacks}
+        end
+    elseif overlay.kind=="boss" or overlay.kind=="guardian" then
+        for _,debuff in ipairs(GameDebuffs(name) or {}) do
+            local texture=debuff.icon
+            if texture and texture~="" then
+                if not string.find(texture,"\\") then texture="Interface\\Icons\\"..texture end
+                count=count+1;found[count]={texture,tonumber(debuff.stacks)}
+            end
+        end
+    end
+    if count==0 then
         if overlay.debuffsShown then for _,icon in ipairs(overlay.debuffs or {}) do icon:Hide() end end
         overlay.debuffsShown=nil;return
     end
     local W=nfUIWidgets
     overlay.debuffs=overlay.debuffs or {};overlay.debuffsShown=true
     local lift=overlay.named and Settings().nameFont*Settings().scale+7 or 4
-    for index=1,PLATE_DEBUFFS do
-        local texture,stacks=UnitDebuff(source,index)
-        local icon=overlay.debuffs[index]
-        if texture then
-            if not icon then
-                icon=CreateFrame("Frame",nil,overlay.bar);icon:SetHeight(DEBUFF_SIZE);icon:SetWidth(DEBUFF_SIZE)
-                icon.texture=W.Fill(icon,{1,1,1,1},"ARTWORK");icon.texture:SetTexCoord(0.08,0.92,0.08,0.92)
-                icon.count=W.Label(icon,9,"BOTTOMRIGHT",1,-1)
-                overlay.debuffs[index]=icon
+    -- The hero's own first and larger, then the allies' small beside them.
+    local x,shown=0,0
+    for pass=1,2 do
+        for index=1,count do
+            local texture,stacks=found[index][1],found[index][2]
+            local own=IsOwn(texture) and true or false
+            if (pass==1)==own and shown<PLATE_DEBUFFS+2 then
+                shown=shown+1
+                local icon=overlay.debuffs[shown]
+                if not icon then
+                    icon=CreateFrame("Frame",nil,overlay.bar)
+                    icon.texture=W.Fill(icon,{1,1,1,1},"ARTWORK");icon.texture:SetTexCoord(0.08,0.92,0.08,0.92)
+                    icon.count=W.Label(icon,9,"BOTTOMRIGHT",1,-1)
+                    overlay.debuffs[shown]=icon
+                end
+                local size=own and OWN_SIZE or ALLY_SIZE
+                icon:SetWidth(size);icon:SetHeight(size)
+                icon:ClearAllPoints();icon:SetPoint("BOTTOMLEFT",overlay.bar,"TOPLEFT",x,lift)
+                x=x+size+2
+                icon.texture:SetTexture(texture);icon.count:SetText(stacks and stacks>1 and stacks or "")
+                icon:SetAlpha(own and 1 or 0.8);icon:Show()
             end
-            icon:ClearAllPoints();icon:SetPoint("BOTTOMLEFT",overlay.bar,"TOPLEFT",(index-1)*(DEBUFF_SIZE+2),lift)
-            icon.texture:SetTexture(texture);icon.count:SetText(stacks and stacks>1 and stacks or "")
-            icon:SetAlpha(target and 0.65 or 1);icon:Show()
-        elseif icon then icon:Hide() end
+        end
     end
+    for index=shown+1,table.getn(overlay.debuffs) do overlay.debuffs[index]:Hide() end
 end
 
 local function SuppressStock(overlay)
@@ -244,9 +340,18 @@ end
 
 -- The game's own word for what this enemy is, which works in every language.
 local GAME_KINDS={enemy="normal",elite="elite",guardian="guardian",boss="boss",finalBoss="boss"}
-function nfUIConfig.SetPlateKind(overlay,gameKind)
+function nfUIConfig.SetPlateKind(overlay,gameKind,sure)
     local kind=GAME_KINDS[gameKind]
-    if kind and overlay.kind~=kind then ApplyKind(overlay,kind) end
+    local name=overlay.stock and overlay.stock.name:GetText()
+    if not kind or not name then return end
+    -- The game's own tables already named it.
+    if kindByName[name] or string.find(name,"(Guardian)",1,true) then return end
+    if sure then
+        local votes=learned[name] or {}
+        learned[name]=votes;votes[kind]=(votes[kind] or 0)+1
+    end
+    local known=LearnedKind(name)
+    if known and overlay.kind~=known then ApplyKind(overlay,known) end
 end
 
 local function UpdatePlate()
@@ -276,24 +381,19 @@ local function UpdatePlate()
 	local value = stock.health:GetValue()
 	local share = high > low and (value - low) / (high - low) or 0
 	local percent = math.floor(share * 100 + 0.5)
-	-- Health drains smoothly and leaves a pale trail. A rise is instant: plates are reused for new enemies.
+	-- A hit drops the bar at once and the lost piece flares, holds and drains. A rise is instant here: plates are
+	-- reused for new enemies.
 	local elapsed = arg1 or 0
-	local shown = overlay.shownShare or share
-	if share >= shown then
-		shown = share
-	else
-		shown = shown + (share - shown) * math.min(1, elapsed * 12)
-		if shown - share < 0.002 then shown = share end
-	end
-	overlay.shownShare = shown
-	local trail = overlay.trailShare or share
-	if trail < share then trail = share else trail = math.max(share, trail - elapsed * 0.45) end
+	overlay.hitState = overlay.hitState or {}
+	if overlay.shownShare == nil or share > (overlay.hitState.last or 0) + 0.02 then overlay.hitState = {shown = share, trail = share, last = share} end
+	local shown, trail, flash = nfUIEdit.HitTrail(overlay.hitState, share, elapsed, overlay.bar)
 	if not nfUIEdit.On("plateTrail") then
 		shown = share
 		trail = share
-		overlay.shownShare = share
 	end
+	overlay.shownShare = shown
 	overlay.trailShare = trail
+	overlay.ghost:SetVertexColor(nfUIEdit.TrailColor(flash))
 	if trail - shown > 0.002 then
 		local barWidth = overlay.bar:GetWidth()
 		overlay.ghost:ClearAllPoints()
@@ -305,7 +405,39 @@ local function UpdatePlate()
 		overlay.ghost:Hide()
 	end
 	overlay.bar:SetValue(shown)
-	overlay.bar:SetAlpha(isTarget and 1 or 0.85)
+	-- The target stays solid; the others fade with distance and when another bar stands in front.
+	local plateFade = isTarget and 1 or (overlay.plateFade or 1)
+	-- Pets and other friends are not what the hero must read in a fight; party members keep their bars.
+	if not isTarget and nfUIEdit.On("friendFade") and not (PartyUnitByName(stock.name:GetText())) then
+		local fr, fg = stock.health:GetStatusBarColor()
+		if fg and fr and fg > fr * 1.5 then plateFade = math.min(plateFade, 0.3) end
+	end
+	-- Party members' bars can be wider than enemies' (Blocks > Ally bar width).
+	local wide = PartyUnitByName(stock.name:GetText()) and nfUIEdit.Size("allyPlateWidth",100) or nil
+	if wide ~= overlay.allyWidth then
+		overlay.allyWidth = wide
+		local settings = Settings()
+		local style = overlay.style or KINDS.normal
+		overlay.bar:SetWidth(settings.width * (wide or style.width) / 100 * settings.scale)
+		-- And taller, so an ally's health reads at a glance (Blocks > Ally bar height).
+		local tall = wide and nfUIEdit.Size("allyPlateHeight",16) or style.height
+		overlay.bar:SetHeight(settings.height * tall / 9 * settings.scale)
+		overlay.marker:SetHeight(settings.height * tall / 9 * settings.scale)
+		overlay.petThin = nil
+	end
+	-- The party's pets: a thin bar without a name, so that they do not cover the enemies (Switches > Pet bars).
+	local pet = IsPartyPet(overlay)
+	if pet ~= overlay.petThin then
+		overlay.petThin = pet
+		local settings = Settings()
+		local style = overlay.style or KINDS.normal
+		local tall = pet and 3 or (overlay.allyWidth and nfUIEdit.Size("allyPlateHeight",16) or style.height)
+		overlay.bar:SetHeight(math.max(2, settings.height * tall / 9 * settings.scale))
+		overlay.marker:SetHeight(math.max(2, settings.height * tall / 9 * settings.scale))
+	end
+	overlay.bar:SetAlpha((isTarget and 1 or 0.85) * plateFade)
+	overlay.name:SetAlpha(overlay.petThin and 0 or plateFade * (isTarget and 1 or (overlay.nameAlpha or 1)))
+	if overlay.distanceBox then overlay.distanceBox:SetAlpha(plateFade) end
 
 	-- A 0 to 100 bar means the client only knows the percentage; anything else
 	-- is the unit's real health.
@@ -313,6 +445,7 @@ local function UpdatePlate()
     if mode=="Numerical" then overlay.health:SetText(Short(value))
     elseif mode=="CurrentHP+%" then overlay.health:SetText(Short(value).." | "..percent.."%")
     else overlay.health:SetText(percent.."%") end
+    if overlay.petThin then overlay.health:SetText("") end
 
 	local color = FriendlyColor(overlay) or (Settings().rankColors and overlay.style.color or Settings().color)
 	if share <= EXECUTE_RANGE then
@@ -324,11 +457,15 @@ local function UpdatePlate()
 
 	-- Red edge when the target is looking at the hero. The game names only the target's target.
 	if nfUIEdit.On("redEdge") and (overlay.nearHero or (isTarget and UnitExists("targettarget") and UnitIsUnit("targettarget","player") and UnitCanAttack("player","target"))) then
-		overlay.border:SetVertexColor(1, 0.08, 0.08, 1)
-	elseif isTarget or overlay.kind == "boss" then
-		overlay.border:SetVertexColor(1, 1, 1, 1)
+		overlay.border.SetColor(1, 0.08, 0.08, 1)
+	elseif isTarget then
+		overlay.border.SetColor(1, 1, 1, 1)
 	else
-		overlay.border:SetVertexColor(0.12, 0.13, 0.16, 0.55)
+		local edgeColor = overlay.style and overlay.style.edgeColor
+		local classColor = not overlay.petThin and partyColors[stock.name:GetText() or ""]
+		if classColor then overlay.border.SetColor(classColor[1], classColor[2], classColor[3], 1)
+		elseif edgeColor then overlay.border.SetColor(edgeColor[1], edgeColor[2], edgeColor[3], edgeColor[4])
+		else overlay.border.SetColor(0.12, 0.13, 0.16, 0.55) end
 	end
 	UpdatePlateDebuffs(overlay, isTarget)
 end
@@ -366,9 +503,10 @@ local function SkinPlate(plate)
     SuppressStock(overlay)
     overlay.bar=CreateFrame("StatusBar",nil,overlay)
     overlay.bar:SetMinMaxValues(0,1);overlay.bar:SetStatusBarTexture(W.texture);overlay.bar:SetPoint("CENTER",overlay,"CENTER",0,8)
-    overlay.border=W.Fill(overlay.bar,{0.12,0.13,0.16,0.55},"BACKGROUND",-1)
-    -- Dark enough that the edge behind it shows only around the bar, not through the lost health.
-    overlay.backing=W.Fill(overlay.bar,{nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3],0.95},"BORDER")
+    -- Lines around the bar, not a fill behind it: what was lost stays see-through.
+    overlay.border=nfUIEdit.Edge(overlay.bar,0.12,0.13,0.16,0.55);overlay.border.SetSize(1);overlay.border.Show()
+    overlay.mark=overlay.bar:CreateTexture(nil,"OVERLAY");overlay.mark:SetPoint("RIGHT",overlay.bar,"LEFT",-2,0);overlay.mark:Hide()
+    overlay.backing=W.Fill(overlay.bar,{nfUIEdit.COLORS.base[1],nfUIEdit.COLORS.base[2],nfUIEdit.COLORS.base[3],0.12},"BORDER")
     overlay.marker=W.Fill(overlay.bar,{1,1,1,0.7},"OVERLAY");overlay.marker:ClearAllPoints();overlay.marker:SetWidth(1)
     overlay.ghost=overlay.bar:CreateTexture(nil,"ARTWORK");overlay.ghost:SetTexture("Interface\\Buttons\\WHITE8X8")
     overlay.ghost:SetVertexColor(nfUIEdit.COLORS.yellow[1],nfUIEdit.COLORS.yellow[2],nfUIEdit.COLORS.yellow[3],0.9);overlay.ghost:Hide()
@@ -456,7 +594,7 @@ local function LayoutPlates()
             if x and y then
                 local ratio=overlay.plate:GetEffectiveScale()/UIParent:GetEffectiveScale()
                 local target=UnitExists("target") and overlay.plate:GetAlpha()==1
-                if settings.enabled and (settings.amount~="Target" or target) and not IsPartyPet(overlay) then
+                if settings.enabled and (settings.amount~="Target" or target) and not (IsPartyPet(overlay) and not nfUIEdit.On("petBars")) then
                     local halfWidth=overlay.bar:GetWidth()*ratio/2+3
                     local halfHeight=overlay.bar:GetHeight()*ratio/2+3
                     local above=settings.showNames and settings.nameFont*settings.scale*ratio+5 or 0

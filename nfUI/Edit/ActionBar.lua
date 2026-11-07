@@ -69,3 +69,31 @@ E.Every(2,function()
         end
     end
 end)
+
+-- Hovering a skill adds what the meter knows about it.
+local function MeterLine(spell)
+    if not spell or not AZS_GetMeter then return nil end
+    local ok,lines=pcall(AZS_GetMeter)
+    if not ok or type(lines)~="table" then return nil end
+    for _,line in ipairs(lines) do
+        if type(line)=="table" and line.name==spell and type(line.dps)=="number" then return line end
+    end
+end
+local setAction=GameTooltip.SetAction
+if setAction then
+    GameTooltip.SetAction=function(self,action)
+        local result=setAction(self,action)
+        if E.On("skillStats") then
+            local first=getglobal("GameTooltipTextLeft1")
+            local line=MeterLine(first and first:GetText())
+            if line then
+                self:AddLine(" ")
+                self:AddDoubleLine(E.Text("Урон в секунду","Damage per second"),E.Short(line.dps).." DPS",1,0.82,0,1,1,1)
+                if type(line.share)=="number" then self:AddDoubleLine(E.Text("Доля урона","Damage share"),string.format("%.0f%%",line.share*100),1,0.82,0,1,1,1) end
+                if type(line.dmg)=="number" then self:AddDoubleLine(E.Text("Урон за забег","Damage this run"),E.Short(line.dmg),1,0.82,0,1,1,1) end
+                self:Show()
+            end
+        end
+        return result
+    end
+end

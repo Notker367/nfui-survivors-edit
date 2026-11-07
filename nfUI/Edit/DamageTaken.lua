@@ -7,6 +7,61 @@ local LIFE,START=2.6,3
 local MERGE=0.8
 local EXTRA_FONT,EXTRA_LIFE=10,1.4
 local columns={}
+-- Separate hits rise beside the total and leave sooner; a crowd shows only so many at once.
+-- They stand well clear of the total, each on its own line.
+local HIT_LIFE,HIT_MAX,HIT_SIDE,HIT_LINE=1.3,6,50,12
+local hitPools={}
+local function HitLabel(block,color)
+    local key=tostring(block)..tostring(color)
+    local pool=hitPools[key]
+    if not pool then pool={block=block,color=color,turn=0,x=0};hitPools[key]=pool end
+    for _,entry in ipairs(pool) do if not entry.age then return pool,entry end end
+    if table.getn(pool)>=HIT_MAX then return pool,nil end
+    local entry={label=block:CreateFontString(nil,"OVERLAY")}
+    entry.label:SetTextColor(color[1],color[2],color[3]);entry.label:SetShadowColor(0,0,0,0.9);entry.label:SetShadowOffset(1,-1)
+    table.insert(pool,entry)
+    return pool,entry
+end
+-- A hit waits a moment before it shows beside its column: a lone hit equals the column's number and must not be shown
+-- twice. Only when a second one comes do both appear.
+local HIT_WAIT=0.25
+local waiting={}
+local PopHit
+local function QueueHit(column,block,color,prefix,amount,side)
+    if not E.On("separateHits") then return end
+    table.insert(waiting,{column=column,block=block,color=color,prefix=prefix,amount=amount,side=side,age=0})
+end
+local function ReleaseHits(elapsed)
+    for index=table.getn(waiting),1,-1 do
+        local item=waiting[index]
+        item.age=item.age+elapsed
+        if item.age>=HIT_WAIT then
+            table.remove(waiting,index)
+            local newest=item.column.newest
+            local shownAlone=newest and newest.age and math.abs(newest.amount-item.amount)<1
+            if shownAlone then
+                item.column.heldHit=item
+            else
+                local held=item.column.heldHit
+                if held then
+                    item.column.heldHit=nil
+                    PopHit(held.block,held.color,held.prefix,held.amount,held.side)
+                end
+                PopHit(item.block,item.color,item.prefix,item.amount,item.side)
+            end
+        end
+    end
+end
+function E.HitText(value) if E.On("fullHits") then return E.Full(value) end;return E.Short(value) end
+function PopHit(block,color,prefix,amount,side)
+    local pool,entry=HitLabel(block,color)
+    if not entry then return end
+    pool.turn=math.mod(pool.turn,3)+1
+    entry.age=0;entry.x=side*HIT_SIDE;entry.y=START+(pool.turn-1)*HIT_LINE
+    entry.label:SetFont(E.FONT,math.max(8,E.Size("risingFont",13)-3),"OUTLINE")
+    entry.label:SetText(prefix..E.HitText(amount));entry.label:SetAlpha(1)
+    entry.label:ClearAllPoints();entry.label:SetPoint("BOTTOM",block,"BOTTOM",entry.x,entry.y);entry.label:Show()
+end
 
 local function Column(block,color,prefix,x,weigh)
     local column={block=block,color=color,prefix=prefix,x=x,weigh=weigh,pool={}}
@@ -29,7 +84,7 @@ local function Dress(column,entry)
     local weight=math.max(0,math.min(1,column.weigh(entry.amount)))
     entry.life=LIFE+EXTRA_LIFE*weight
     entry.label:SetFont(E.FONT,E.Size("risingFont",13)+EXTRA_FONT*weight,"OUTLINE")
-    entry.label:SetText(column.prefix..E.Short(entry.amount))
+    entry.label:SetText(column.prefix..E.HitText(entry.amount))
 end
 local function Pop(column,amount,texture)
     local newest=column.newest
@@ -37,6 +92,7 @@ local function Pop(column,amount,texture)
         newest.amount=newest.amount+amount
         Dress(column,newest)
     else
+        column.heldHit=nil
         newest=Free(column);column.newest=newest
         newest.age=0;newest.amount=amount
         Dress(column,newest)
@@ -60,14 +116,34 @@ local function ByRecent(amount)
     return peak>0 and math.sqrt(amount/peak) or 0
 end
 local taken=Column(E.blocks.rising,E.COLORS.enemy,"-",0,ByHealth)
-local healed=Column(E.blocks.rising,E.COLORS.green,"+",48,ByHealth)
-local dealt=Column(E.blocks.targetRising,{1,1,1},"",0,ByRecent)
+local healed=Column(E.blocks.rising,E.COLORS.green,"+",58,ByHealth)
+local dealt=Column(E.blocks.targetRising,E.COLORS.enemy,"-",0,ByRecent)
 
 -- Called for each hit of the hero's that the combat log names.
 function E.TargetHit(amount,name,texture)
     if not E.On("targetRising") or not name or name~=UnitName("target") then return end
     local value=tonumber(amount)
-    if value and value>0 then Pop(dealt,value,texture) end
+    if value and value>0 then
+        Pop(dealt,value,texture)
+        QueueHit(dealt,E.blocks.targetRising,E.COLORS.enemy,"-",value,1)
+    end
+end
+
+-- Called for each hit on the hero that the game reports.
+-- The hits the hero took in the last ten seconds, for the damage panel's biggest hit.
+local recentHits={}
+function E.BiggestRecentHit()
+    local now,biggest=GetTime(),0
+    for index=table.getn(recentHits),1,-1 do
+        local hit=recentHits[index]
+        if now-hit.at>10 then table.remove(recentHits,index) elseif hit.amount>biggest then biggest=hit.amount end
+    end
+    return biggest
+end
+function E.HeroHit(amount)
+    local value=tonumber(amount)
+    if value and value>0 then table.insert(recentHits,{at=GetTime(),amount=value}) end
+    if value and value>0 and E.On("risingDamage") then QueueHit(taken,E.blocks.rising,E.COLORS.enemy,"-",value,-1) end
 end
 
 -- Regeneration is passive, and has its own number at the end of the health bar.
@@ -95,6 +171,22 @@ ticker:SetScript("OnUpdate",function()
         if lastHealed and totalHealed-lastHealed>=1 and E.On("risingHeal") then Pop(healed,totalHealed-lastHealed) end
         lastHealed=totalHealed
     end
+    ReleaseHits(elapsed)
+    for _,pool in pairs(hitPools) do
+        for _,entry in ipairs(pool) do
+            if entry.age then
+                entry.age=entry.age+elapsed
+                if entry.age>=HIT_LIFE then
+                    entry.age=nil;entry.label:Hide()
+                else
+                    local part=entry.age/HIT_LIFE
+                    entry.label:SetPoint("BOTTOM",pool.block,"BOTTOM",entry.x,entry.y+10*part)
+                    local fade=part<0.4 and 1 or (1-part)/0.6
+                    entry.label:SetAlpha(fade*fade)
+                end
+            end
+        end
+    end
     for _,column in ipairs(columns) do
         for _,entry in ipairs(column.pool) do
             if entry.age then
@@ -103,7 +195,8 @@ ticker:SetScript("OnUpdate",function()
                     entry.age=nil;entry.label:Hide();entry.icon:Hide()
                 else
                     local part=entry.age/entry.life
-                    entry.label:SetPoint("BOTTOM",column.block,"BOTTOM",column.x,START+E.Size("risingHeight",42)*part)
+                    -- One speed for all, so that a newer number never catches an older one.
+                    entry.label:SetPoint("BOTTOM",column.block,"BOTTOM",column.x,START+E.Size("risingHeight",64)*entry.age/LIFE)
                     -- Solid at first, then it dissolves ever more gently.
                     local fade=part<0.35 and 1 or (1-part)/0.65
                     entry.label:SetAlpha(fade*fade);entry.icon:SetAlpha(fade*fade)

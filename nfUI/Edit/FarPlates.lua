@@ -18,7 +18,7 @@ local function Bar(index)
     bar=CreateFrame("StatusBar",nil,layer)
     bar:SetMinMaxValues(0,1);bar:SetStatusBarTexture(E.FLAT);bar:SetAlpha(0.6)
     bar.back=bar:CreateTexture(nil,"BORDER");bar.back:SetTexture(E.FLAT);bar.back:SetAllPoints(bar)
-    bar.back:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.95)
+    bar.back:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.12)
     bar.name=bar:CreateFontString(nil,"OVERLAY")
     bar.name:SetFont(NFUI_PLATE_FONT,10,"OUTLINE");bar.name:SetPoint("BOTTOMLEFT",bar,"TOPLEFT",0,2)
     bar:Hide()
@@ -130,6 +130,7 @@ local function Draw()
         if bar.color~=style.color then bar.color=style.color;bar:SetStatusBarColor(style.color[1],style.color[2],style.color[3]) end
         if bar.label~=row.name then bar.label=row.name;bar.name:SetText(row.name or "") end
         bar:SetValue(lastShare[row.unitId] or 1)
+        bar:SetAlpha(0.6*E.DistanceFade(spot.playerDistance))
         bar:ClearAllPoints();bar:SetPoint("CENTER",WorldFrame,"BOTTOMLEFT",spot.x,spot.y)
         bar:Show()
     end

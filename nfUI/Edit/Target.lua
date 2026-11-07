@@ -101,13 +101,16 @@ local function NearestSpot(overlay,spots)
     if not overlay.plate or not overlay.plate:IsShown() then return nil end
     local x,y=overlay.plate:GetCenter()
     if not x or not y then return nil end
-    local best,bestGap=nil,60*60
+    local best,bestGap,secondGap=nil,60*60,nil
     for _,spot in ipairs(spots) do
         local dx,dy=spot.x-x,spot.y-y
         local gap=dx*dx+dy*dy
-        if gap<bestGap then best,bestGap=spot,gap end
+        if gap<bestGap then secondGap=bestGap;best,bestGap=spot,gap
+        elseif not secondGap or gap<secondGap then secondGap=gap end
     end
-    return best
+    -- Sure only when it is close and no other enemy stands nearly as close.
+    local sure=best and bestGap<=25*25 and (not secondGap or secondGap>=math.max(bestGap*4,15*15))
+    return best,sure
 end
 E.Every(0.5,function()
     local frame=nfUIConfig and nfUIConfig.target
@@ -130,18 +133,50 @@ E.Every(0.5,function()
     for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
         if overlay.bar then
             if not overlay.distanceText then DistanceBox(overlay) end
-            local best=NearestSpot(overlay,spots)
+            local best,sure=NearestSpot(overlay,spots)
             if overlay.plate and overlay.plate:IsShown() then shown=shown+1 end
             if best then
                 matched=matched+1
                 overlay.distanceText:SetText(Metres(best.yards));if metres then overlay.distanceBox:Show() else overlay.distanceBox:Hide() end
                 if overlay.metresFont~=metresFont then overlay.metresFont=metresFont;overlay.distanceText:SetFont(E.FONT,metresFont,"OUTLINE") end
                 overlay.nearHero=best.yards<=NEAR_YARDS
-                if nfUIConfig.SetPlateKind then nfUIConfig.SetPlateKind(overlay,best.kind) end
+                overlay.yards=best.yards
+                if nfUIConfig.SetPlateKind then nfUIConfig.SetPlateKind(overlay,best.kind,sure) end
             else
-                overlay.distanceBox:Hide();overlay.nearHero=nil
+                overlay.distanceBox:Hide();overlay.nearHero=nil;overlay.yards=nil
             end
         end
     end
     E.metres={shown=shown,matched=matched,spots=table.getn(spots)}
+    -- Depth: the nearer of two bars lies on top, and one behind another is fainter still.
+    local active={}
+    for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
+        if overlay.bar and overlay.plate and overlay.plate:IsVisible() then
+            local yards=overlay.yards
+            overlay.plateFade=E.DistanceFade(yards)
+            if E.On("plateFade") and type(yards)=="number" then
+                local level=20+math.max(0,60-math.floor(yards))
+                if overlay.depthLevel~=level then
+                    overlay.depthLevel=level
+                    overlay:SetFrameLevel(level);overlay.bar:SetFrameLevel(level+1)
+                    if overlay.distanceBox then overlay.distanceBox:SetFrameLevel(level+2) end
+                end
+                table.insert(active,overlay)
+            end
+        end
+    end
+    for _,back in ipairs(active) do
+        local bx,by=back.bar:GetCenter()
+        if bx then
+            for _,front in ipairs(active) do
+                if front~=back and front.yards<back.yards then
+                    local fx,fy=front.bar:GetCenter()
+                    if fx and math.abs(fx-bx)<(front.bar:GetWidth()+back.bar:GetWidth())/2 and math.abs(fy-by)<(front.bar:GetHeight()+back.bar:GetHeight())/2+10 then
+                        back.plateFade=back.plateFade*0.7
+                        break
+                    end
+                end
+            end
+        end
+    end
 end)

@@ -96,8 +96,11 @@ Add("runPanel","Run statistics",getglobal("nfUIRun"),"runDisplay")
 Add("characterStats","Character stats",C.statsFrame,"statsDisplay")
 -- A block stays chained to its neighbour until it is really dragged, so folding one moves the others.
 for _,block in ipairs(nfUIEdit.blockList) do
-    local entry=Add(block[1],block[2],block[3],"blocks")
-    if entry then entry.chained=true end
+    -- A group's panels are listed under Details; the group's own frame is what moves by default.
+    local grouped=nfUIEdit.GROUP_OF[block[1]]
+    local isGroup=block[1]=="blockGroupRight" or block[1]=="blockGroupLeft"
+    local entry=Add(block[1],block[2],block[3],"blocks",grouped and true or nil)
+    if entry and not isGroup then entry.chained=true end
 end
 for i=1,7 do
     Add("chat"..i,"Chat "..i,getglobal("ChatFrame"..i),"chat")

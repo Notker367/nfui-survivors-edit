@@ -80,11 +80,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
         owned=nil;panel:Hide()
     end
     local function Number(value) return type(value)=="number" and value>=0 and value-value==0 end
-    local function Short(value)
-        if value>=1000000 then return string.format("%.1fm",value/1000000) end
-        if value>=1000 then return string.format("%.1fk",value/1000) end
-        return string.format("%.0f",value)
-    end
+    local function Short(value) return nfUIEdit.Short(value) end
     -- Skill icons by name, for the hero's own meter and the party's.
     local topIcons,topIconsAge={},-1000
     local function RefreshTopIcons()
@@ -135,6 +131,8 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if not success then Restore();return end
         local checked,shown=pcall(AZS_IsHudShown,"meter")
         if not checked or (shown~=false and shown~=0 and shown~="0") then Restore();return end
+        -- Switched off: the game's own meter stays hidden too.
+        if not nfUIEdit.On("dpsMeter") and not C.editing then panel:Hide();return end
         panel:Show();summary:SetText(Short(dps).." DPS   |   "..Short(total)..nfUIEdit.L(" damage"))
         local function Measure(text)
             measure:SetText(text)
@@ -144,9 +142,25 @@ nfUIModules:NewMod("DPSMeter",5,function()
             if not topIcons[line.name] then pcall(RefreshTopIcons);break end
         end
         fittedWidth=math.max(112,Measure(summary:GetText())+16)
+        -- After a skill's DPS and share: how often it fired and its biggest hit, both over the last minute.
+        local function RowValue(line)
+            return Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
+        end
+        -- They stand in two captioned columns of their own, to the right of the bars, as wide as their widest number.
+        local showRates=nfUIEdit.On("skillRate")
+        local stats={}
+        local RATE_WIDTH=Measure(nfUIEdit.Text("уд/с","hit/s"))
+        local BIG_WIDTH=Measure(nfUIEdit.Text("макс","max"))
+        for index,line in ipairs(lines) do
+            local count,biggest=nfUIEdit.HitStats(line.name)
+            stats[index]={rate=nfUIEdit.Rate(count),big=biggest and Short(biggest) or "-"}
+            RATE_WIDTH=math.max(RATE_WIDTH,Measure(stats[index].rate));BIG_WIDTH=math.max(BIG_WIDTH,Measure(stats[index].big))
+        end
+        RATE_WIDTH=RATE_WIDTH+4;BIG_WIDTH=BIG_WIDTH+4
+        local columnsWidth=showRates and (RATE_WIDTH+BIG_WIDTH+6) or 0
         for _,line in ipairs(lines) do
-            local value=Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
-            fittedWidth=math.max(fittedWidth,Measure(line.name)+Measure(value)+46)
+            local value=RowValue(line)
+            fittedWidth=math.max(fittedWidth,Measure(nfUIEdit.L(line.name))+Measure(value)+66+columnsWidth)
         end
         fittedHeight=66+table.getn(lines)*23
         C.LayoutDPSMeter()
@@ -157,8 +171,9 @@ nfUIModules:NewMod("DPSMeter",5,function()
                 row=CreateFrame("StatusBar",nil,content);row:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
                 row:SetMinMaxValues(0,1);row:SetHeight(20)
                 row.icon=row:CreateTexture(nil,"OVERLAY");row.icon:SetWidth(16);row.icon:SetHeight(16)
-                row.icon:SetPoint("LEFT",row,"LEFT",2,0);row.icon:SetTexCoord(0.08,0.92,0.08,0.92)
-                row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",21,0);row.name:SetJustifyH("LEFT")
+                row.icon:SetPoint("RIGHT",row,"LEFT",-3,0);row.icon:SetTexCoord(0.08,0.92,0.08,0.92)
+                row.name=row:CreateFontString(nil,"OVERLAY");row.name:SetFont(FONT,11,"OUTLINE");row.name:SetPoint("LEFT",row,"LEFT",4,0);row.name:SetJustifyH("LEFT")
+                row.back=row:CreateTexture(nil,"BACKGROUND");row.back:SetTexture("Interface\\Buttons\\WHITE8X8");row.back:SetVertexColor(0.2,0.22,0.27,0.35);row.back:SetAllPoints(row)
                 row.valueText=row:CreateFontString(nil,"OVERLAY");row.valueText:SetFont(FONT,11,"OUTLINE");row.valueText:SetPoint("RIGHT",row,"RIGHT",-4,0)
                 -- Details on hover.
                 row:EnableMouse(true)
@@ -169,17 +184,42 @@ nfUIModules:NewMod("DPSMeter",5,function()
                     GameTooltip:AddDoubleLine(nfUIEdit.Text("Урон за забег","Run damage"),Short(info.dmg),1,0.82,0,1,1,1)
                     GameTooltip:AddDoubleLine("DPS",Short(info.dps),1,0.82,0,1,1,1)
                     GameTooltip:AddDoubleLine(nfUIEdit.Text("Доля урона","Damage share"),string.format("%.1f%%",info.share*100),1,0.82,0,1,1,1)
+                    local count,biggest=nfUIEdit.HitStats(info.name)
+                    if count then
+                        GameTooltip:AddDoubleLine(nfUIEdit.Text("Ударов в секунду (10 сек)","Hits per second (10 sec)"),nfUIEdit.Rate(count),1,0.82,0,1,1,1)
+                        GameTooltip:AddDoubleLine(nfUIEdit.Text("Самый сильный удар за минуту","Biggest hit in the last minute"),Short(biggest),1,0.82,0,1,1,1)
+                    end
                     if info.proc==1 then GameTooltip:AddLine(nfUIEdit.Text("Срабатывающий эффект","Proc"),0.6,0.8,1) end
                     GameTooltip:Show()
                 end)
                 row:SetScript("OnLeave",function() GameTooltip:Hide() end)
                 rows[index]=row
             end
-            row:SetWidth(width);row:SetPoint("TOPLEFT",content,"TOPLEFT",0,-22-(index-1)*23)
-            row:SetStatusBarColor(line.proc==1 and 0.15 or 0.15,line.proc==1 and 0.45 or 0.55,line.proc==1 and 0.8 or 0.3,0.65)
-            local value=Short(line.dps).." | "..string.format("%.0f%%",line.share*100)
+            -- The icon stands left of the bar, so the whole bar can be read.
+            row:SetWidth(math.max(1,width-20-columnsWidth));row:SetPoint("TOPLEFT",content,"TOPLEFT",20,-22-(index-1)*23)
+            if not row.rate then
+                row.rate=row:CreateFontString(nil,"OVERLAY");row.rate:SetFont(FONT,11,"OUTLINE");row.rate:SetJustifyH("RIGHT")
+                row.big=row:CreateFontString(nil,"OVERLAY");row.big:SetFont(FONT,11,"OUTLINE");row.big:SetJustifyH("RIGHT")
+                row.rate:SetTextColor(0.62,0.78,0.91);row.big:SetTextColor(0.91,0.69,0.54)
+            end
+            row.rate:SetWidth(RATE_WIDTH);row.rate:SetHeight(14);row.rate:ClearAllPoints();row.rate:SetPoint("LEFT",row,"RIGHT",3,0)
+            row.big:SetWidth(BIG_WIDTH);row.big:SetHeight(14);row.big:ClearAllPoints();row.big:SetPoint("LEFT",row,"RIGHT",3+RATE_WIDTH+3,0)
+            if showRates then
+                row.rate:SetText(stats[index].rate);row.big:SetText(stats[index].big);row.rate:Show();row.big:Show()
+            else row.rate:Hide();row.big:Hide() end
+            if not content.rateCaption then
+                content.rateCaption=content:CreateFontString(nil,"OVERLAY");content.rateCaption:SetFont(FONT,9,"OUTLINE");content.rateCaption:SetJustifyH("RIGHT");content.rateCaption:SetTextColor(0.62,0.78,0.91)
+                content.bigCaption=content:CreateFontString(nil,"OVERLAY");content.bigCaption:SetFont(FONT,9,"OUTLINE");content.bigCaption:SetJustifyH("RIGHT");content.bigCaption:SetTextColor(0.91,0.69,0.54)
+                content.rateCaption:SetText(nfUIEdit.Text("уд/с","hit/s"));content.bigCaption:SetText(nfUIEdit.Text("макс","max"))
+            end
+            content.rateCaption:SetWidth(RATE_WIDTH);content.bigCaption:SetWidth(BIG_WIDTH)
+            content.rateCaption:ClearAllPoints();content.bigCaption:ClearAllPoints()
+            content.rateCaption:SetPoint("BOTTOMRIGHT",row.rate,"TOPRIGHT",0,2+(index-1)*23);content.bigCaption:SetPoint("BOTTOMRIGHT",row.big,"TOPRIGHT",0,2+(index-1)*23)
+            if showRates then content.rateCaption:Show();content.bigCaption:Show() else content.rateCaption:Hide();content.bigCaption:Hide() end
+            local tint=nfUIEdit.SoftColor(line.name);row:SetStatusBarColor(tint[1],tint[2],tint[3],line.proc==1 and 0.6 or 0.95)
+            local value=RowValue(line)
             local valueWidth=Measure(value)
-            row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-valueWidth-29))
+            row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-20-columnsWidth-valueWidth-12))
             if topIcons[line.name] then row.icon:SetTexture(topIcons[line.name]);row.icon:Show() else row.icon:Hide() end
             row.name:SetHeight(14);row.name:SetText(nfUIEdit.L(line.name))
             row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row.info=line;row:Show()
@@ -214,6 +254,22 @@ nfUIModules:NewMod("DPSMeter",5,function()
             if type(line.top)=="string" and not topIcons[line.top] then pcall(RefreshTopIcons);break end
         end
         partyTitle:SetText(nfUIEdit.Text("\208\147\209\128\209\131\208\191\208\191\208\176: ","Party: ")..Short(dps).." DPS")
+        -- As wide as the longest name with its numbers, so big values never run into the name.
+        local function Width(text,size)
+            measure:SetText(text or "")
+            local w=measure.GetStringWidth and measure:GetStringWidth() or string.len(text or "")*7
+            return w*(size or 11)/11
+        end
+        local partyWidth=math.max(190,Width(partyTitle:GetText())+16)
+        for _,line in ipairs(lines) do
+            local value=(Number(line.dps) and Short(line.dps) or "-").." | "..(Number(line.share) and string.format("%.0f%%",line.share*100) or "-")
+            partyWidth=math.max(partyWidth,Width(type(line.name)=="string" and line.name or "?")+Width(value)+28)
+            if type(line.top)=="string" and Number(line.topdps) then
+                partyWidth=math.max(partyWidth,Width(line.top,9)+Width(Short(line.topdps).." | 100%",9)+48)
+            end
+        end
+        partyWidth=math.ceil(partyWidth)
+        party:SetWidth(partyWidth)
         for index,line in ipairs(lines) do
             local row=partyRows[index]
             if not row then
@@ -254,11 +310,13 @@ nfUIModules:NewMod("DPSMeter",5,function()
             row.name:SetText(type(line.name)=="string" and line.name or "?")
             row.value:SetText((Number(line.dps) and Short(line.dps) or "-").." | "..(Number(line.share) and string.format("%.0f%%",line.share*100) or "-"))
             row.info=line
+            row:SetWidth(partyWidth-16);row.top:SetWidth(partyWidth-32)
             local topShare=Number(line.topdps) and Number(line.dps) and line.dps>0 and math.min(1,line.topdps/line.dps) or nil
             if type(line.top)=="string" and topShare then
                 row.top:SetStatusBarColor(color.r,color.g,color.b,0.4);row.top:SetValue(topShare)
                 row.top.name:SetText(line.top)
                 row.top.value:SetText(Short(line.topdps).." | "..string.format("%.0f%%",topShare*100))
+                row.top.name:SetWidth(math.max(1,partyWidth-32-Width(row.top.value:GetText(),9)-12))
                 local path=topIcons[line.top]
                 if path then row.top.icon:SetTexture(path);row.top.icon:Show() else row.top.icon:Hide() end
                 row.top:Show()
