@@ -1,5 +1,10 @@
 # What's new
 
+## 1.1.2
+
+- Every legendary amulet of your class, from the game's Codex (102 in all, one for each spell). Those that can drop now, because you picked their spell, come first and bright; the tooltip says which spell the rest wait for. An amulet a run has offered shows its real name and icon.
+- "No spell effects" from the game's graphics options is in the quick menu.
+
 ## 1.1.1
 
 **Quick menu and layouts**

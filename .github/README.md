@@ -92,7 +92,7 @@ Not fully tested:
 - **Worn jewelry outline:** checked on data in the game's format, not on jewelry dropped in a real run.
 - **Late game:** runs past the first boss, killed guardians returning.
 
-Other limits: addon text is English or Russian, game text follows the client's language. 3 pieces of jewelry show only part of their effect or none, because the game's table has no text for it. Only 5 of 22 legendary amulets are shown, those whose spell could be confirmed. Skill descriptions cover about two thirds of skills. In the browser the minimap is square. Hits above the target are matched by name.
+Other limits: addon text is English or Russian, game text follows the client's language. 3 pieces of jewelry show only part of their effect or none, because the game's table has no text for it. All legendary amulets of your class are listed from the game's Codex; one not yet offered in a run shows its spell instead of its name. Skill descriptions cover about two thirds of skills. In the browser the minimap is square. Hits above the target are matched by name.
 
 ## Credits and license
 

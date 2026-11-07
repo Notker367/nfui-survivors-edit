@@ -2,11 +2,14 @@
 -- for most. Everything else stays in the full settings.
 local E,C=nfUIEdit,nfUIConfig
 local MODES={{"hidden","Скрытый","Hidden"},{"default","Обычный","Default"},{"detailed","Подробный","Detailed"}}
--- { switch, Russian, English, only in the detailed mode, "db" when the switch lives in the profile itself }
+-- { switch, Russian, English, only in the detailed mode, "db" when the switch lives in the profile itself, "cvar" for the game's own }
 local GROUPS={
     {"Панели","Panels",{
         {"dpsMeter","DPS-метр","DPS meter"},{"compass","Компас","Compass",nil,"db"},
         {"targetOfTarget","Цель цели","Target of target"},{"partyLoadout","Снаряжение группы","Party loadouts"}}},
+    -- The game's own graphics option, a click away instead of three menus deep.
+    {"Графика","Graphics",{
+        {"noSpellEffects","Без эффектов заклинаний","No spell effects",nil,"cvar"}}},
     {"Панели справа","Right panels",{
         {"bossSchedule","Боссы","Bosses"},{"lairPanel","Стражи","Guardians"},{"takenPanel","Кто бьёт героя","Damage taken"},
         {"historyPanel","История забегов","Run history"},{"heroStats","Статы героя","Hero stats",true},{"dpsGraph","График DPS","DPS graph",true}}},
@@ -92,7 +95,8 @@ local function Check(item)
     check:SetScript("OnClick",function()
         if type(nfUIDB.edit)~="table" then nfUIDB.edit={} end
         local key=this.item[1]
-        if this.item[5]=="db" then nfUIDB[key]=nfUIDB[key]==false
+        if this.item[5]=="cvar" then SetCVar(key,GetCVar(key)=="1" and "0" or "1")
+        elseif this.item[5]=="db" then nfUIDB[key]=nfUIDB[key]==false
         else nfUIDB.edit[key]=(nfUIDB.edit[key]==false) and true or false end
         if E.RefreshPools then E.RefreshPools() end
         if C.Refresh then C.Refresh() end
@@ -148,7 +152,8 @@ function menu.Refresh()
     for _,check in ipairs(checks) do
         local key=check.item[1]
         local on
-        if check.item[5]=="db" then on=nfUIDB[key]~=false
+        if check.item[5]=="cvar" then on=GetCVar(key)=="1"
+        elseif check.item[5]=="db" then on=nfUIDB[key]~=false
         else on=not (type(nfUIDB.edit)=="table" and nfUIDB.edit[key]==false) end
         local c=on and E.COLORS.green or E.COLORS.surface
         check.box:SetVertexColor(c[1],c[2],c[3],1)

@@ -18,11 +18,11 @@
   "Edit/Extras.lua": "3f0d314708318cbd52915b234c11124d8e54f41213494a21090c3881180e3296",
   "Edit/FarPlates.lua": "0566e566ae6c46b0b4c5a2fd6adbc6c627fd067073f37ae34410d057171cbbd1",
   "Edit/JewelData.lua": "0ef70d0724c6eda7b483373ccbd0e04dfce8f9cf2e39473d603573bba2880f9b",
-  "Edit/Loadout.lua": "f1f68ce36994ee53400376c944d42a6f0c9d88e52a9f1fc202bdd4771f59f28b",
+  "Edit/Loadout.lua": "412fec9f836950777aaefa960e10d78aa5072700d70ee3b1ebbdd5482dd46e6c",
   "Edit/Locale.lua": "ba88b0170bcaf5df8c2e6120bcf89b5e0214638aac709967ac9f11d94347145c",
   "Edit/Party.lua": "a728edfddc63df475d7a34dfc04aff4c7016125b5a3eda06cd98f34695d835a1",
   "Edit/Profile.lua": "6c4a217ee8033c02821232a521cccd7c5a0bc96d90ba5e5d19d59bf02e623b8f",
-  "Edit/QuickMenu.lua": "77f8715ffd8acce67cea82c6728424109dc3cecc26be04b136152b40bbb7efe3",
+  "Edit/QuickMenu.lua": "2561a8a04dab2c3d4d7bbd7a11d041673cdea25723ac645731e92464ab125a8c",
   "Edit/RunPanels.lua": "f1c464d850d3f38d06876fdec73f26f244ca4cefd984163d41b8be32292ea4a5",
   "Edit/Strings.lua": "5da47517e75f91325635614e617f0bafd14bd6807de32e02aebac200130d6dab",
   "Edit/Target.lua": "81c7dc478b5d93ccd214de3e3234f0ffdaf990c84c92780e4d473774b76422f0",
@@ -100,5 +100,5 @@
   "Settings/SizeMatches.lua": "f27ad7deb90dbb4310728d5ecb27d412c3d3622e65729dc725748eabdff27928",
   "Settings/TooltipMover.lua": "1f05fa2702733a7731d934ec789ac8dd1695fb00a58f9f5e81f384ae04a0924a",
   "nfUI.lua": "73eea6f3fd9369bcfefacbba3a635bf454951512a3af026d196dcc23e2a47f0a",
-  "nfUI.toc": "086b46330eda12ae4ac1ce35ad31de9df6fb7f815d7a36e837d61fde0b85f4b2"
+  "nfUI.toc": "cec05f1e59515703f9f2baae8095c86f55a01714928c40ab148e5e9f8d161ced"
 }

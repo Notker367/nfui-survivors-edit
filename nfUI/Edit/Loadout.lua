@@ -75,6 +75,32 @@ local JEWEL_CELLS={
 -- remembered with its skill, so the row of legendaries fills in as they turn up.
 local STATIC_LEGEND={}
 for _,jewel in ipairs(E.LEGENDARY or {}) do STATIC_LEGEND[jewel.spell]=true end
+-- Every class's legendary amulets in the Codex's order, one for each spell (Armory > Codex, game build 1127).
+-- The game names an amulet only once a run has offered it, so until then the row shows its spell.
+local CODEX={
+    WARRIOR={"cleave","whirlwind","thunder_clap","mortal_strike","execute","demoralizing_shout","battle_shout","bloodthirst","rend","shield_slam","bloodrage"},
+    PALADIN={"consecration","exorcism","hammer_of_wrath","holy_shock","holy_wrath","judgement","hammer_of_justice","holy_light","divine_shield","holy_shield","redemption"},
+    HUNTER={"auto_shot","arcane_shot","multi_shot","serpent_sting","volley","kill_command","concussive_shot","aimed_shot","immolation_trap","frost_trap","hunters_mark"},
+    ROGUE={"sinister_strike","eviscerate","blade_flurry","rupture","kidney_shot","gouge","ghostly_strike","adrenaline_rush","backstab","slice_and_dice","seal_fate"},
+    PRIEST={"smite","sw_pain","mind_blast","holy_nova","pw_shield","renew","holy_fire","mind_flay","psychic_scream","devouring_plague","lightwell"},
+    SHAMAN={"lightning_bolt","chain_lightning","earth_shock","flame_shock","frost_shock","magma_totem","searing_totem","fire_nova","stormstrike","rockbiter"},
+    MAGE={"fireball","frostbolt","arcane_missiles","frost_nova","arcane_explosion","blizzard","flamestrike","fire_blast","cone_of_cold","blast_wave","pyroblast","ice_barrier","polymorph"},
+    WARLOCK={"shadow_bolt","corruption","immolate","curse_of_agony","rain_of_fire","hellfire","death_coil","searing_pain","drain_life","fear","soul_fire","demonic_empowerment"},
+    DRUID={"wrath","moonfire","starfire","hurricane","insect_swarm","entangling_roots","rejuvenation","regrowth","thorns","swipe","faerie_fire","shred"},
+}
+local CODEX_ORDER,LISTED={},{}
+for _,jewel in ipairs(E.LEGENDARY or {}) do LISTED[jewel.class..":"..jewel.spell]=true end
+for class,spells in pairs(CODEX) do
+    for order,spell in ipairs(spells) do
+        CODEX_ORDER[spell]=order
+        if not LISTED[class..":"..spell] then
+            LISTED[class..":"..spell]=true
+            table.insert(E.LEGENDARY,{class=class,spell=spell,key="legendary."..spell,placeholder=true})
+        end
+    end
+end
+-- Spells missing from the skill pools below.
+local EXTRA_ICONS={lightwell="Spell_Holy_SummonLightwell",rockbiter="Spell_Nature_RockBiter"}
 local function Learn(loadout,class)
     if type(loadout)~="table" or type(loadout.sources)~="table" or type(nfUIDB)~="table" then return end
     for _,entry in ipairs(loadout.runJewelry or {}) do
@@ -298,23 +324,45 @@ local function ShowJewelPool(holder)
     pcall(Learn,loadout,class)
     local legendaryColumn=0
     local showLegend=E.On("legendRow")
-    for _,jewel in ipairs(E.LEGENDARY or {}) do
-        if showLegend and jewel.class==class and not foldedPool then
-            count=count+1
-            local icon=LoadoutIcon(holder,count)
-            icon:ClearAllPoints()
-            icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
-            icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
-            icon.label=E.Pick(jewel.name);icon.effect=E.Pick(jewel.effect);icon.kindText=KindText("amulet");icon.rank:SetText("")
-            MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,worn[jewel.key] and true or false);icon:Show()
-            legendaryColumn=legendaryColumn+1
-        end
+    local skillNames,skillIcons={},{}
+    for _,skill in ipairs(SKILL_POOL[class or ""] or {}) do
+        skillNames[skill[1]]=E.IsRussian() and skill[2] or EnglishName(skill[1]);skillIcons[skill[1]]=skill[3]
     end
-    -- And those learned in play.
-    local skillNames={}
-    for _,skill in ipairs(SKILL_POOL[class or ""] or {}) do skillNames[skill[1]]=E.IsRussian() and skill[2] or EnglishName(skill[1]) end
-    for spell,jewel in pairs(showLegend and not foldedPool and type(nfUIDB.legendLearned)=="table" and nfUIDB.legendLearned or {}) do
-        if type(jewel)=="table" and jewel.class==class and jewel.icon then
+    -- A legendary comes up only once its spell is picked: those first and bright, the rest after them and pale.
+    local legends={}
+    for _,jewel in ipairs(E.LEGENDARY or {}) do
+        if showLegend and jewel.class==class and not foldedPool then table.insert(legends,jewel) end
+    end
+    table.sort(legends,function(a,b)
+        local ka,kb=known[a.spell] and 1 or 0,known[b.spell] and 1 or 0
+        if ka~=kb then return ka>kb end
+        return (CODEX_ORDER[a.spell] or 99)<(CODEX_ORDER[b.spell] or 99)
+    end)
+    local learnedAll=type(nfUIDB.legendLearned)=="table" and nfUIDB.legendLearned or {}
+    for _,jewel in ipairs(legends) do
+        count=count+1
+        local icon=LoadoutIcon(holder,count)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
+        icon.rankValue=nil;icon.kindText=KindText("amulet");icon.rank:SetText("")
+        local spellName=skillNames[jewel.spell] or EnglishName(jewel.spell) or jewel.spell
+        local learned=type(learnedAll[jewel.spell])=="table" and learnedAll[jewel.spell] or nil
+        if jewel.placeholder then
+            icon.texture:SetTexture((learned and learned.icon) or ("Interface\\Icons\\"..(skillIcons[jewel.spell] or EXTRA_ICONS[jewel.spell] or "INV_Jewelry_Necklace_01")))
+            icon.label=(learned and learned.name) or E.Text("Легендарный амулет","Legendary amulet")
+            icon.effect=E.Text("Переделывает скил «","Remakes ")..spellName..E.Text("»","")
+        else
+            icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon)
+            icon.label=E.Pick(jewel.name);icon.effect=E.Pick(jewel.effect) or (E.Text("Переделывает скил «","Remakes ")..spellName..E.Text("»",""))
+        end
+        if known[jewel.spell] then icon.effect=icon.effect.."\n|cff7fd67f"..E.Text("Может выпасть: скил взят","Can drop: the spell is picked").."|r"
+        else icon.effect=icon.effect.."\n|cff8a8a96"..E.Text("Выпадет, только если взять «","Drops only once you pick ")..spellName..E.Text("»","").."|r" end
+        MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,worn[jewel.key] and true or false);icon:Show()
+        legendaryColumn=legendaryColumn+1
+    end
+    -- And those learned in play that the Codex list does not hold.
+    for spell,jewel in pairs(showLegend and not foldedPool and learnedAll or {}) do
+        if type(jewel)=="table" and jewel.class==class and jewel.icon and not LISTED[(class or "")..":"..spell] then
             count=count+1
             local icon=LoadoutIcon(holder,count)
             icon:ClearAllPoints()
