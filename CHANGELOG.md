@@ -1,10 +1,27 @@
 # What's new
 
-## Next (not released yet)
+## 1.2.0
 
+**Legendary amulets**
+- The legendary amulets of the spells you have sit on top of the jewelry pool, larger, each with its own picture from the game's Codex and its spell's icon in the corner. Your starting spell counts too.
+- The worn one has a thick green edge and comes first; with an amulet on, the other amulets turn faint. Click one to mark it banished, as with any card.
+
+**Run history and builds**
+- The last 20 runs of each class are kept, so one class no longer pushes the others out.
+- Each run keeps its build: skills with ranks, gear, jewelry and talents. Hover a run to see it and what differs from this run.
+- A new row compares you with the class's best run on any map and heroic level; the list below shows the class's latest runs anywhere, with the map when it is another one.
+
+**Death**
+- A short card beside the game's end screen says what kind of death it was: one hit, a volley, a crowd or worn down. It also says what became of your shield and shows your health over the last seconds, the last 2 for a volley or a single hit. The game's own "Death recap" keeps the hit-by-hit list.
+- In co-op the card says "Down" and goes by itself a few seconds after you are raised.
+- A red line on your health bar marks the biggest hit of the last minute. When health and shield together fall under it, the bar pulses and says the next such hit kills. Quick menu: "One-shot line".
+
+**Also**
 - Elite, guardian and boss plates stay solid: no fading with distance or behind other bars.
-- Death summary: what hit you in the last seconds before a death or going down in co-op. Stays until clicked; `/nfui death` shows it again. In the quick menu.
 - Party marks no longer fight between two copies of the addon: each hero gets their own mark, a downed ally gets the skull, hand-set marks are left alone.
+- The run export has a heroic/difficulty column.
+- The skill pool shows each skill you have with the game's own icon.
+- `update-nfUI.bat` keeps only the latest copy of the previous version.
 
 ## 1.1.2
 

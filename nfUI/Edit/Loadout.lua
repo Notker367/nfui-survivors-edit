@@ -3,6 +3,8 @@
 local E=nfUIEdit
 local ALLY_SIZE,ALLY_GAP,ALLY_PER_ROW=19,2,9
 local POOL_PICKS=6
+-- Legendary amulets are drawn larger, so the spell in their corner can be read.
+local LEGEND_SIZE=28
 -- The pools are as wide as the chat they stand over.
 local POOL_PER_ROW=16
 -- Enough for all the amulets on one row, about as wide as the chat.
@@ -47,6 +49,21 @@ local function LoadoutIcon(holder,index)
     icon=CreateFrame("Frame",nil,holder.frame);icon:SetWidth(ALLY_SIZE);icon:SetHeight(ALLY_SIZE)
     icon.texture=icon:CreateTexture(nil,"ARTWORK");icon.texture:SetAllPoints(icon);icon.texture:SetTexCoord(0.08,0.92,0.08,0.92)
     E.Ring(icon)
+    -- A legendary amulet carries its spell's icon in the corner, as in the Codex.
+    -- On a frame of its own above the amulet, so nothing of the amulet covers it, with a thin gold outline.
+    local badge=CreateFrame("Frame",nil,icon);badge:SetFrameLevel(icon:GetFrameLevel()+3)
+    badge:SetPoint("BOTTOMRIGHT",icon,"BOTTOMRIGHT",0,0)
+    local outline=badge:CreateTexture(nil,"BACKGROUND");outline:SetTexture(E.FLAT);outline:SetVertexColor(1,0.78,0.25,1)
+    outline:SetPoint("TOPLEFT",badge,"TOPLEFT",-1,1);outline:SetPoint("BOTTOMRIGHT",badge,"BOTTOMRIGHT",1,-1)
+    icon.badge=badge:CreateTexture(nil,"ARTWORK");icon.badge:SetAllPoints(badge);icon.badge:SetTexCoord(0.08,0.92,0.08,0.92)
+    icon.SetBadge=function(texture)
+        if texture then
+            local size=math.floor(icon:GetWidth()*0.6)
+            badge:SetWidth(size);badge:SetHeight(size)
+            icon.badge:SetTexture(texture);badge:Show()
+        else badge:Hide() end
+    end
+    icon.SetBadge(nil)
     icon.rank=icon:CreateFontString(nil,"OVERLAY");icon.rank:SetFont(E.FONT,9,"OUTLINE")
     icon.rank:SetPoint("BOTTOMRIGHT",icon,"BOTTOMRIGHT",1,-1);icon.rank:SetTextColor(1,0.82,0.3)
     icon:EnableMouse(true)
@@ -101,6 +118,20 @@ for class,spells in pairs(CODEX) do
 end
 -- Spells missing from the skill pools below.
 local EXTRA_ICONS={lightwell="Spell_Holy_SummonLightwell",rockbiter="Spell_Nature_RockBiter"}
+-- The Codex calls a spell by another key than the run does.
+local RUN_KEY={demoralizing_shout="demo_shout"}
+-- Each legendary amulet's own picture (INV_Jewelry_Necklace_<name>), matched against the Codex, game build 1127.
+local AMULET_ICON={
+    WARRIOR={cleave="18",whirlwind="AhnQiraj_03",thunder_clap="AhnQiraj_03",mortal_strike="18",execute="27Naxxramas",demoralizing_shout="AhnQiraj_03",battle_shout="21",bloodthirst="18",rend="28Naxxramas",shield_slam="18",bloodrage="21"},
+    PALADIN={consecration="AhnQiraj_04",exorcism="16",hammer_of_wrath="16",holy_shock="AhnQiraj_02",holy_wrath="AhnQiraj_03",judgement="16",hammer_of_justice="16",holy_light="21",divine_shield="21",holy_shield="21",redemption="21"},
+    HUNTER={auto_shot="16",arcane_shot="16",multi_shot="16",serpent_sting="28Naxxramas",volley="AhnQiraj_04",kill_command="AhnQiraj_03",concussive_shot="16",aimed_shot="16",immolation_trap="AhnQiraj_04",frost_trap="AhnQiraj_04",hunters_mark="21"},
+    ROGUE={sinister_strike="18",eviscerate="27Naxxramas",blade_flurry="AhnQiraj_03",rupture="28Naxxramas",kidney_shot="18",gouge="18",ghostly_strike="18",adrenaline_rush="21",backstab="27Naxxramas",slice_and_dice="21",seal_fate="21"},
+    PRIEST={smite="16",sw_pain="28Naxxramas",mind_blast="16",holy_nova="AhnQiraj_03",pw_shield="21",renew="21",holy_fire="16",mind_flay="19",psychic_scream="AhnQiraj_03",devouring_plague="28Naxxramas",lightwell="21"},
+    SHAMAN={lightning_bolt="16",chain_lightning="30Naxxramas",earth_shock="28Naxxramas",flame_shock="AhnQiraj_03",frost_shock="19",magma_totem="23",searing_totem="23",fire_nova="AhnQiraj_04",stormstrike="16",rockbiter="18"},
+    MAGE={fireball="16",frostbolt="16",arcane_missiles="AhnQiraj_02",frost_nova="AhnQiraj_03",arcane_explosion="AhnQiraj_03",blizzard="AhnQiraj_04",flamestrike="AhnQiraj_04",fire_blast="AhnQiraj_02",cone_of_cold="19",blast_wave="AhnQiraj_03",pyroblast="16",ice_barrier="21",polymorph="21"},
+    WARLOCK={shadow_bolt="16",corruption="28Naxxramas",immolate="28Naxxramas",curse_of_agony="28Naxxramas",rain_of_fire="AhnQiraj_04",hellfire="AhnQiraj_03",death_coil="16",searing_pain="AhnQiraj_02",drain_life="28Naxxramas",fear="16",soul_fire="21",demonic_empowerment="13"},
+    DRUID={wrath="16",moonfire="28Naxxramas",starfire="16",hurricane="AhnQiraj_04",insect_swarm="28Naxxramas",entangling_roots="16",rejuvenation="21",regrowth="21",thorns="21",swipe="AhnQiraj_03",faerie_fire="21",shred="18"},
+}
 local function Learn(loadout,class)
     if type(loadout)~="table" or type(loadout.sources)~="table" or type(nfUIDB)~="table" then return end
     for _,entry in ipairs(loadout.runJewelry or {}) do
@@ -181,6 +212,43 @@ local function Context()
     if type(context)=="table" and context.runId then return context end
     return nil
 end
+-- The hero's build right now, for the run history: picked skills, gear with effects, jewelry and talents, each as
+-- {key, name, rank, icon}. The key leaves the rank out, so that two builds can be compared piece by piece.
+function E.RunBuild()
+    local context=Context()
+    if not context then return nil end
+    local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
+    if type(loadout)~="table" or type(loadout.sources)~="table" then return nil end
+    local build={skills={},gear={},jewels={},talents={}}
+    local seen={}
+    local function Add(list,sourceKey,rank)
+        if type(sourceKey)~="string" or seen[sourceKey] then return end
+        seen[sourceKey]=true
+        local source=loadout.sources[sourceKey]
+        if type(source)~="table" then source={rank=rank} end
+        if not source.name and string.find(sourceKey,"^talent") then
+            local _,_,name=string.find(sourceKey,"^talent[:%.]([%w_]+)")
+            source={name=name and string.gsub(name,"_"," ") or sourceKey,rank=rank}
+        elseif not source.name and not source.icon then return end
+        -- "ability:fireball:…", "run:jewel:accuria:r2": the kind and the name, without the rank or the owner.
+        local _,_,group,name=string.find(string.gsub(sourceKey,"^run:",""),"^([%a_]+)[:%.]([%w_]+)")
+        local key=group and (group..":"..name) or sourceKey
+        table.insert(list,{key=key,name=source.name or key,rank=source.rank or rank,icon=type(source.icon)=="table" and source.icon.path or nil})
+    end
+    -- The starting spell is learned without being picked; it is part of the build all the same.
+    for _,entry in ipairs(loadout.abilities or {}) do
+        if entry.learned and not entry.passive then Add(build.skills,entry.sourceKey,entry.rank) end
+    end
+    for _,entry in ipairs(loadout.equipment or {}) do
+        if entry.occupied and type(entry.effectSourceKeys)=="table" and table.getn(entry.effectSourceKeys)>0 then Add(build.gear,entry.sourceKey) end
+    end
+    for _,entry in ipairs(loadout.runJewelry or {}) do Add(build.jewels,entry.sourceKey) end
+    -- Talents, with the rank the hero put in each.
+    for _,entry in ipairs(loadout.talents or {}) do
+        if (tonumber(entry.rank) or 1)>0 then Add(build.talents,entry.sourceKey,entry.rank) end
+    end
+    return build
+end
 local function ShowAlly(holder)
     local context=Context()
     if not context then return false end
@@ -199,12 +267,12 @@ local function EnglishName(key)
 end
 -- The skills still in the pool. They stay up once the six are picked, fainter.
 -- A pool's icon can be clicked to mark it as banished; a marked one is crossed out.
-local function MarkBanish(icon,key,alpha,picked)
+local function MarkBanish(icon,key,alpha,picked,edgeSize)
     icon.banishKey=key
     -- What is already picked has a green edge.
     if picked and not icon.pickedEdge then icon.pickedEdge=E.Edge(icon,E.COLORS.green[1],E.COLORS.green[2],E.COLORS.green[3],1) end
     if icon.pickedEdge then
-        if picked then icon.pickedEdge.SetSize(E.Size("pickedEdgeSize",2));icon.pickedEdge.Show() else icon.pickedEdge.Hide() end
+        if picked then icon.pickedEdge.SetSize(edgeSize or E.Size("pickedEdgeSize",2));icon.pickedEdge.Show() else icon.pickedEdge.Hide() end
     end
     local marked=E.On("banishMarks") and E.IsBanished(key)
     if marked and not icon.cross then icon.cross=E.BanishCross(icon) end
@@ -230,9 +298,27 @@ function E.CheckClass(class,picked)
     end
     return best
 end
+-- The run's hero: their class, checked against what they have, and their spells by key. The run's hero decides the
+-- class, as the character's own class may be another. With learned, the spell they start with counts too: it is
+-- learned without being picked. Icons: the game's own picture of each spell it lists, which wins over the table above.
+local function HeroSpells(loadout,context,learned)
+    local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
+    local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
+    local spells,icons={},{}
+    for _,entry in ipairs(loadout.abilities or {}) do
+        local _,_,key=string.find(type(entry.sourceKey)=="string" and entry.sourceKey or "","^ability:([%w_]+):")
+        if key then
+            if entry.selected or (learned and entry.learned) then spells[key]=true end
+            local source=type(loadout.sources)=="table" and loadout.sources[entry.sourceKey]
+            local path=type(source)=="table" and type(source.icon)=="table" and source.icon.path
+            if type(path)=="string" and path~="" then icons[key]=path end
+        end
+    end
+    return E.CheckClass(class,spells),spells,icons
+end
 -- The pools grow upward from the chat, as many rows as they have.
-local function FitRows(holder,rows)
-    holder.frame:SetHeight(math.max(1,rows*(ALLY_SIZE+ALLY_GAP)))
+local function FitRows(holder,rows,extra)
+    holder.frame:SetHeight(math.max(1,rows*(ALLY_SIZE+ALLY_GAP)+(extra or 0)))
 end
 local function ShowPool(holder)
     local foldedPool=E.IsCollapsed("pool")
@@ -240,17 +326,8 @@ local function ShowPool(holder)
     if not context then return false end
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
     if type(loadout)~="table" then return false end
-    -- The run's hero decides the class: the character's own class may be a different one.
-    local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
-    local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
-    local picked,total={},0
-    for _,entry in ipairs(loadout.abilities or {}) do
-        if entry.selected and type(entry.sourceKey)=="string" then
-            local _,_,key=string.find(entry.sourceKey,"^ability:([%w_]+):")
-            if key then picked[key]=true end
-        end
-    end
-    class=E.CheckClass(class,picked)
+    local class,picked,gameIcons=HeroSpells(loadout,context,false)
+    local total=0
     local pool=class and SKILL_POOL[class]
     if not pool then return false end
     for _,skill in ipairs(pool) do if picked[skill[1]] then total=total+1 end end
@@ -263,7 +340,7 @@ local function ShowPool(holder)
         local icon=LoadoutIcon(holder,count)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP))
-        icon.texture:SetTexture("Interface\\Icons\\"..skill[3]);icon.rankValue=nil
+        icon.texture:SetTexture(gameIcons[skill[1]] or ("Interface\\Icons\\"..skill[3]));icon.rankValue=nil
         -- Only in the client's own language: another language's text would break the page.
         local described=E.SKILL_TEXT[skill[1]]
         icon.effect=described and described[GetCVar("azsLanguage")] or nil
@@ -287,8 +364,11 @@ end
 -- like: damage first, then survival, then utility. What is worn keeps its place, with a green edge. Rings and trinkets
 -- dim once both slots are full; an amulet can always replace the one worn. Dimmed icons can still be read.
 local SLOTS={ring=2,trinket=2}
+-- With an amulet on, the others can still drop, but would only replace it: they are drawn faint.
+local AMULET_TAKEN_ALPHA=0.45
 local KIND_ORDER={"ring","trinket","amulet"}
 local COLUMN_ORDER={"dmg","crit","critdmg","cd","echo","area","dot","hp","dr","regen","leech","killheal","lives","speed","pickup","xp","gold","luck","buff","special"}
+local wornSeen,WORN_GRACE={at={}},6
 local function ShowJewelPool(holder)
     local foldedPool=E.IsCollapsed("jewelPool")
     local context=Context()
@@ -306,21 +386,28 @@ local function ShowJewelPool(holder)
             if group and name then key=group.."."..name end
         end
         if key then worn[key]=true end
+        -- A legendary's own name differs from the key of its row: its spell, in the source key, tells which it is.
+        local _,_,spell=string.find(type(entry.sourceKey)=="string" and entry.sourceKey or "","legendary[:%.]([%a_]+)")
+        if spell then
+            worn["legendary."..spell]=true
+            for codexKey,runKey in pairs(RUN_KEY) do if runKey==spell then worn["legendary."..codexKey]=true end end
+        end
         local kind=entry.category or "other"
         held[kind]=(held[kind] or 0)+1
     end
+    -- The game now and then leaves a piece out for a moment: what was worn a few seconds ago still counts,
+    -- so its edge does not blink. A new run forgets it.
+    local now=GetTime()
+    if wornSeen.run~=context.runId then wornSeen={run=context.runId,at={}} end
+    for key in pairs(worn) do wornSeen.at[key]=now end
+    for key,at in pairs(wornSeen.at) do
+        if now-at<=WORN_GRACE then worn[key]=true else wornSeen.at[key]=nil end
+    end
+    local amuletTaken=(held.amulet or 0)>0
+    for key in pairs(worn) do if string.find(key,"^legendary%.") then amuletTaken=true end end
     local count,row=0,0
     -- The legendary amulets of the hero's class, first. They come up once the hero knows their spell.
-    local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
-    local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
-    local known={}
-    for _,entry in ipairs(loadout.abilities or {}) do
-        if entry.selected and type(entry.sourceKey)=="string" then
-            local _,_,key=string.find(entry.sourceKey,"^ability:([%w_]+):")
-            if key then known[key]=true end
-        end
-    end
-    class=E.CheckClass(class,known)
+    local class,known,gameIcons=HeroSpells(loadout,context,true)
     pcall(Learn,loadout,class)
     local legendaryColumn=0
     local showLegend=E.On("legendRow")
@@ -328,54 +415,62 @@ local function ShowJewelPool(holder)
     for _,skill in ipairs(SKILL_POOL[class or ""] or {}) do
         skillNames[skill[1]]=E.IsRussian() and skill[2] or EnglishName(skill[1]);skillIcons[skill[1]]=skill[3]
     end
-    -- A legendary comes up only once its spell is picked: those first and bright, the rest after them and pale.
+    -- Legendary amulets enter the pool with their spell: only those of picked spells are shown, each with its own
+    -- picture and the spell's icon in the corner. Worn first, banished last, otherwise in the Codex's order.
+    -- Folded, only a worn one stays.
+    local learnedAll=type(nfUIDB.legendLearned)=="table" and nfUIDB.legendLearned or {}
+    local function Picked(spell) return known[RUN_KEY[spell] or spell] end
     local legends={}
-    for _,jewel in ipairs(E.LEGENDARY or {}) do
-        if showLegend and jewel.class==class and not foldedPool then table.insert(legends,jewel) end
+    for _,jewel in ipairs(showLegend and E.LEGENDARY or {}) do
+        if jewel.class==class and Picked(jewel.spell) and (not foldedPool or worn[jewel.key]) then table.insert(legends,jewel) end
+    end
+    -- And those learned in play that the Codex list does not hold.
+    for spell,jewel in pairs(showLegend and learnedAll or {}) do
+        local key="legendary."..spell
+        if type(jewel)=="table" and jewel.class==class and jewel.icon and not LISTED[(class or "")..":"..spell] and Picked(spell) and (not foldedPool or worn[key]) then
+            table.insert(legends,{class=class,spell=spell,key=key,learnedOnly=true})
+        end
+    end
+    local function Rank(jewel)
+        if worn[jewel.key] then return 0 end
+        if E.On("banishMarks") and E.IsBanished(jewel.key) then return 2 end
+        return 1
     end
     table.sort(legends,function(a,b)
-        local ka,kb=known[a.spell] and 1 or 0,known[b.spell] and 1 or 0
-        if ka~=kb then return ka>kb end
+        local ra,rb=Rank(a),Rank(b)
+        if ra~=rb then return ra<rb end
         return (CODEX_ORDER[a.spell] or 99)<(CODEX_ORDER[b.spell] or 99)
     end)
-    local learnedAll=type(nfUIDB.legendLearned)=="table" and nfUIDB.legendLearned or {}
+    local amulets=AMULET_ICON[class or ""] or {}
     for _,jewel in ipairs(legends) do
         count=count+1
         local icon=LoadoutIcon(holder,count)
         icon:ClearAllPoints()
-        icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
+        icon:SetWidth(LEGEND_SIZE);icon:SetHeight(LEGEND_SIZE)
+        icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(LEGEND_SIZE+ALLY_GAP),0)
         icon.rankValue=nil;icon.kindText=KindText("amulet");icon.rank:SetText("")
-        local spellName=skillNames[jewel.spell] or EnglishName(jewel.spell) or jewel.spell
+        local spellName=skillNames[RUN_KEY[jewel.spell] or jewel.spell] or EnglishName(jewel.spell)
         local learned=type(learnedAll[jewel.spell])=="table" and learnedAll[jewel.spell] or nil
-        if jewel.placeholder then
-            icon.texture:SetTexture((learned and learned.icon) or ("Interface\\Icons\\"..(skillIcons[jewel.spell] or EXTRA_ICONS[jewel.spell] or "INV_Jewelry_Necklace_01")))
-            icon.label=(learned and learned.name) or E.Text("Легендарный амулет","Legendary amulet")
-            icon.effect=E.Text("Переделывает скил «","Remakes ")..spellName..E.Text("»","")
-        else
-            icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon)
-            icon.label=E.Pick(jewel.name);icon.effect=E.Pick(jewel.effect) or (E.Text("Переделывает скил «","Remakes ")..spellName..E.Text("»",""))
-        end
-        if known[jewel.spell] then icon.effect=icon.effect.."\n|cff7fd67f"..E.Text("Может выпасть: скил взят","Can drop: the spell is picked").."|r"
-        else icon.effect=icon.effect.."\n|cff8a8a96"..E.Text("Выпадет, только если взять «","Drops only once you pick ")..spellName..E.Text("»","").."|r" end
-        MarkBanish(icon,jewel.key,known[jewel.spell] and 1 or 0.35,worn[jewel.key] and true or false);icon:Show()
+        -- The picture seen on a worn one first, then the Codex's, then the older table's.
+        local picture=(learned and learned.icon)
+            or (amulets[jewel.spell] and ("Interface\\Icons\\INV_Jewelry_Necklace_"..amulets[jewel.spell]))
+            or (not jewel.placeholder and jewel.icon and ("Interface\\Icons\\"..jewel.icon))
+            or "Interface\\Icons\\INV_Jewelry_Necklace_01"
+        icon.texture:SetTexture(picture)
+        local runSpell=RUN_KEY[jewel.spell] or jewel.spell
+        local spellIcon=skillIcons[runSpell] or EXTRA_ICONS[jewel.spell]
+        icon.SetBadge(gameIcons[runSpell] or (spellIcon and ("Interface\\Icons\\"..spellIcon)) or nil)
+        if learned and learned.name then icon.label=learned.name
+        elseif not jewel.placeholder and jewel.name then icon.label=E.Pick(jewel.name)
+        else icon.label=E.Text("Легендарный амулет: ","Legendary amulet: ")..spellName end
+        icon.effect=nil
+        local isWorn=worn[jewel.key] and true or false
+        -- The worn one stands out with a thicker edge.
+        MarkBanish(icon,jewel.key,(isWorn or not amuletTaken) and 1 or AMULET_TAKEN_ALPHA,isWorn,isWorn and 3 or nil);icon:Show()
         legendaryColumn=legendaryColumn+1
     end
-    -- And those learned in play that the Codex list does not hold.
-    for spell,jewel in pairs(showLegend and not foldedPool and learnedAll or {}) do
-        if type(jewel)=="table" and jewel.class==class and jewel.icon and not LISTED[(class or "")..":"..spell] then
-            count=count+1
-            local icon=LoadoutIcon(holder,count)
-            icon:ClearAllPoints()
-            icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",legendaryColumn*(ALLY_SIZE+ALLY_GAP),0)
-            icon.texture:SetTexture(jewel.icon);icon.rankValue=nil
-            icon.label=jewel.name or spell
-            icon.effect=E.Text("Легендарный амулет · скилл «","Legendary amulet · skill ")..(skillNames[spell] or spell)..E.Text("»","")
-            icon.kindText=KindText("amulet");icon.rank:SetText("")
-            MarkBanish(icon,"legendary."..spell,known[spell] and 1 or 0.35,worn["legendary."..spell] and true or false);icon:Show()
-            legendaryColumn=legendaryColumn+1
-        end
-    end
     if legendaryColumn>0 then row=1 end
+    local legendExtra=legendaryColumn>0 and (LEGEND_SIZE-ALLY_SIZE+3) or 0
     -- Folded, only what is worn remains, on one row.
     local foldedColumn=0
     for _,kind in ipairs(KIND_ORDER) do
@@ -388,22 +483,25 @@ local function ShowJewelPool(holder)
                     count=count+1
                     local icon=LoadoutIcon(holder,count)
                     icon:ClearAllPoints()
-                    icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP))
-                    icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil
+                    icon:SetWidth(ALLY_SIZE);icon:SetHeight(ALLY_SIZE)
+                    icon:SetPoint("TOPLEFT",holder.frame,"TOPLEFT",column*(ALLY_SIZE+ALLY_GAP),-row*(ALLY_SIZE+ALLY_GAP)-legendExtra)
+                    icon.texture:SetTexture("Interface\\Icons\\"..jewel.icon);icon.rankValue=nil;icon.SetBadge(nil)
                     icon.label=E.Pick(jewel.name)
                     icon.effect=JewelEffect(jewel);icon.kindText=KindText(jewel.kind)
                     icon.rank:SetText("")
                     local isWorn=worn[jewel.key] and true or false
-                    MarkBanish(icon,jewel.key,isWorn and 1 or (full and 0.3 or 0.8),isWorn);icon:Show()
+                    local faint=full and 0.3 or ((kind=="amulet" and amuletTaken) and AMULET_TAKEN_ALPHA or 0.8)
+                    MarkBanish(icon,jewel.key,isWorn and 1 or faint,isWorn);icon:Show()
                     column=column+1
                 end
             end
         end
         if foldedPool then foldedColumn=column elseif column>0 then row=row+1 end
     end
-    if foldedPool and foldedColumn>0 then row=1 end
+    -- Folded: the worn legendary's row, if any, then the worn jewelry's.
+    if foldedPool then row=(legendaryColumn>0 and 1 or 0)+(foldedColumn>0 and 1 or 0) end
     for index=count+1,table.getn(holder.icons) do holder.icons[index]:Hide() end
-    FitRows(holder,row)
+    FitRows(holder,row,legendExtra)
     return count>0
 end
 local function NewHolder(frame)

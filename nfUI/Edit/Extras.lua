@@ -155,12 +155,12 @@ end)
 
 -- Past runs as plain text, to copy out of the game.
 function E.ExportText()
-    local lines={"class;zone;seconds;level;damage;dps;top skills"}
+    local lines={"class;zone;heroic/difficulty;seconds;level;damage;dps;top skills"}
     for _,run in ipairs(type(nfUIDB.runHistory)=="table" and nfUIDB.runHistory or {}) do
         if (run.t or 0)>=1 then
             local skills=""
             for _,skill in ipairs(run.skills or {}) do skills=skills..skill.name.." "..math.floor(skill.dmg).." " end
-            table.insert(lines,table.concat({tostring(run.class),tostring(run.zone),math.floor(run.t),tostring(run.level),math.floor(run.dealt or 0),math.floor((run.dealt or 0)/run.t),skills},";"))
+            table.insert(lines,table.concat({tostring(run.class),tostring(run.zone),tostring(run.mode),math.floor(run.t),tostring(run.level),math.floor(run.dealt or 0),math.floor((run.dealt or 0)/run.t),skills},";"))
         end
     end
     return table.concat(lines," | ")

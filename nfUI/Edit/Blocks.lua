@@ -21,7 +21,7 @@ E.blocks={
 }
 E.blocks.lairs=Block("nfUILairPanel",200,80,"TOPRIGHT",E.blocks.bosses,"BOTTOMRIGHT",0,-6)
 E.blocks.taken=Block("nfUITakenPanel",200,94,"TOPRIGHT",E.blocks.lairs,"BOTTOMRIGHT",0,-6)
-E.blocks.history=Block("nfUIHistoryPanel",200,108,"TOPRIGHT",E.blocks.taken,"BOTTOMRIGHT",0,-6)
+E.blocks.history=Block("nfUIHistoryPanel",200,122,"TOPRIGHT",E.blocks.taken,"BOTTOMRIGHT",0,-6)
 E.blocks.graph=Block("nfUIDpsGraph",200,70,"TOPRIGHT",E.blocks.history,"BOTTOMRIGHT",0,-6)
 E.blocks.stats=Block("nfUIHeroStats",150,160,"TOPRIGHT",E.blocks.bosses,"TOPLEFT",-6,0)
 E.blocks.rising:Show()

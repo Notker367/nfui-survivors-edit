@@ -1,6 +1,7 @@
 @echo off
 rem nfUI Survivors Edit updater. Put it in the game folder, next to benilla-config, and run it.
 rem Optional argument: a zip already on this computer, installed instead of the latest release.
+rem The previous version is kept in benilla-config\nfUI-update-<date>; only the latest such copy stays.
 setlocal
 set "NFUI_DIR=%~dp0"
 set "NFUI_ZIP=%~1"
@@ -49,6 +50,9 @@ try{ Move-Item -LiteralPath (Join-Path $unpacked 'nfUI') -Destination $live }
 catch{ if($backup){ Move-Item -LiteralPath $backup -Destination $live }; Fail "Install failed, the old version was restored: $($_.Exception.Message)" }
 Remove-Item -LiteralPath $unpacked -Recurse -Force
 if($zip -like "$work*"){ Remove-Item -LiteralPath $zip -Force }
+# Only the latest backup is kept: older update folders of this script go, and an empty one too.
+Get-ChildItem -LiteralPath $config -Directory | Where-Object { $_.Name -match '^nfUI-update-\d{8}-\d{6}$' -and $_.FullName -ne $work } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+if(-not $backup){ Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
 Write-Host 'Updated. Restart the game fully; your settings are kept.'
-if($backup){ Write-Host "Previous version: $backup" }
+if($backup){ Write-Host "Previous version (only the latest is kept): $backup" }
 exit 0

@@ -1,102 +1,124 @@
--- What killed the hero: the last seconds before a death, or before going down in co-op, in one panel.
--- The game reports damage by kind of source, not by enemy, so the kinds are shown, and the bars over the enemies
--- tell who stood near. The panel stays until it is clicked or a new run starts; `/nfui death` shows it again.
+-- A short card beside the game's own end screen: what kind of death it was, in plain words, and how health and the
+-- shield went in the last seconds. The game's "Death recap" lists every hit and enemy; this card does not repeat it.
+-- It stays until clicked or a new run starts; `/nfui death` shows it again.
+-- Also: a line on the hero's health bar at the biggest hit of the last minute. Below it, one more such hit kills.
 local E=nfUIEdit
-local WINDOW,KEEP,STEP=5,8,0.25
+local WINDOW,KEEP,STEP=5,8,0.1
+-- A volley or a single hit is drawn over its last seconds only, where it happened.
+local SHORT_WINDOW=2
+-- After going down in co-op and getting up, the card goes once the hero has been back in the fight this long.
+local BACK_FOR=4
 local WIDTH,ROW=300,14
-local KIND_NAMES={elite={"элитка","elite"},guardian={"страж","guardian"},boss={"босс","boss"}}
+-- The game reports a hit a moment late: the card waits for the last ones.
+local SETTLE=1
+-- Hits this close together, before the death, count as one volley.
+local VOLLEY=1
+local GRAPH_BARS,GRAPH_HEIGHT=20,22
+local DANGER_KEEP=60
+-- The line shows only for hits that matter: at least this share of health and shield together.
+local DANGER_SHARE=0.25
 
-local snapshots,hits={},{}
--- Each hit on the hero, kept a few seconds, for the biggest and the last ones.
+local snapshots,hits,bigHits={},{},{}
+-- Each hit on the hero, kept a few seconds for the card, and a minute for the danger line.
 local heroHit=E.HeroHit
 E.HeroHit=function(amount)
     local value=tonumber(amount)
-    if value and value>0 then table.insert(hits,{at=GetTime(),amount=value}) end
+    if value and value>0 then
+        local hit={at=GetTime(),amount=value}
+        table.insert(hits,hit);table.insert(bigHits,hit)
+    end
     if heroHit then return heroHit(amount) end
 end
 
-local function ActiveHealing()
-    local total=0
-    for _,line in ipairs(type(AZS_HEALING)=="table" and AZS_HEALING or {}) do
-        if type(line)=="table" and line.name~="Regeneration" and line.name~="Восполнение" and line.name~="Регенерация" then
-            total=total+(tonumber(line.dmg) or 0)
-        end
-    end
-    return total
+-- The shield the hero wears, which a hit eats before health.
+local function Shield()
+    local get=nfUIConfig and nfUIConfig.GetShield
+    if not get then return 0 end
+    local ok,value=pcall(get,"player")
+    return ok and tonumber(value) or 0
 end
-local function Near()
-    local count,named=0,{}
+local function NearCount()
+    local count=0
     for _,overlay in ipairs(nfUIPlatesRegistry or {}) do
-        if overlay.plate and overlay.plate:IsVisible() and overlay.nearHero and not overlay.petThin then
-            count=count+1
-            local kind=overlay.kind
-            local name=overlay.stock and overlay.stock.name and overlay.stock.name:GetText()
-            if KIND_NAMES[kind] and name then table.insert(named,{kind=kind,name=name}) end
-        end
+        if overlay.plate and overlay.plate:IsVisible() and overlay.nearHero and not overlay.petThin then count=count+1 end
     end
-    return count,named
+    return count
 end
 local function Snapshot()
-    local taken={}
-    for _,line in ipairs(type(AZS_TAKEN)=="table" and AZS_TAKEN or {}) do
-        if type(line)=="table" and line.source and tonumber(line.dmg) then taken[tostring(line.source)]=tonumber(line.dmg) end
-    end
-    local count,named=Near()
-    return {at=GetTime(),hp=UnitHealth("player") or 0,hpMax=UnitHealthMax("player") or 0,taken=taken,healed=ActiveHealing(),
-        runTime=type(AZS_RUN)=="table" and tonumber(AZS_RUN.t) or 0,near=count,named=named}
+    return {at=GetTime(),hp=UnitHealth("player") or 0,hpMax=UnitHealthMax("player") or 0,shield=Shield(),near=NearCount(),
+        runTime=type(AZS_RUN)=="table" and tonumber(AZS_RUN.t) or 0}
 end
 local function Trim(now)
     while snapshots[1] and now-snapshots[1].at>KEEP do table.remove(snapshots,1) end
-    while hits[1] and now-hits[1].at>KEEP do table.remove(hits,1) end
+    while hits[1] and now-hits[1].at>KEEP+SETTLE do table.remove(hits,1) end
 end
--- The snapshot from about this many seconds ago.
-local function Ago(seconds,now)
-    local found=snapshots[1]
-    for _,snap in ipairs(snapshots) do if now-snap.at>=seconds then found=snap end end
-    return found
+-- The last snapshot taken at or before that moment.
+local function At(moment)
+    local found
+    for _,snap in ipairs(snapshots) do if snap.at<=moment then found=snap end end
+    return found or snapshots[1]
 end
 
-local function Summarize()
-    local now=GetTime()
-    local last=snapshots[table.getn(snapshots)]
-    if not last then return nil end
-    local first=Ago(WINDOW,now)
-    local second=Ago(1,now)
-    local sources,total={},0
-    for source,amount in pairs(last.taken) do
-        local delta=amount-((first and first.taken[source]) or 0)
-        if delta>=1 then total=total+delta;table.insert(sources,{source=source,dmg=delta,final=amount-((second and second.taken[source]) or 0)}) end
-    end
-    table.sort(sources,function(a,b) return a.dmg>b.dmg end)
-    -- What landed in the last second.
-    local killer
-    for _,line in ipairs(sources) do if line.final>=1 and (not killer or line.final>killer.final) then killer=line end end
-    local span=math.max(1,last.at-(first and first.at or last.at))
-    local biggest,lastHit=0,nil
+-- What kind of death: one hit, a volley, a crowd, or a slow wearing down.
+local function Verdict(deathAt,last)
+    local hpMax=last.hpMax
+    local volley,volleyStart={count=0,total=0},nil
+    local killHit=0
     for _,hit in ipairs(hits) do
-        if now-hit.at<=WINDOW then
-            if hit.amount>biggest then biggest=hit.amount end
-            lastHit=hit
+        if hit.at<=deathAt+0.3 and deathAt-hit.at<=VOLLEY then
+            volley.count=volley.count+1;volley.total=volley.total+hit.amount
+            volleyStart=volleyStart and math.min(volleyStart,hit.at) or hit.at
+            if deathAt-hit.at<=0.6 and hit.amount>killHit then killHit=hit.amount end
         end
     end
-    -- From half health down to nothing.
-    local fall
-    local maxHp=last.hpMax
-    for index=table.getn(snapshots),1,-1 do
-        local snap=snapshots[index]
-        if maxHp>0 and snap.hp>=maxHp*0.5 then fall=last.at-snap.at;break end
+    local before=volleyStart and At(volleyStart-0.01) or last
+    local share=hpMax>0 and before.hp/hpMax or 0
+    if volley.count==1 and killHit>=(before.hp+(before.shield or 0))*0.9 and share>=0.5 then
+        return {kind="oneshot",hit=killHit,hp=before.hp,shield=before.shield or 0,share=share}
     end
-    return {runTime=last.runTime,level=UnitLevel("player"),sources=sources,total=total,perSecond=total/span,span=span,
-        healed=math.max(0,last.healed-(first and first.healed or last.healed)),killer=killer and killer.source,
-        lastHit=lastHit and lastHit.amount,biggest=biggest,fall=fall,near=last.near,named=last.named}
+    if volley.count>=2 and share>=0.5 then
+        return {kind="volley",count=volley.count,total=volley.total,span=math.max(0.1,deathAt-volleyStart),share=share}
+    end
+    if (last.near or 0)>=8 then return {kind="crowd",near=last.near} end
+    local first=At(deathAt-WINDOW)
+    local taken=0
+    for _,hit in ipairs(hits) do if hit.at<=deathAt+0.3 and deathAt-hit.at<=WINDOW then taken=taken+hit.amount end end
+    return {kind="worn",taken=taken,span=math.max(1,deathAt-(first and first.at or deathAt))}
 end
 
--- The panel.
+local function Summarize(deathAt,how)
+    local last=At(deathAt)
+    if not last then return nil end
+    local verdict=Verdict(deathAt,last)
+    -- Health over the last seconds, oldest first, as shares of the most; and when the shield last held.
+    local span=(verdict.kind=="volley" or verdict.kind=="oneshot") and SHORT_WINDOW or WINDOW
+    local hpLine={}
+    for index=1,GRAPH_BARS do
+        local snap=At(deathAt-span+(index-1)*span/(GRAPH_BARS-1))
+        hpLine[index]=(snap and snap.hpMax>0 and snap.at>=deathAt-span-STEP) and snap.hp/snap.hpMax or -1
+    end
+    hpLine[GRAPH_BARS]=0
+    local shieldPeak,shieldGone=0,nil
+    for _,snap in ipairs(snapshots) do
+        if deathAt-snap.at<=WINDOW and snap.at<=deathAt then
+            if (snap.shield or 0)>shieldPeak then shieldPeak=snap.shield end
+            if (snap.shield or 0)>=1 then shieldGone=nil elseif shieldPeak>0 and not shieldGone then shieldGone=snap.at end
+        end
+    end
+    return {runTime=last.runTime,level=UnitLevel("player"),verdict=verdict,hpLine=hpLine,graphSpan=span,how=how,
+        shieldPeak=shieldPeak,shieldGone=shieldGone and (deathAt-shieldGone) or nil,shieldLeft=last.shield or 0}
+end
+
+-- The card.
 local frame=CreateFrame("Button","nfUIDeathSummary",UIParent)
 frame:SetWidth(WIDTH);frame:SetFrameStrata("DIALOG");frame:EnableMouse(true);frame:Hide()
-frame:SetPoint("TOP",UIParent,"TOP",0,-110)
 frame:RegisterForClicks("LeftButtonUp","RightButtonUp")
 frame:SetScript("OnClick",function() this:Hide() end)
+-- To the right of the game's end screen, level with its top; that screen grows with the window's height.
+local function Place()
+    local height=GetScreenHeight()
+    frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOP",height*0.27,-height*0.15)
+end
 local fill=frame:CreateTexture(nil,"BACKGROUND");fill:SetTexture(E.FLAT);fill:SetAllPoints(frame)
 fill:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.92)
 E.Polish(frame)
@@ -107,105 +129,173 @@ local function Text(size,color,justify)
 end
 local title=Text(13,E.COLORS.red);title:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-7)
 local close=Text(10,{0.55,0.55,0.6},"RIGHT");close:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-8,-9)
-local lines={}
-for index=1,4 do
-    local line=Text(10,E.COLORS.text);line:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-26-(index-1)*ROW);line:SetWidth(WIDTH-16);line:SetHeight(ROW)
-    lines[index]=line
+local verdictText=Text(12,E.COLORS.yellow);verdictText:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-26);verdictText:SetWidth(WIDTH-16);verdictText:SetHeight(ROW*2+4)
+local shieldText=Text(10,E.COLORS.sapphire or E.COLORS.text);shieldText:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-26-ROW*2-6);shieldText:SetWidth(WIDTH-16);shieldText:SetHeight(ROW)
+-- Health over the last five seconds: a bar for each moment, red when low.
+local GRAPH_TOP=26+ROW*3+10
+local graphCaption=Text(9,{0.55,0.55,0.6});graphCaption:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-GRAPH_TOP)
+local graphBack=frame:CreateTexture(nil,"BORDER");graphBack:SetTexture(E.FLAT);graphBack:SetVertexColor(0,0,0,0.35)
+graphBack:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-GRAPH_TOP-11);graphBack:SetWidth(WIDTH-16);graphBack:SetHeight(GRAPH_HEIGHT)
+local graph={}
+local barWidth=(WIDTH-16)/GRAPH_BARS
+for index=1,GRAPH_BARS do
+    local bar=frame:CreateTexture(nil,"ARTWORK");bar:SetTexture(E.FLAT);bar:SetWidth(math.max(1,barWidth-1))
+    bar:SetPoint("BOTTOMLEFT",graphBack,"BOTTOMLEFT",(index-1)*barWidth,0)
+    graph[index]=bar
 end
-local rows={}
-for index=1,5 do
-    local row={}
-    local y=-26-4*ROW-6-(index-1)*ROW
-    row.bar=frame:CreateTexture(nil,"BORDER");row.bar:SetTexture(E.FLAT);row.bar:SetHeight(ROW-2)
-    row.bar:SetPoint("TOPLEFT",frame,"TOPLEFT",6,y+1);row.bar:SetVertexColor(E.COLORS.red[1],E.COLORS.red[2],E.COLORS.red[3],0.35)
-    row.left=Text(10,E.COLORS.text);row.left:SetPoint("TOPLEFT",frame,"TOPLEFT",10,y)
-    row.right=Text(10,E.COLORS.text,"RIGHT");row.right:SetPoint("TOPRIGHT",frame,"TOPRIGHT",-10,y)
-    rows[index]=row
-end
-local near=Text(10,{0.75,0.75,0.8});near:SetWidth(WIDTH-16);near:SetHeight(ROW*2)
+frame:SetHeight(GRAPH_TOP+11+GRAPH_HEIGHT+8)
 
-local function SourceName(source)
-    local name=E.TAKEN_SOURCES and E.TAKEN_SOURCES[source]
-    return name and E.Text(name[1],name[2]) or tostring(source)
-end
 local function Clock(seconds)
     seconds=math.max(0,math.floor((seconds or 0)+0.5))
     return string.format("%d:%02d",math.floor(seconds/60),math.mod(seconds,60))
 end
+local function Percent(share) return math.floor((share or 0)*100+0.5) end
+local function VerdictText(v)
+    if type(v)~="table" then return "" end
+    if v.kind=="oneshot" then
+        local text=string.format(E.Text("Ваншот: один удар %s при %s здоровья (%d%%)","One-shot: a single hit of %s at %s health (%d%%)"),
+            E.Short(v.hit),E.Short(v.hp),Percent(v.share))
+        if (v.shield or 0)>=1 then text=text..E.Text(" и щите "," and a shield of ")..E.Short(v.shield) end
+        return text
+    elseif v.kind=="volley" then
+        return string.format(E.Text("Залп: %d ударов за %.1f с, %s урона, здоровье с %d%% до нуля","Volley: %d hits in %.1f s, %s damage, health from %d%% to nothing"),
+            v.count,v.span,E.Short(v.total),Percent(v.share))
+    elseif v.kind=="crowd" then
+        return string.format(E.Text("Задавили: рядом %d врагов","Swarmed: %d enemies near"),v.near or 0)
+    end
+    return string.format(E.Text("Сточили: %s урона за %d с","Worn down: %s damage in %d s"),E.Short(v.taken or 0),math.floor((v.span or 0)+0.5))
+end
+local function ShieldLine(summary)
+    if (summary.shieldPeak or 0)<1 then return E.Text("Щита не было","No shield") end
+    if summary.shieldGone then
+        return string.format(E.Text("Щит до %s сбит за %.1f с до смерти","Shield of up to %s broken %.1f s before the death"),E.Short(summary.shieldPeak),summary.shieldGone)
+    end
+    return string.format(E.Text("Щит держался до конца: осталось %s","The shield held to the end: %s left"),E.Short(summary.shieldLeft or 0))
+end
 function E.ShowDeathSummary(summary)
     summary=summary or (type(nfUIDB)=="table" and nfUIDB.lastDeath)
-    if type(summary)~="table" then
+    if type(summary)~="table" or type(summary.verdict)~="table" then
         if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("nfUI: "..E.Text("смертей в этой сессии ещё не было","no death recorded yet")) end
         return
     end
-    title:SetText(E.Text("Смерть","Death").."  "..Clock(summary.runTime)..(summary.level and (E.Text("  · ур. ","  · lvl ")..summary.level) or ""))
+    -- In co-op the hero goes down first and may be raised.
+    title:SetText((summary.how=="down" and E.Text("Упал","Down") or E.Text("Смерть","Death")).."  "..Clock(summary.runTime)..(summary.level and (E.Text("  · ур. ","  · lvl ")..summary.level) or ""))
     close:SetText(E.Text("клик: закрыть","click to close"))
-    lines[1]:SetText(E.Text("Добило: ","Finished by: ").."|cffff7070"..(summary.killer and SourceName(summary.killer) or "?").."|r"
-        ..(summary.lastHit and (E.Text(", последний удар ",", last hit ")..E.Short(summary.lastHit)) or ""))
-    lines[2]:SetText(string.format(E.Text("За %d сек: %s урона (%s/с), лечение +%s","In %d sec: %s damage (%s/s), healing +%s"),
-        math.floor(summary.span+0.5),E.Short(summary.total),E.Short(summary.perSecond),E.Short(summary.healed or 0)))
-    lines[3]:SetText(summary.fall and string.format(E.Text("Здоровье с 50%% до нуля за %.1f сек","Health from 50%% to nothing in %.1f sec"),summary.fall)
-        or E.Text("Здоровье ниже половины всё окно","Health below half the whole time"))
-    lines[4]:SetText(summary.biggest and summary.biggest>0 and (E.Text("Самый большой удар: ","Biggest hit: ")..E.Short(summary.biggest)) or "")
-    local shown=0
-    for index,row in ipairs(rows) do
-        local line=summary.sources and summary.sources[index]
-        if line then
-            shown=index
-            row.left:SetText(SourceName(line.source))
-            row.right:SetText(E.Short(line.dmg).."  |cff8a8a96"..string.format("%.0f%%",100*line.dmg/math.max(1,summary.total)).."|r")
-            row.bar:SetWidth(math.max(1,(WIDTH-12)*line.dmg/math.max(1,summary.sources[1].dmg)));row.bar:Show()
-            row.left:Show();row.right:Show()
-        else row.left:Hide();row.right:Hide();row.bar:Hide() end
+    verdictText:SetText(VerdictText(summary.verdict))
+    shieldText:SetText(ShieldLine(summary))
+    local span=summary.graphSpan or WINDOW
+    graphCaption:SetText(string.format(E.Text("Здоровье за последние %d с","Health over the last %d s"),span))
+    local low,high=E.COLORS.red,E.COLORS.green
+    for index,bar in ipairs(graph) do
+        local share=summary.hpLine and summary.hpLine[index] or -1
+        if share>=0 then
+            bar:SetVertexColor(low[1]+(high[1]-low[1])*share,low[2]+(high[2]-low[2])*share,low[3]+(high[3]-low[3])*share,0.9)
+            bar:SetHeight(math.max(1,GRAPH_HEIGHT*share));bar:Show()
+        else bar:Hide() end
     end
-    local text=string.format(E.Text("Рядом врагов: %d","Enemies near: %d"),summary.near or 0)
-    local named={}
-    for _,unit in ipairs(summary.named or {}) do
-        if table.getn(named)<4 then
-            local kind=KIND_NAMES[unit.kind]
-            table.insert(named,unit.name..(kind and (" ("..E.Text(kind[1],kind[2])..")") or ""))
-        end
-    end
-    if table.getn(named)>0 then text=text..". "..table.concat(named,", ") end
-    near:SetText(text)
-    near:ClearAllPoints();near:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-26-4*ROW-6-shown*ROW-4)
-    frame:SetHeight(26+4*ROW+6+shown*ROW+4+ROW*2+6)
-    frame:Show()
+    Place();frame:Show()
 end
 
--- Watching: snapshots while the run goes on, a summary the moment the hero dies or goes down.
-local wasAlive,lastRunTime,age=true,0,0
+-- Watching: snapshots while the run goes on, the card a moment after the hero dies or goes down.
+local wasAlive,lastRunTime,age,deathAt,deathHow,backSince=true,0,0,nil,nil,nil
+-- "dead", "down" (co-op, can be raised), or nil while standing.
+local function IsDown(run)
+    if run.ph=="dead" then return "dead" end
+    for _,unit in ipairs(type(AZS_DOWNED)=="table" and AZS_DOWNED or {}) do
+        if type(unit)=="table" and unit.name==UnitName("player") and unit.state=="down" then return "down" end
+    end
+    if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then return "dead" end
+    return nil
+end
 local driver=CreateFrame("Frame","nfUIDeathWatch")
 driver:SetScript("OnUpdate",function()
     age=age+(arg1 or 0);if age<STEP then return end;age=0
     local run=type(AZS_RUN)=="table" and AZS_RUN or nil
     if not run then return end
     local runTime=tonumber(run.t) or 0
-    -- A new run: the old panel goes.
-    if runTime<lastRunTime then frame:Hide();snapshots={};hits={};wasAlive=true end
+    -- A new run: the old card goes.
+    if runTime<lastRunTime then frame:Hide();snapshots={};hits={};bigHits={};wasAlive=true;deathAt=nil;backSince=nil end
     lastRunTime=runTime
-    local down=run.ph=="dead" or (UnitIsDeadOrGhost and UnitIsDeadOrGhost("player"))
-    if not down then
-        for _,unit in ipairs(type(AZS_DOWNED)=="table" and AZS_DOWNED or {}) do
-            if type(unit)=="table" and unit.name==UnitName("player") and unit.state=="down" then down=true end
-        end
-    end
     local now=GetTime()
-    if not down then
-        if run.ph=="playing" then table.insert(snapshots,Snapshot());Trim(now) end
-        wasAlive=true
-    elseif wasAlive then
-        wasAlive=false
-        local ok,summary=pcall(Summarize)
+    if deathAt and now-deathAt>=SETTLE then
+        local at=deathAt;deathAt=nil
+        local ok,summary=pcall(Summarize,at,deathHow)
         if ok and summary then
             if type(nfUIDB)=="table" then nfUIDB.lastDeath=summary end
-            if E.On("deathSummary") then E.ShowDeathSummary(summary) end
+            if E.On("deathSummary") then E.ShowDeathSummary(summary);frame.auto=true end
         end
     end
+    local down=IsDown(run)
+    if not down then
+        if run.ph=="playing" then
+            table.insert(snapshots,Snapshot());Trim(now)
+            -- Raised and fighting again: the card has been read, it goes.
+            if frame.auto and frame:IsVisible() and not deathAt then
+                backSince=backSince or now
+                if now-backSince>=BACK_FOR then frame:Hide();backSince=nil end
+            end
+        end
+        wasAlive=true
+    elseif wasAlive then
+        wasAlive=false;deathAt=now;deathHow=down;backSince=nil
+    end
+end)
+
+-- The danger line: on the hero's health bar, at the biggest hit taken in the last minute. While health and shield
+-- together are under it, the bar's edge pulses red and a note beside the frame says so.
+local danger
+local function DangerParts(widget)
+    if danger and danger.widget==widget then return danger end
+    local bar=widget.health
+    danger={widget=widget}
+    danger.line=bar:CreateTexture(nil,"OVERLAY");danger.line:SetTexture(E.FLAT);danger.line:SetVertexColor(1,0.25,0.2,0.95);danger.line:SetWidth(2)
+    danger.edge=E.Edge(bar,1,0.2,0.15,1);danger.edge.SetSize(2);danger.edge.Hide()
+    -- Beside the frame, not above it, where the buffs are.
+    danger.label=bar:CreateFontString(nil,"OVERLAY");danger.label:SetFont(E.FONT,10,"OUTLINE");danger.label:SetTextColor(1,0.35,0.3)
+    danger.label:SetPoint("LEFT",widget,"RIGHT",6,0)
+    return danger
+end
+local function Biggest(now)
+    while bigHits[1] and now-bigHits[1].at>DANGER_KEEP do table.remove(bigHits,1) end
+    local biggest=0
+    for _,hit in ipairs(bigHits) do if hit.amount>biggest then biggest=hit.amount end end
+    return biggest
+end
+local pulse,dangerAge=0,0
+local watcher=CreateFrame("Frame","nfUIDangerWatch")
+watcher:SetScript("OnUpdate",function()
+    local elapsed=arg1 or 0
+    pulse=pulse+elapsed;dangerAge=dangerAge+elapsed
+    local widget=getglobal("nfUIPlayer")
+    if not widget or not widget.health then return end
+    local parts=DangerParts(widget)
+    if dangerAge>=0.1 then
+        dangerAge=0
+        local biggest=Biggest(GetTime())
+        local hp,most=UnitHealth("player") or 0,UnitHealthMax("player") or 0
+        local inRun=AZS_GetPhase and AZS_GetPhase()=="playing"
+        local shield=Shield()
+        if E.On("dangerLine") and inRun and biggest>0 and most>0 and hp>0 and biggest>=(hp+shield)*DANGER_SHARE then
+            local x=widget.health:GetWidth()*math.min(1,biggest/most)
+            parts.line:ClearAllPoints()
+            parts.line:SetPoint("TOP",widget.health,"TOPLEFT",x,0);parts.line:SetPoint("BOTTOM",widget.health,"BOTTOMLEFT",x,0)
+            parts.line:Show()
+            -- The shield is drawn right after health, so the two together are read against the line.
+            parts.deadly=hp+shield<=biggest
+            if parts.deadly then
+                parts.label:SetText(E.Text("Следующий такой удар убьёт: ","The next such hit kills: ")..E.Short(biggest)
+                    ..(shield>=1 and E.Text(" (щит не спасёт)"," (the shield will not save you)") or ""))
+                parts.label:Show()
+            else parts.label:Hide() end
+        else
+            parts.line:Hide();parts.label:Hide();parts.deadly=false
+        end
+    end
+    if parts.deadly then parts.edge.SetColor(1,0.2,0.15,0.7+0.3*math.sin(pulse*8));parts.edge.Show() else parts.edge.Hide() end
 end)
 
 local command=SlashCmdList["NFUI"]
 SlashCmdList["NFUI"]=function(message)
-    if string.lower(message or "")=="death" then E.ShowDeathSummary();return end
+    if string.lower(message or "")=="death" then E.ShowDeathSummary();frame.auto=false;return end
     if command then command(message) end
 end

@@ -57,7 +57,7 @@ local bossFrame,takenFrame=E.blocks.bosses,E.blocks.taken
 Panel(bossFrame,E.Text("Боссы","Bosses"),"bosses",nil,"blockBosses")
 Panel(takenFrame,E.Text("Кто бьёт героя","Damage taken"),"taken",nil,"blockTaken")
 local lairFrame,historyFrame=E.blocks.lairs,E.blocks.history
-local LAIR_ROWS,HISTORY_ROWS=4,6
+local LAIR_ROWS,HISTORY_ROWS=4,7
 Panel(lairFrame,E.Text("Стражи","Guardians"),"lairs",LAIR_ROWS,"blockLairs")
 Panel(historyFrame,E.Text("История: DPS сейчас","History: DPS now"),"history",HISTORY_ROWS,"blockHistory")
 local foldedOnce
@@ -222,15 +222,32 @@ local function UpdateLairs()
 end
 
 -- History. Every 30 seconds of a run its total damage is written down, so any moment of it can be compared later.
-local STEP,KEEP_RUNS,MAX_STEPS=30,30,240
-local current
+-- Runs are kept per class: the last ones of each, with the build they were played with, so builds can be tested.
+-- Each is compared with runs of the same zone and difficulty, and with the class's best anywhere.
+local STEP,KEEP_PER_CLASS,KEEP_ALL,MAX_STEPS,BUILD_EVERY=30,20,200,240,10
+local current,lastBuild=nil,0
 local function History()
     if type(nfUIDB.runHistory)~="table" then nfUIDB.runHistory={} end
     return nfUIDB.runHistory
 end
--- Runs are compared only with runs of the same class, zone and difficulty.
 local function RunMode()
     return tostring(AZS_ZONE.heroic or 0).."/"..tostring(AZS_ZONE.diff or 0)
+end
+-- "feralas H2": where a run was played, for the class-wide rows.
+local function RunTag(run)
+    local _,_,heroic=string.find(run.mode or "","^(%d+)/")
+    heroic=tonumber(heroic) or 0
+    return tostring(run.zone or "?")..(heroic>0 and (E.Text(" Г"," H")..heroic) or "")
+end
+-- A class with too many runs loses its oldest; the others keep theirs.
+local function Trim(list,class)
+    local count=0
+    for _,entry in ipairs(list) do if entry.class==class then count=count+1 end end
+    local index=1
+    while count>KEEP_PER_CLASS and index<=table.getn(list) do
+        if list[index].class==class then table.remove(list,index);count=count-1 else index=index+1 end
+    end
+    while table.getn(list)>KEEP_ALL do table.remove(list,1) end
 end
 local function Record()
     local run=type(AZS_ZONE)=="table" and AZS_ZONE.run
@@ -238,12 +255,12 @@ local function Record()
     if not run or not t or not dealt then return nil end
     local list=History()
     if not current or current.run~=run then
-        current=nil
+        current=nil;lastBuild=0
         for _,entry in ipairs(list) do if entry.run==run then current=entry end end
         if not current then
             current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0}}
             table.insert(list,current)
-            while table.getn(list)>KEEP_RUNS do table.remove(list,1) end
+            Trim(list,current.class)
         end
     end
     current.t=t;current.dealt=dealt;current.level=tonumber(AZS_RUN.lvl)
@@ -255,13 +272,19 @@ local function Record()
             if type(line)=="table" and line.name then table.insert(current.skills,{name=line.name,dmg=tonumber(line.dmg) or 0}) end
         end
     end
+    -- The build as it stands, every few seconds: the last one seen is the one the run ended with.
+    if E.RunBuild and GetTime()-lastBuild>=BUILD_EVERY then
+        lastBuild=GetTime()
+        local ok,build=pcall(E.RunBuild)
+        if ok and type(build)=="table" then current.build=build end
+    end
     local step=math.floor(t/STEP)
     if step>0 and step<=MAX_STEPS and not current.marks[step] then current.marks[step]=dealt end
     return current,t,dealt
 end
 -- Damage per second a run had reached by this moment, or nil if it did not last that long.
 local function RateAt(entry,t)
-    if not entry.t or entry.t<t or t<=0 then return nil end
+    if not entry.t or entry.t<t or t<=0 or type(entry.marks)~="table" then return nil end
     local step=math.floor(t/STEP)
     local low,high=entry.marks[step],entry.marks[step+1]
     if not low then return nil end
@@ -279,7 +302,22 @@ local function Compare(row,label,rate,now)
     local color=gain>=0 and E.COLORS.green or E.COLORS.enemy
     row.right:SetTextColor(color[1],color[2],color[3])
 end
--- Hovering a past run shows its summary.
+-- A build's parts by key, and the names of a list joined, with ranks.
+local PARTS={"skills","gear","jewels","talents"}
+local function PartsByKey(build)
+    local byKey={}
+    for _,part in ipairs(PARTS) do
+        for _,piece in ipairs(type(build)=="table" and build[part] or {}) do byKey[piece.key]=piece end
+    end
+    return byKey
+end
+local function Named(piece) return piece.name..(piece.rank and (" "..piece.rank) or "") end
+local function Joined(list)
+    local names={}
+    for _,piece in ipairs(list or {}) do table.insert(names,Named(piece)) end
+    return table.concat(names,", ")
+end
+-- Hovering a past run shows its summary, its build and how it differs from this run's.
 local hovers={}
 local function SummaryHover(index,run)
     local hover=hovers[index]
@@ -291,10 +329,32 @@ local function SummaryHover(index,run)
             local shown=this.run
             if not shown then return end
             GameTooltip:SetOwner(this,"ANCHOR_LEFT")
-            GameTooltip:SetText((shown.class or "?").." "..Clock(shown.t or 0),1,1,1)
+            GameTooltip:SetText((shown.class or "?").." · "..RunTag(shown).." · "..Clock(shown.t or 0)..(shown.level and (E.Text(" · ур. "," · lv. ")..shown.level) or ""),1,1,1)
             GameTooltip:AddDoubleLine(E.Text("Урон","Damage"),E.Short(shown.dealt or 0),1,0.82,0,1,1,1)
             GameTooltip:AddDoubleLine("DPS",E.Short((shown.dealt or 0)/math.max(1,shown.t or 1)),1,0.82,0,1,1,1)
             for _,skill in ipairs(shown.skills or {}) do GameTooltip:AddDoubleLine(skill.name,E.Short(skill.dmg),0.8,0.8,0.85,1,1,1) end
+            local build=shown.build
+            if type(build)=="table" then
+                local titles={skills=E.Text("Скилы","Skills"),gear=E.Text("Снаряжение","Gear"),jewels=E.Text("Бижутерия","Jewelry"),talents=E.Text("Таланты","Talents")}
+                for _,part in ipairs(PARTS) do
+                    if build[part] and build[part][1] then GameTooltip:AddLine(titles[part]..": |cffd9d9e0"..Joined(build[part]).."|r",1,0.82,0,true) end
+                end
+                -- What sets that build apart from this run's.
+                local now=current~=shown and current and current.build
+                if type(now)=="table" then
+                    local there,here=PartsByKey(build),PartsByKey(now)
+                    local only,missing,ranks={},{},{}
+                    for key,piece in pairs(there) do
+                        if not here[key] then table.insert(only,Named(piece))
+                        elseif piece.rank and here[key].rank and piece.rank~=here[key].rank then table.insert(ranks,piece.name.." "..piece.rank.." > "..here[key].rank) end
+                    end
+                    for key,piece in pairs(here) do if not there[key] then table.insert(missing,Named(piece)) end end
+                    if only[1] or missing[1] or ranks[1] then GameTooltip:AddLine(E.Text("Отличия от этого забега","Against this run"),1,1,1) end
+                    if only[1] then GameTooltip:AddLine("− "..table.concat(only,", "),1,0.45,0.45,true) end
+                    if missing[1] then GameTooltip:AddLine("+ "..table.concat(missing,", "),0.5,0.85,0.5,true) end
+                    if ranks[1] then GameTooltip:AddLine(E.Text("Ранги: ","Ranks: ")..table.concat(ranks,", "),0.75,0.75,0.8,true) end
+                end
+            end
             GameTooltip:Show()
         end)
         hover:SetScript("OnLeave",function() GameTooltip:Hide() end)
@@ -311,29 +371,41 @@ local function UpdateHistory()
     local rows=historyFrame.rows
     rows[1].left:SetText(E.Text("Сейчас ","Now ")..Clock(t));rows[1].left:SetTextColor(c.text[1],c.text[2],c.text[3])
     rows[1].right:SetText(E.Short(now).." DPS");rows[1].right:SetTextColor(c.yellow[1],c.yellow[2],c.yellow[3])
+    SummaryHover(1,nil)
     local list=History()
-    local previous,best
+    -- Here: the same zone and difficulty. Class: any zone, any heroic.
+    local previous,previousRun,best,bestRun,classBest,classBestRun
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if other~=entry and other.class==entry.class and other.zone==entry.zone and other.mode==entry.mode then
+        if other~=entry and other.class==entry.class then
             local rate=RateAt(other,t)
             if rate then
-                if not previous then previous=rate end
-                if not best or rate>best then best=rate end
+                if other.zone==entry.zone and other.mode==entry.mode then
+                    if not previous then previous,previousRun=rate,other end
+                    if not best or rate>best then best,bestRun=rate,other end
+                end
+                if not classBest or rate>classBest then classBest,classBestRun=rate,other end
             end
         end
     end
-    Compare(rows[2],E.Text("Прошлый забег","Last run"),previous,now)
-    Compare(rows[3],E.Text("Лучший забег","Best run"),best,now)
+    Compare(rows[2],E.Text("Прошлый забег","Last run"),previous,now);SummaryHover(2,previousRun)
+    Compare(rows[3],E.Text("Лучший забег","Best run"),best,now);SummaryHover(3,bestRun)
+    -- The class's best only when it was elsewhere: here it is the row above.
+    local row=4
+    if classBestRun and classBestRun~=bestRun then
+        Compare(rows[4],E.Text("Лучший класса · ","Class best · ")..RunTag(classBestRun),classBest,now);SummaryHover(4,classBestRun)
+        row=5
+    end
     if best and best>0 then
         local gain=math.floor((now/best-1)*100+0.5)
         Summarize(historyFrame,E.Text("К лучшему","Vs best"),gain>=0 and c.green or E.COLORS.enemy,E.Short(now).." DPS  "..(gain>=0 and "+" or "")..gain.."%")
     else Summarize(historyFrame,E.Text("Сейчас","Now"),c.yellow,E.Short(now).." DPS") end
-    local row=4
+    -- The class's latest runs anywhere; the zone is named only when it is another one.
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 and other.class==entry.class and other.zone==entry.zone then
-            rows[row].left:SetText(Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or ""))
+        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 and other.class==entry.class then
+            local where=(other.zone==entry.zone and other.mode==entry.mode) and "" or (" · "..RunTag(other))
+            rows[row].left:SetText(Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or "")..where)
             rows[row].left:SetTextColor(DONE[1],DONE[2],DONE[3])
             rows[row].right:SetText(E.Short((other.dealt or 0)/other.t).." DPS");rows[row].right:SetTextColor(DONE[1],DONE[2],DONE[3])
             SummaryHover(row,other)
