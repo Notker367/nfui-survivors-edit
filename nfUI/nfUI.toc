@@ -47,3 +47,4 @@ Edit/FarPlates.lua
 Edit/RunPanels.lua
 Edit/Extras.lua
 Edit/QuickMenu.lua
+Edit/DeathSummary.lua

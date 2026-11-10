@@ -166,15 +166,25 @@ function E.ExportText()
     return table.concat(lines," | ")
 end
 
--- Raid marks set by themselves: a star over the hero while in a party, so allies find them, and a skull over an ally
--- who is down, taken off again once they are up.
-local marked={}
+-- Raid marks set by themselves, without two copies of the addon taking one mark from each other.
+-- Each hero gets a mark of their own from the party's names in alphabetical order, the same on every client, and
+-- marks only themselves. An ally who is down gets the skull from everyone; once up, they take their own mark back.
+-- A mark someone set by hand is left alone for the rest of the run, and a client the game does not let mark stops trying.
+local HERO_MARKS={1,2,3,5,4} -- star, circle, diamond, triangle, moon
+local SKULL=8
+local marked,lastSet,manual,refusedUntil={},{},{},0
 local function Mark(unit,index)
-    if not SetRaidTarget or not UnitExists(unit) then return end
-    local now=GetRaidTargetIndex and GetRaidTargetIndex(unit)
-    -- Setting the same mark again would take it off.
-    if index==0 then if now and now>0 then pcall(SetRaidTarget,unit,0) end
-    elseif now~=index then pcall(SetRaidTarget,unit,index) end
+    if not SetRaidTarget or not UnitExists(unit) or GetTime()<refusedUntil then return end
+    local now=GetRaidTargetIndex and GetRaidTargetIndex(unit) or 0
+    if now==index then return end
+    -- Someone else changed one's own mark after this addon set it: theirs wins. Allies' marks are their own clients' to set.
+    if unit=="player" and lastSet[unit] and now~=lastSet[unit] and now~=0 and now~=SKULL then manual[unit]=true end
+    if manual[unit] then return end
+    -- Setting the same mark again would take it off, so 0 only when one is there.
+    if index==0 and now==0 then lastSet[unit]=nil;return end
+    pcall(SetRaidTarget,unit,index);lastSet[unit]=index
+    -- The game may keep marks to the party's leader: if nothing changed, wait a while before the next try.
+    if (GetRaidTargetIndex and GetRaidTargetIndex(unit) or 0)~=index then refusedUntil=GetTime()+30 end
 end
 local function IsDown(unit)
     if UnitIsDeadOrGhost and UnitIsDeadOrGhost(unit) then return true end
@@ -184,17 +194,36 @@ local function IsDown(unit)
     end
     return false
 end
+local function OwnMark()
+    local names={UnitName("player") or ""}
+    for index=1,4 do local name=UnitExists("party"..index) and UnitName("party"..index);if name then table.insert(names,name) end end
+    table.sort(names)
+    local me=UnitName("player")
+    for index,name in ipairs(names) do if name==me then return HERO_MARKS[index] or 0 end end
+    return 0
+end
+local markTime=0
 E.Every(0.5,function()
+    -- A new run, its clock back at the start, has no hand-set marks to respect.
+    local time=type(AZS_RUN)=="table" and tonumber(AZS_RUN.t) or 0
+    if time<markTime then manual={};lastSet={} end
+    markTime=time
     if not E.On("autoMarks") then
         for unit in pairs(marked) do Mark(unit,0);marked[unit]=nil end
         return
     end
     local party=UnitExists("party1")
-    if party then Mark("player",1);marked.player=true elseif marked.player then Mark("player",0);marked.player=nil end
+    -- One's own mark, unless down: then the others' skull stays.
+    if party and not IsDown("player") then Mark("player",OwnMark());marked.player=true
+    elseif not party and marked.player then Mark("player",0);marked.player=nil end
     for index=1,4 do
         local unit="party"..index
-        if UnitExists(unit) and IsDown(unit) then Mark(unit,8);marked[unit]=true
-        elseif marked[unit] then Mark(unit,0);marked[unit]=nil end
+        if UnitExists(unit) and IsDown(unit) then Mark(unit,SKULL);marked[unit]=true
+        elseif marked[unit] then
+            -- Up again: the skull goes, unless their own client has already put their mark back.
+            if UnitExists(unit) and GetRaidTargetIndex and GetRaidTargetIndex(unit)==SKULL then Mark(unit,0) end
+            marked[unit]=nil
+        end
     end
 end)
 

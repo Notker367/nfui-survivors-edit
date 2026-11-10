@@ -407,6 +407,9 @@ local function UpdatePlate()
 	overlay.bar:SetValue(shown)
 	-- The target stays solid; the others fade with distance and when another bar stands in front.
 	local plateFade = isTarget and 1 or (overlay.plateFade or 1)
+	-- Elites, guardians and bosses stay solid at any distance and behind other bars.
+	local strong = overlay.kind == "elite" or overlay.kind == "guardian" or overlay.kind == "boss"
+	if strong then plateFade = 1 end
 	-- Pets and other friends are not what the hero must read in a fight; party members keep their bars.
 	if not isTarget and nfUIEdit.On("friendFade") and not (PartyUnitByName(stock.name:GetText())) then
 		local fr, fg = stock.health:GetStatusBarColor()
@@ -435,7 +438,7 @@ local function UpdatePlate()
 		overlay.bar:SetHeight(math.max(2, settings.height * tall / 9 * settings.scale))
 		overlay.marker:SetHeight(math.max(2, settings.height * tall / 9 * settings.scale))
 	end
-	overlay.bar:SetAlpha((isTarget and 1 or 0.85) * plateFade)
+	overlay.bar:SetAlpha(((isTarget or strong) and 1 or 0.85) * plateFade)
 	overlay.name:SetAlpha(overlay.petThin and 0 or plateFade * (isTarget and 1 or (overlay.nameAlpha or 1)))
 	if overlay.distanceBox then overlay.distanceBox:SetAlpha(plateFade) end
 

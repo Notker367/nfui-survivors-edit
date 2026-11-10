@@ -7,6 +7,7 @@ local SOURCES={
     ["boss melee"]={"Удары боссов","Boss melee"},["boss spell"]={"Заклинания боссов","Boss spells"},
     ["area"]={"Урон по области","Area damage"},["elite"]={"Элитные враги","Elites"},["guardian"]={"Стражи","Guardians"},
 }
+E.TAKEN_SOURCES=SOURCES
 local RUN_PHASES={playing=true,choosing=true,paused=true}
 local DONE={0.5,0.5,0.56}
 

@@ -1,5 +1,11 @@
 # What's new
 
+## Next (not released yet)
+
+- Elite, guardian and boss plates stay solid: no fading with distance or behind other bars.
+- Death summary: what hit you in the last seconds before a death or going down in co-op. Stays until clicked; `/nfui death` shows it again. In the quick menu.
+- Party marks no longer fight between two copies of the addon: each hero gets their own mark, a downed ally gets the skull, hand-set marks are left alone.
+
 ## 1.1.2
 
 - Every legendary amulet of your class, from the game's Codex (102 in all, one for each spell). Those that can drop now, because you picked their spell, come first and bright; the tooltip says which spell the rest wait for. An amulet a run has offered shows its real name and icon.

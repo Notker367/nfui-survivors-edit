@@ -6,7 +6,7 @@ local MODES={{"hidden","Скрытый","Hidden"},{"default","Обычный","D
 local GROUPS={
     {"Панели","Panels",{
         {"dpsMeter","DPS-метр","DPS meter"},{"compass","Компас","Compass",nil,"db"},
-        {"targetOfTarget","Цель цели","Target of target"},{"partyLoadout","Снаряжение группы","Party loadouts"}}},
+        {"targetOfTarget","Цель цели","Target of target"},{"partyLoadout","Снаряжение группы","Party loadouts"},{"deathSummary","Сводка смерти","Death summary"}}},
     -- The game's own graphics option, a click away instead of three menus deep.
     {"Графика","Graphics",{
         {"noSpellEffects","Без эффектов заклинаний","No spell effects",nil,"cvar"}}},
