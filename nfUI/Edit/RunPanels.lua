@@ -315,13 +315,34 @@ function E.RunPlace(run,short)
     return name..E.Text(", героик ",", heroic ")..heroic
 end
 local function RunTag(run) return E.RunPlace(run,true) end
+-- A run's class as the game's key ("WARRIOR"), whatever the client's language was: older runs kept only the
+-- class's name, which is read back through both languages' names.
+local CLASS_NAMES={
+    WARRIOR={"Воин","Warrior"},PALADIN={"Паладин","Paladin"},HUNTER={"Охотник","Hunter"},ROGUE={"Разбойник","Rogue"},
+    PRIEST={"Жрец","Priest"},SHAMAN={"Шаман","Shaman"},MAGE={"Маг","Mage"},WARLOCK={"Чернокнижник","Warlock"},DRUID={"Друид","Druid"},
+}
+local BY_NAME={}
+for key,names in pairs(CLASS_NAMES) do BY_NAME[names[1]]=key;BY_NAME[names[2]]=key end
+function E.RunClass(run)
+    if type(run)~="table" then return nil end
+    return run.classKey or BY_NAME[run.class or ""] or run.class
+end
+function E.ClassName(key)
+    local names=CLASS_NAMES[key or ""]
+    return names and E.Text(names[1],names[2]) or tostring(key or "?")
+end
+-- The class of the run being played now.
+function E.CurrentClass()
+    if type(AZS_ZONE)~="table" then return nil end
+    return (type(AZS_ZONE.class)=="string" and string.upper(AZS_ZONE.class)) or BY_NAME[AZS_ZONE.cname or ""] or AZS_ZONE.cname
+end
 -- A class with too many runs loses its oldest; the others keep theirs.
 local function Trim(list,class)
     local count=0
-    for _,entry in ipairs(list) do if entry.class==class then count=count+1 end end
+    for _,entry in ipairs(list) do if E.RunClass(entry)==class then count=count+1 end end
     local index=1
     while count>KEEP_PER_CLASS and index<=table.getn(list) do
-        if list[index].class==class then table.remove(list,index);count=count-1 else index=index+1 end
+        if E.RunClass(list[index])==class then table.remove(list,index);count=count-1 else index=index+1 end
     end
     while table.getn(list)>KEEP_ALL do table.remove(list,1) end
 end
@@ -335,9 +356,9 @@ local function Record()
         for _,entry in ipairs(list) do if entry.run==run then current=entry end end
         if not current then
             local okDate,when=pcall(date,"%d.%m %H:%M")
-            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0},when=okDate and when or nil}
+            current={run=run,class=AZS_ZONE.cname,classKey=E.CurrentClass(),zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0},when=okDate and when or nil}
             table.insert(list,current)
-            Trim(list,current.class)
+            Trim(list,E.RunClass(current))
         end
     end
     current.t=t;current.dealt=dealt;current.level=tonumber(AZS_RUN.lvl)
@@ -417,7 +438,7 @@ local function SummaryHover(index,run)
             local shown=this.run
             if not shown then return end
             GameTooltip:SetOwner(this,"ANCHOR_LEFT")
-            GameTooltip:SetText((shown.class or "?").." · "..RunTag(shown).." · "..Clock(shown.t or 0)..(shown.level and (E.Text(" · ур. "," · lv. ")..shown.level) or ""),1,1,1)
+            GameTooltip:SetText(E.ClassName(E.RunClass(shown)).." · "..RunTag(shown).." · "..Clock(shown.t or 0)..(shown.level and (E.Text(" · ур. "," · lv. ")..shown.level) or ""),1,1,1)
             GameTooltip:AddDoubleLine(E.Text("Урон","Damage"),E.Short(shown.dealt or 0),1,0.82,0,1,1,1)
             GameTooltip:AddDoubleLine("DPS",E.Short((shown.dealt or 0)/math.max(1,shown.t or 1)),1,0.82,0,1,1,1)
             for _,skill in ipairs(shown.skills or {}) do GameTooltip:AddDoubleLine(skill.name,E.Short(skill.dmg),0.8,0.8,0.85,1,1,1) end
@@ -491,7 +512,7 @@ local function UpdateHistory()
     local previous,previousRun,best,bestRun,classBest,classBestRun
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if other~=entry and other.class==entry.class then
+        if other~=entry and E.RunClass(other)==E.RunClass(entry) then
             local rate=RateAt(other,t)
             if rate then
                 if other.zone==entry.zone and other.mode==entry.mode then
@@ -517,7 +538,7 @@ local function UpdateHistory()
     -- The class's latest runs anywhere; the zone is named only when it is another one.
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 and other.class==entry.class then
+        if row<=HISTORY_ROWS and other~=entry and (other.t or 0)>=30 and E.RunClass(other)==E.RunClass(entry) then
             local where=(other.zone==entry.zone and other.mode==entry.mode) and "" or (" · "..RunTag(other))
             rows[row].left:SetText(Clock(other.t)..(other.level and (E.Text(" ур.", " lv.")..other.level) or "")..where)
             rows[row].left:SetTextColor(DONE[1],DONE[2],DONE[3])
@@ -591,7 +612,7 @@ local function UpdateGraph()
     local list=History()
     for index=table.getn(list),1,-1 do
         local other=list[index]
-        if other~=entry and other.class==entry.class and other.zone==entry.zone and other.mode==entry.mode then previous=other;break end
+        if other~=entry and E.RunClass(other)==E.RunClass(entry) and other.zone==entry.zone and other.mode==entry.mode then previous=other;break end
     end
     local own,theirs=RatesOf(entry),RatesOf(previous)
     local count=table.getn(own)

@@ -742,18 +742,19 @@ function frame.Refresh()
     local runs=Runs()
     local classes,seen={},{}
     for index=table.getn(runs),1,-1 do
-        local class=runs[index].class
+        local class=E.RunClass(runs[index])
         if class and not seen[class] then seen[class]=true;table.insert(classes,class) end
     end
     if not state.class or not seen[state.class] then
-        state.class=(type(AZS_ZONE)=="table" and seen[AZS_ZONE.cname] and AZS_ZONE.cname) or classes[1]
+        local now=E.CurrentClass and E.CurrentClass()
+        state.class=(now and seen[now] and now) or classes[1]
     end
     local x=10
     for index=1,math.max(table.getn(classes),table.getn(classButtons)) do
         local button=ClassButton(index)
         local class=classes[index]
         if class then
-            button.class=class;button.label:SetText(class)
+            button.class=class;button.label:SetText(E.ClassName(class))
             button:SetWidth(button.label:GetStringWidth()+16);button:ClearAllPoints();button:SetPoint("TOPLEFT",frame,"TOPLEFT",x,-30)
             x=x+button:GetWidth()+4
             Lit(button,class==state.class);button:Show()
@@ -762,12 +763,12 @@ function frame.Refresh()
     local list,best={},nil
     for index=table.getn(runs),1,-1 do
         local run=runs[index]
-        if run.class==state.class and (run.t or 0)>=30 then
+        if E.RunClass(run)==state.class and (run.t or 0)>=30 then
             table.insert(list,run)
             if not best or Rate(run)>Rate(best) then best=run end
         end
     end
-    if not state.chosen or state.chosen.class~=state.class then state.chosen=list[1] end
+    if not state.chosen or E.RunClass(state.chosen)~=state.class then state.chosen=list[1] end
     for index,row in ipairs(rows) do
         local run=list[index]
         if run then
@@ -840,7 +841,7 @@ function E.OpenRunReport(run,from)
     if not run and type(AZS_ZONE)=="table" then
         for _,entry in ipairs(Runs()) do if entry.run==AZS_ZONE.run then run=entry end end
     end
-    state.class=run and run.class or nil;state.chosen=run;state.tab="overview"
+    state.class=run and E.RunClass(run) or nil;state.chosen=run;state.tab="overview"
     frame.Refresh();frame:Show()
     -- A run shorter than half a minute is not listed; the latest listed one stands in.
     if run and state.chosen~=run then state.chosen=nil;frame.Refresh() end
@@ -871,7 +872,7 @@ cardDriver:SetScript("OnUpdate",function()
     if pendingReview then
         pendingReview=nil;card.dismissed=true;card:Hide()
         local last
-        for _,run in ipairs(Runs()) do if run.class==AZS_ZONE.cname and run.run~=AZS_ZONE.run then last=run end end
+        for _,run in ipairs(Runs()) do if E.RunClass(run)==E.CurrentClass() and run.run~=AZS_ZONE.run then last=run end end
         E.OpenRunReport(last)
         return
     end
@@ -881,7 +882,7 @@ cardDriver:SetScript("OnUpdate",function()
     local runs=Runs()
     for index=table.getn(runs),1,-1 do
         local run=runs[index]
-        if run.class==AZS_ZONE.cname and run.run~=AZS_ZONE.run and (run.t or 0)>=30 then
+        if E.RunClass(run)==E.CurrentClass() and run.run~=AZS_ZONE.run and (run.t or 0)>=30 then
             if not last then last=run end
             if last and run~=last and run.zone==last.zone and run.mode==last.mode and (not best or Rate(run)>Rate(best)) then best=run end
         end
