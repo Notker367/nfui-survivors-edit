@@ -306,17 +306,33 @@ end
 local function HeroSpells(loadout,context,learned)
     local hero=type(loadout.actors)=="table" and loadout.actors[loadout.ownerId or context.localOwnerId]
     local class=type(hero)=="table" and type(hero.classKey)=="string" and string.upper(hero.classKey)
-    local spells,icons={},{}
+    local spells,icons,ranks={},{},{}
     for _,entry in ipairs(loadout.abilities or {}) do
         local _,_,key=string.find(type(entry.sourceKey)=="string" and entry.sourceKey or "","^ability:([%w_]+):")
         if key then
             if entry.selected or (learned and entry.learned) then spells[key]=true end
+            if entry.learned and tonumber(entry.rank) then ranks[key]=tonumber(entry.rank) end
             local source=type(loadout.sources)=="table" and loadout.sources[entry.sourceKey]
             local path=type(source)=="table" and type(source.icon)=="table" and source.icon.path
             if type(path)=="string" and path~="" then icons[key]=path end
         end
     end
-    return E.CheckClass(class,spells),spells,icons
+    return E.CheckClass(class,spells),spells,icons,ranks
+end
+-- Each spell's full cooldown as first seen this run, so the pool can say how far upgrades have brought it down.
+-- The rarity of an upgrade is not given to addons; its rank and cooldown are.
+local firstCooldown={}
+local function Cooldowns(runId)
+    if firstCooldown.run~=runId then firstCooldown={run=runId,at={}} end
+    local now={}
+    for _,line in ipairs(type(AZS_SPELLS)=="table" and AZS_SPELLS or {}) do
+        local key,cd=type(line)=="table" and line.key,type(line)=="table" and tonumber(line.cdmax)
+        if key and cd and cd>0 then
+            now[key]=cd
+            if not firstCooldown.at[key] then firstCooldown.at[key]=cd end
+        end
+    end
+    return now,firstCooldown.at
 end
 -- The pools grow upward from the chat, as many rows as they have.
 local function FitRows(holder,rows,extra)
@@ -328,7 +344,8 @@ local function ShowPool(holder)
     if not context then return false end
     local loadout=AZS_GetMeterLoadout({apiVersion=1,runId=context.runId})
     if type(loadout)~="table" then return false end
-    local class,picked,gameIcons=HeroSpells(loadout,context,false)
+    local class,picked,gameIcons,ranks=HeroSpells(loadout,context,false)
+    local cooldown,firstCd=Cooldowns(context.runId)
     local total=0
     local pool=class and SKILL_POOL[class]
     if not pool then return false end
@@ -348,6 +365,19 @@ local function ShowPool(holder)
         icon.effect=described and described[GetCVar("azsLanguage")] or nil
         icon.label=E.Pick(E.SKILL_NAMES[skill[1]]) or (E.IsRussian() and skill[2]) or EnglishName(skill[1])
         icon.rank:SetText("")
+        -- A picked spell: in the tooltip its rank, how many upgrades it has had and its cooldown then and now.
+        -- Not on the icon: the skill bar already shows the rank.
+        local rank=isPicked and ranks[skill[1]]
+        if rank then
+            icon.rankValue=rank
+            local lines={string.format(E.Text("Улучшений за забег: %d","Upgrades this run: %d"),math.max(0,rank-1))}
+            local was,now=firstCd[skill[1]],cooldown[skill[1]]
+            if was and now then
+                if was-now>=0.05 then table.insert(lines,string.format(E.Text("Перезарядка: %.1f > %.1f с (%d%%)","Cooldown: %.1f > %.1f s (%d%%)"),was,now,math.floor((now/was-1)*100+0.5)))
+                else table.insert(lines,string.format(E.Text("Перезарядка: %.1f с","Cooldown: %.1f s"),now)) end
+            end
+            icon.effect=(icon.effect and (icon.effect.."\n") or "").."|cffffd27f"..table.concat(lines,"\n").."|r"
+        end
         MarkBanish(icon,"spell:"..skill[1],isPicked and 1 or alpha,isPicked);icon:Show()
         column=column+1
     end
