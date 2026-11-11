@@ -2,7 +2,9 @@
 -- damage per second over time, the picks and what each did, its build, and how it differs from the class's best.
 -- Opened from the quick menu or with `/nfui runs`.
 local E=nfUIEdit
-local WIDTH,HEIGHT,LIST_WIDTH,ROW,ROWS=660,460,236,18,20
+local WIDTH,HEIGHT,LIST_WIDTH,ROW,ROWS=800,600,260,22,20
+-- One size for the window's text, larger than the HUD's: this is read at rest.
+local SIZE=11
 local STEP=30
 local GRAPH_HEIGHT=56
 
@@ -68,8 +70,8 @@ for index=1,ROWS do
     local row=CreateFrame("Button",nil,frame);row:SetHeight(ROW-1);row:SetWidth(LIST_WIDTH-4)
     row:SetPoint("TOPLEFT",listBack,"TOPLEFT",2,-2-(index-1)*ROW)
     row.back=Flat(row);row.back:SetAllPoints(row)
-    row.left=Font(row,10,E.COLORS.text);row.left:SetPoint("LEFT",row,"LEFT",4,0);row.left:SetWidth(LIST_WIDTH-74);row.left:SetHeight(ROW)
-    row.right=Font(row,10,E.COLORS.text,"RIGHT");row.right:SetPoint("RIGHT",row,"RIGHT",-4,0)
+    row.left=Font(row,SIZE,E.COLORS.text);row.left:SetPoint("LEFT",row,"LEFT",6,0);row.left:SetWidth(LIST_WIDTH-84);row.left:SetHeight(ROW)
+    row.right=Font(row,SIZE,E.COLORS.text,"RIGHT");row.right:SetPoint("RIGHT",row,"RIGHT",-6,0)
     row:SetScript("OnClick",function() state.chosen=this.run;frame.Refresh() end)
     rows[index]=row
 end
@@ -78,9 +80,9 @@ local empty=Font(frame,11,{0.6,0.6,0.65});empty:SetPoint("TOPLEFT",listBack,"TOP
 -- The chosen run.
 local DETAIL_LEFT=8+LIST_WIDTH+12
 local DETAIL_WIDTH=WIDTH-DETAIL_LEFT-10
-local head=Font(frame,12,E.COLORS.yellow);head:SetPoint("TOPLEFT",frame,"TOPLEFT",DETAIL_LEFT,-56);head:SetWidth(DETAIL_WIDTH);head:SetHeight(16)
-local sub=Font(frame,10,E.COLORS.text);sub:SetPoint("TOPLEFT",head,"BOTTOMLEFT",0,-2);sub:SetWidth(DETAIL_WIDTH);sub:SetHeight(28);sub:SetJustifyV("TOP")
-local graphCaption=Font(frame,9,{0.55,0.55,0.6});graphCaption:SetPoint("TOPLEFT",sub,"BOTTOMLEFT",0,-4)
+local head=Font(frame,13,E.COLORS.yellow);head:SetPoint("TOPLEFT",frame,"TOPLEFT",DETAIL_LEFT,-56);head:SetWidth(DETAIL_WIDTH);head:SetHeight(16)
+local sub=Font(frame,SIZE,E.COLORS.text);sub:SetPoint("TOPLEFT",head,"BOTTOMLEFT",0,-4);sub:SetWidth(DETAIL_WIDTH);sub:SetHeight(32);sub:SetJustifyV("TOP")
+local graphCaption=Font(frame,10,{0.55,0.55,0.6});graphCaption:SetPoint("TOPLEFT",sub,"BOTTOMLEFT",0,-4)
 local graphBack=Flat(frame,"BORDER");graphBack:SetVertexColor(0,0,0,0.3)
 graphBack:SetPoint("TOPLEFT",graphCaption,"BOTTOMLEFT",0,-2);graphBack:SetWidth(DETAIL_WIDTH);graphBack:SetHeight(GRAPH_HEIGHT)
 local bars={}
@@ -97,8 +99,57 @@ for index=1,GRAPH_BARS do
     mark:SetVertexColor(E.COLORS.mauve[1],E.COLORS.mauve[2],E.COLORS.mauve[3],0.9)
     marks[index]=mark
 end
-local body=Font(frame,10,E.COLORS.text);body:SetPoint("TOPLEFT",graphBack,"BOTTOMLEFT",0,-8)
-body:SetWidth(DETAIL_WIDTH);body:SetHeight(HEIGHT-56-16-30-14-GRAPH_HEIGHT-22);body:SetJustifyV("TOP")
+-- Below the graph, laid out anew for each run: section titles, the picks in three columns (when, what, change),
+-- and the build as labelled lines that wrap.
+local LINE,LABEL,WHEN,CHANGE=14,100,84,56
+local slots={}
+local function Slot(index)
+    local slot=slots[index]
+    if slot then return slot end
+    slot={left=Font(frame,SIZE,{0.6,0.6,0.65}),mid=Font(frame,SIZE,E.COLORS.text),right=Font(frame,SIZE,E.COLORS.text,"RIGHT")}
+    slot.mid:SetJustifyV("TOP");slot.left:SetJustifyV("TOP")
+    slots[index]=slot
+    return slot
+end
+local function Place(text,x,y,width,height)
+    text:ClearAllPoints();text:SetPoint("TOPLEFT",graphBack,"BOTTOMLEFT",x,y);text:SetWidth(width);text:SetHeight(height)
+end
+local function Layout(lines)
+    local y,bottom=-10,-(HEIGHT-56-16-36-16-GRAPH_HEIGHT-14)
+    local used=0
+    for index,line in ipairs(lines) do
+        local slot=Slot(index)
+        slot.left:SetText("");slot.mid:SetText("");slot.right:SetText("")
+        local height=LINE
+        if line.kind=="title" then
+            if index>1 then y=y-8 end
+            Place(slot.left,0,y,DETAIL_WIDTH,LINE);slot.left:SetText(line.text)
+            slot.left:SetTextColor(1,0.82,0.5)
+        elseif line.kind=="pick" then
+            Place(slot.left,6,y,WHEN,LINE);slot.left:SetText(line.when);slot.left:SetTextColor(0.6,0.6,0.65)
+            Place(slot.mid,6+WHEN,y,DETAIL_WIDTH-6-WHEN-CHANGE,LINE);slot.mid:SetText(line.text)
+            Place(slot.right,DETAIL_WIDTH-CHANGE,y,CHANGE,LINE);slot.right:SetText(line.change)
+        elseif line.kind=="pair" then
+            Place(slot.left,6,y,LABEL,LINE);slot.left:SetText(line.label);slot.left:SetTextColor(0.75,0.75,0.8)
+            local width=DETAIL_WIDTH-6-LABEL
+            slot.mid:SetText(line.text)
+            -- Wrapping breaks at words, so a line holds less than its width: counted with room to spare.
+            local rows=math.max(1,math.ceil((slot.mid:GetStringWidth() or 0)/math.max(1,width*0.85)))
+            height=rows*LINE
+            Place(slot.mid,6+LABEL,y,width,height)
+        else
+            Place(slot.mid,6,y,DETAIL_WIDTH-6,LINE);slot.mid:SetText(line.text)
+        end
+        y=y-height-2
+        -- What does not fit is left out rather than drawn over the frame's edge.
+        if y<bottom then
+            slot.left:SetText("");slot.mid:SetText("");slot.right:SetText("")
+            break
+        end
+        used=index
+    end
+    for index=used+1,table.getn(slots) do slots[index].left:SetText("");slots[index].mid:SetText("");slots[index].right:SetText("") end
+end
 
 -- Damage per second in each half minute of a run.
 local function Steps(run)
@@ -165,29 +216,30 @@ local function Detail(run,best)
     local lines={}
     -- Picks in groups, with what each group did.
     local events=run.events or {}
+    table.insert(lines,{kind="title",text=E.Text("Прибавки: DPS за 30 с до и после, близкие покупки вместе","Picks: DPS 30 s before and after, close ones together")})
     if events[1] then
-        table.insert(lines,GOLD..E.Text("Прибавки (DPS за 30 с до и после; близкие покупки вместе):","Picks (DPS 30 s before and after; close ones together):").."|r")
         local groups=Groups(events)
         local first=math.max(1,table.getn(groups)-9)
+        if first>1 then table.insert(lines,{kind="note",text=GREY..string.format(E.Text("раньше ещё %d","%d earlier"),first-1).."|r"}) end
         for index=first,table.getn(groups) do
             local group=groups[index]
-            local value=GREY.."...|r"
-            if group.gain then value=(group.gain>=0 and GREEN or RED)..string.format("%+.0f%%",group.gain*100).."|r" end
+            local change=GREY.."...|r"
+            if group.gain then change=(group.gain>=0 and GREEN or RED)..string.format("%+.0f%%",group.gain*100).."|r" end
             local when=Clock(group.first.t)..(group.last~=group.first and ("-"..Clock(group.last.t)) or "")
-            table.insert(lines,"  "..when.."  "..GroupText(group).."  "..value)
+            table.insert(lines,{kind="pick",when=when,text=GroupText(group),change=change})
         end
-        if first>1 then table.insert(lines,GREY..string.format(E.Text("  и ещё %d раньше","  and %d earlier"),first-1).."|r") end
     else
-        table.insert(lines,GREY..E.Text("Прибавки пишутся с версии 1.3: у этого забега их нет.","Picks are kept from version 1.3: this run has none.").."|r")
+        table.insert(lines,{kind="note",text=GREY..E.Text("У этого забега их нет: они пишутся с версии 1.3.","None for this run: they are kept from version 1.3.").."|r"})
     end
     -- The build.
     local build=run.build
+    table.insert(lines,{kind="title",text=E.Text("Билд","Build")})
     if type(build)=="table" then
         local titles={skills=E.Text("Скилы","Skills"),gear=E.Text("Снаряжение","Gear"),jewels=E.Text("Бижутерия","Jewelry"),talents=E.Text("Таланты","Talents")}
         for _,part in ipairs({"skills","jewels","gear","talents"}) do
-            if build[part] and build[part][1] then table.insert(lines,GOLD..titles[part]..":|r "..Joined(build[part])) end
+            if build[part] and build[part][1] then table.insert(lines,{kind="pair",label=titles[part],text=Joined(build[part])}) end
         end
-        if build.luck then table.insert(lines,GOLD..E.Text("Удача:","Luck:").."|r "..string.format("%+.0f%%",build.luck*100)) end
+        if build.luck then table.insert(lines,{kind="pair",label=E.Text("Удача","Luck"),text=string.format("%+.0f%%",build.luck*100)}) end
         -- Against the class's best.
         if best and best~=run and type(best.build)=="table" then
             local here,there=PartsByKey(build),PartsByKey(best.build)
@@ -195,15 +247,15 @@ local function Detail(run,best)
             for key,piece in pairs(here) do if not there[key] then table.insert(only,Named(piece)) end end
             for key,piece in pairs(there) do if not here[key] then table.insert(missing,Named(piece)) end end
             if only[1] or missing[1] then
-                table.insert(lines,GOLD..E.Text("Против лучшего забега класса:","Against the class's best run:").."|r")
-                if only[1] then table.insert(lines,"  "..E.Text("только здесь: ","only here: ")..table.concat(only,", ")) end
-                if missing[1] then table.insert(lines,"  "..E.Text("только там: ","only there: ")..table.concat(missing,", ")) end
+                table.insert(lines,{kind="title",text=E.Text("Против лучшего забега класса","Against the class's best run")})
+                if only[1] then table.insert(lines,{kind="pair",label=E.Text("Только здесь","Only here"),text=table.concat(only,", ")}) end
+                if missing[1] then table.insert(lines,{kind="pair",label=E.Text("Только там","Only there"),text=table.concat(missing,", ")}) end
             end
         end
     else
-        table.insert(lines,GREY..E.Text("Билд у этого забега не записан.","No build was kept for this run.").."|r")
+        table.insert(lines,{kind="note",text=GREY..E.Text("У этого забега билд не записан.","No build was kept for this run.").."|r"})
     end
-    return table.concat(lines,"\n")
+    return lines
 end
 
 function frame.Refresh()
@@ -257,7 +309,7 @@ function frame.Refresh()
     local run=state.chosen
     if not run then
         empty:SetText(E.Text("Пока нет забегов длиннее 30 секунд.","No runs longer than 30 seconds yet."));empty:Show()
-        head:SetText("");sub:SetText("");graphCaption:SetText("");body:SetText("")
+        head:SetText("");sub:SetText("");graphCaption:SetText("");Layout({})
         for index=1,GRAPH_BARS do bars[index]:Hide();marks[index]:Hide() end
         return
     end
@@ -293,7 +345,7 @@ function frame.Refresh()
             marks[index]:Show()
         else marks[index]:Hide() end
     end
-    body:SetText(Detail(run,best))
+    Layout(Detail(run,best))
 end
 
 function E.ToggleRunReport()
