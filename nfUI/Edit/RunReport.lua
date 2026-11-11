@@ -67,6 +67,8 @@ close:SetScript("OnClick",function() frame:Hide() end)
 
 -- versus: what a run is held against, "place" (the best other run of the same zone and difficulty) or "class".
 local state={class=nil,chosen=nil,tab="overview",versus="place",significant=true}
+-- A review asked for on the end screen where there was no room: it opens at the next "move to begin".
+local pendingReview
 -- Picks that changed DPS by less than this are hidden while "only notable" is on.
 local NOTABLE=0.15
 local function Tab(parent,height)
@@ -820,10 +822,21 @@ end
 function E.ToggleRunReport()
     if frame:IsShown() then frame:Hide();return end
     state.chosen=nil;state.class=nil
+    frame:SetScale(1);frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",0,30)
     frame.Refresh();frame:Show()
 end
--- Open on one run: the one given, else the current or just ended one, on its Overview.
-function E.OpenRunReport(run)
+-- Open on one run: the one given, else the current or just ended one, on its Overview. From the end screen
+-- ("end") it opens beside the game's own window when there is room, a little smaller if need be; with no room it
+-- waits for the next run's "move to begin" and says false.
+function E.OpenRunReport(run,from)
+    if from=="end" and E.EndScreenRoom then
+        local half,_,free=E.EndScreenRoom()
+        local scale=math.min(1,(free-16)/WIDTH)
+        if scale<0.75 then pendingReview=true;return false end
+        frame:SetScale(scale);frame:ClearAllPoints();frame:SetPoint("LEFT",UIParent,"CENTER",(half+36)/scale,0)
+    else
+        frame:SetScale(1);frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",0,30)
+    end
     if not run and type(AZS_ZONE)=="table" then
         for _,entry in ipairs(Runs()) do if entry.run==AZS_ZONE.run then run=entry end end
     end
@@ -831,6 +844,7 @@ function E.OpenRunReport(run)
     frame.Refresh();frame:Show()
     -- A run shorter than half a minute is not listed; the latest listed one stands in.
     if run and state.chosen~=run then state.chosen=nil;frame.Refresh() end
+    return true
 end
 
 -- Before a run starts ("move to begin"), a card with the last run of the class: where, how long, how it went
@@ -854,6 +868,13 @@ cardDriver:SetScript("OnUpdate",function()
     cardAge=cardAge+(arg1 or 0);if cardAge<0.5 then return end;cardAge=0
     local ready=AZS_GetPhase and AZS_GetPhase()=="ready"
     if not ready then card:Hide();card.dismissed=nil;return end
+    if pendingReview then
+        pendingReview=nil;card.dismissed=true;card:Hide()
+        local last
+        for _,run in ipairs(Runs()) do if run.class==AZS_ZONE.cname and run.run~=AZS_ZONE.run then last=run end end
+        E.OpenRunReport(last)
+        return
+    end
     if card.dismissed or not E.On("lastRunCard") or type(AZS_ZONE)~="table" then card:Hide();return end
     -- The class's latest finished run, other than the one about to start.
     local last,best

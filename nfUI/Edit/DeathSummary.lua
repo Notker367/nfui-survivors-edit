@@ -115,9 +115,22 @@ frame:SetWidth(WIDTH);frame:SetFrameStrata("DIALOG");frame:EnableMouse(true);fra
 frame:RegisterForClicks("LeftButtonUp","RightButtonUp")
 frame:SetScript("OnClick",function() this:Hide() end)
 -- To the right of the game's end screen, level with its top; that screen grows with the window's height.
+-- The game's end screen keeps nearly the same size in pixels at any resolution (about 690 wide at 900 high, 730 at
+-- 1440), so it is measured in pixels and turned into this interface's units. Shared with the run analysis.
+function E.EndScreenRoom()
+    local _,_,w,h=string.find(GetCVar and GetCVar("gxResolution") or "","(%d+)x(%d+)")
+    local pxH=tonumber(h) or 1080
+    local pxW=tonumber(w) or pxH*16/9
+    local perPx=UIParent:GetHeight()/pxH
+    local half=(640+0.06*pxH)/2*perPx
+    local tall=(600+0.28*pxH)/2*perPx
+    -- Units free beside the end screen, on each side.
+    local free=pxW*perPx/2-half
+    return half,tall,free
+end
 local function Place()
-    local height=GetScreenHeight()
-    frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"TOP",height*0.27,-height*0.15)
+    local half,tall=E.EndScreenRoom()
+    frame:ClearAllPoints();frame:SetPoint("TOPLEFT",UIParent,"CENTER",half+36,tall)
 end
 local fill=frame:CreateTexture(nil,"BACKGROUND");fill:SetTexture(E.FLAT);fill:SetAllPoints(frame)
 fill:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.92)
@@ -149,7 +162,14 @@ review:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-(GRAPH_TOP+11+GRAPH_HEIGHT+8))
 local reviewBack=review:CreateTexture(nil,"BACKGROUND");reviewBack:SetTexture(E.FLAT);reviewBack:SetAllPoints(review)
 reviewBack:SetVertexColor(E.COLORS.mauve[1]*0.55,E.COLORS.mauve[2]*0.55,E.COLORS.mauve[3]*0.55,1)
 local reviewText=review:CreateFontString(nil,"OVERLAY");reviewText:SetFont(E.FONT,11,"OUTLINE");reviewText:SetPoint("CENTER",review,"CENTER",0,0);reviewText:SetTextColor(1,1,1)
-review:SetScript("OnClick",function() frame:Hide();if E.OpenRunReport then E.OpenRunReport() end end)
+-- Beside the end screen when there is room; otherwise the analysis waits for the next "move to begin".
+review:SetScript("OnClick",function()
+    if not E.OpenRunReport then return end
+    -- Down in co-op there is no end screen: the analysis opens in the middle.
+    local last=type(nfUIDB)=="table" and nfUIDB.lastDeath
+    if E.OpenRunReport(nil,not (type(last)=="table" and last.how=="down") and "end" or nil) then frame:Hide()
+    else review.waiting=true;reviewText:SetText(E.Text("Откроется в начале следующего забега","Opens as the next run begins")) end
+end)
 frame:SetHeight(GRAPH_TOP+11+GRAPH_HEIGHT+8+28)
 
 local function Clock(seconds)
@@ -200,7 +220,7 @@ function E.ShowDeathSummary(summary)
             bar:SetHeight(math.max(1,GRAPH_HEIGHT*share));bar:Show()
         else bar:Hide() end
     end
-    reviewText:SetText(E.Text("Разбор забега","Run review"))
+    review.waiting=nil;reviewText:SetText(E.Text("Разбор забега","Run review"))
     Place();frame:Show()
 end
 
