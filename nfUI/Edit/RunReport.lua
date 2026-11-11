@@ -122,11 +122,11 @@ local LEFT=8+LIST_WIDTH+12
 local PAGE_WIDTH=WIDTH-LEFT-10
 local head=Font(frame,13,E.COLORS.yellow);head:SetPoint("TOPLEFT",frame,"TOPLEFT",LEFT,-56);head:SetWidth(PAGE_WIDTH);head:SetHeight(16)
 local sub=Font(frame,SIZE,E.COLORS.text);sub:SetPoint("TOPLEFT",head,"BOTTOMLEFT",0,-4);sub:SetWidth(PAGE_WIDTH);sub:SetHeight(30);sub:SetJustifyV("TOP")
-local TABS={{"overview","Обзор","Overview"},{"build","Билд","Build"},{"skills","Скилы","Skills"},{"compare","Сравнение","Compare"}}
+local TABS={{"overview","Обзор","Overview"},{"build","Билд","Build"},{"skills","Скилы","Skills"},{"compare","Сравнение","Compare"},{"profile","Профиль","Profile"},{"works","Что работает","What works"}}
 local tabButtons={}
 for index,tab in ipairs(TABS) do
-    local button=Tab(frame,20);button:SetWidth(96);button.tab=tab
-    button:SetPoint("TOPLEFT",frame,"TOPLEFT",LEFT+(index-1)*100,-110)
+    local button=Tab(frame,20);button:SetWidth(86);button.tab=tab
+    button:SetPoint("TOPLEFT",frame,"TOPLEFT",LEFT+(index-1)*90,-110)
     button:SetScript("OnClick",function() state.tab=this.tab[1];frame.Refresh() end)
     tabButtons[index]=button
 end
@@ -577,6 +577,164 @@ local function Compare(page,run,best,bestName)
     HideFrom(page.texts,s2.text);HideFrom(page.icons,s2.icon)
 end
 
+-- Each run's DPS against the average of its zone and difficulty: 1 is average there. Hard and easy zones then
+-- weigh alike when runs are set side by side.
+local function Scores(list)
+    local sums,counts={},{}
+    for _,run in ipairs(list) do
+        local place=tostring(run.zone).."|"..tostring(run.mode)
+        sums[place]=(sums[place] or 0)+Rate(run);counts[place]=(counts[place] or 0)+1
+    end
+    local scores={}
+    for _,run in ipairs(list) do
+        local place=tostring(run.zone).."|"..tostring(run.mode)
+        local average=sums[place]/counts[place]
+        scores[run]=average>0 and Rate(run)/average or 1
+    end
+    return scores
+end
+local function Title(page,index,y,text)
+    local t=Text(page,index,SIZE+1,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y);t:SetText(text)
+end
+-- Profile: the class over all its kept runs.
+local function Profile(page,list)
+    local s2={text=1,icon=1}
+    local count,time,levels,levelCount,kills,killCount=0,0,0,0,0,0
+    local longest,strongest
+    local places,placeOrder={},{}
+    local pieces={skills={},jewels={}}
+    local withBuild=0
+    for _,run in ipairs(list) do
+        count=count+1;time=time+(run.t or 0)
+        if run.level then levels=levels+run.level;levelCount=levelCount+1 end
+        local final=type(run.final)=="table" and run.final or nil
+        if final and tonumber(final.kills) then kills=kills+final.kills;killCount=killCount+1 end
+        if not longest or (run.t or 0)>(longest.t or 0) then longest=run end
+        if not strongest or Rate(run)>Rate(strongest) then strongest=run end
+        local place=tostring(run.zone).."|"..tostring(run.mode)
+        local entry=places[place]
+        if not entry then entry={run=run,count=0,longest=0,best=0};places[place]=entry;table.insert(placeOrder,entry) end
+        entry.count=entry.count+1;entry.longest=math.max(entry.longest,run.t or 0);entry.best=math.max(entry.best,Rate(run))
+        if type(run.build)=="table" then
+            withBuild=withBuild+1
+            for part,tally in pairs(pieces) do
+                for _,piece in ipairs(run.build[part] or {}) do
+                    local item=tally[piece.key]
+                    if not item then item={name=piece.name,icon=piece.icon,count=0};tally[piece.key]=item end
+                    item.count=item.count+1;item.icon=item.icon or piece.icon
+                end
+            end
+        end
+    end
+    local y=0
+    Title(page,s2.text,y,E.Text("Класс за все забеги","The class over all runs"));s2.text=s2.text+1;y=y-22
+    local function Pair(label,value)
+        local l=Text(page,s2.text,SIZE,MUTED);s2.text=s2.text+1;l:SetPoint("TOPLEFT",page,"TOPLEFT",6,y);l:SetText(label)
+        local v=Text(page,s2.text,SIZE);s2.text=s2.text+1;v:SetPoint("TOPLEFT",page,"TOPLEFT",190,y);v:SetText(value)
+        y=y-16
+    end
+    Pair(E.Text("Забегов","Runs"),count..GREY..E.Text("  ·  всего ","  ·  in all ")..Clock(time).."|r")
+    if longest then Pair(E.Text("Дольше всего","Longest"),Clock(longest.t).."  "..GREY..Tag(longest).."|r") end
+    if strongest then Pair(E.Text("Сильнее всего","Strongest"),E.Short(Rate(strongest)).." DPS  "..GREY..Tag(strongest).."|r") end
+    if count>0 then Pair(E.Text("В среднем","On average"),Clock(time/count)..(levelCount>0 and (E.Text("  ·  ур. ","  ·  lv. ")..math.floor(levels/levelCount+0.5)) or "")
+        ..(killCount>0 and ("  ·  "..E.Short(kills/killCount)..E.Text(" убийств"," kills")) or "")) end
+    y=y-8
+    -- The places played, most played first.
+    table.sort(placeOrder,function(a,b) return a.count>b.count end)
+    Title(page,s2.text,y,E.Text("Где играл","Where you played"));s2.text=s2.text+1;y=y-20
+    for index=1,math.min(5,table.getn(placeOrder)) do
+        local entry=placeOrder[index]
+        local name=Text(page,s2.text,SIZE);s2.text=s2.text+1;name:SetPoint("TOPLEFT",page,"TOPLEFT",6,y);name:SetText(Tag(entry.run))
+        local value=Text(page,s2.text,SIZE,nil,"RIGHT");s2.text=s2.text+1;value:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,y)
+        value:SetText(entry.count..E.Text(" заб.  ·  до "," runs  ·  up to ")..Clock(entry.longest).."  ·  "..E.Short(entry.best).." DPS")
+        y=y-16
+    end
+    y=y-8
+    -- What the class plays most, as icons with their share of runs.
+    local function Favourites(part,titleText)
+        local list2={}
+        for _,item in pairs(pieces[part]) do table.insert(list2,item) end
+        table.sort(list2,function(a,b) return a.count>b.count end)
+        if not list2[1] then return end
+        local shown={}
+        for index=1,math.min(8,table.getn(list2)) do
+            local item=list2[index]
+            table.insert(shown,{name=item.name,icon=item.icon,rank=string.format("%d%%",100*item.count/math.max(1,withBuild)),note=string.format(E.Text("В %d из %d забегов с билдом","In %d of %d runs with a build"),item.count,withBuild)})
+        end
+        y=IconRow(page,s2,titleText,shown,y,30,true)
+    end
+    Favourites("skills",E.Text("Чаще всего берёшь: скилы (доля забегов)","Picked most: skills (share of runs)"))
+    Favourites("jewels",E.Text("Чаще всего носишь: бижутерия","Worn most: jewelry"))
+    HideFrom(page.texts,s2.text);HideFrom(page.icons,s2.icon)
+end
+-- What works: each skill and piece of jewelry, runs with it against runs without, each run against the average of
+-- its own zone and difficulty.
+local function Works(page,list)
+    local scores=Scores(list)
+    local tally,built={},0
+    for _,run in ipairs(list) do
+        if type(run.build)=="table" then
+            built=built+1
+            local seen={}
+            for _,part in ipairs({"skills","jewels"}) do
+                for _,piece in ipairs(run.build[part] or {}) do
+                    if not seen[piece.key] then
+                        seen[piece.key]=true
+                        local item=tally[piece.key]
+                        if not item then item={name=piece.name,icon=piece.icon,with=0,withScore=0,withTime=0};tally[piece.key]=item end
+                        item.with=item.with+1;item.withScore=item.withScore+scores[run];item.withTime=item.withTime+(run.t or 0)
+                    end
+                end
+            end
+        end
+    end
+    local allScore,allTime=0,0
+    for _,run in ipairs(list) do if type(run.build)=="table" then allScore=allScore+scores[run];allTime=allTime+(run.t or 0) end end
+    local rows={}
+    for _,item in pairs(tally) do
+        local without=built-item.with
+        -- Only what some runs had and some did not, at least twice each way.
+        if item.with>=2 and without>=2 then
+            local withScore,withoutScore=item.withScore/item.with,(allScore-item.withScore)/without
+            local withTime,withoutTime=item.withTime/item.with,(allTime-item.withTime)/without
+            item.dps=withoutScore>0 and withScore/withoutScore-1 or 0
+            item.time=withoutTime>0 and withTime/withoutTime-1 or 0
+            item.without=without
+            table.insert(rows,item)
+        end
+    end
+    table.sort(rows,function(a,b) return a.dps>b.dps end)
+    Title(page,1,0,E.Text("Что работает: забеги с этим против забегов без","What works: runs with it against runs without"))
+    local hint=Text(page,2,SIZE-1,MUTED);hint:SetPoint("TOPLEFT",page,"TOPLEFT",0,-20);hint:SetWidth(PAGE_WIDTH);hint:SetHeight(28);hint:SetJustifyV("TOP")
+    hint:SetText(E.Text("DPS каждого забега сравнивается со средним по его карте и сложности. Мало забегов — мало уверенности: смотрите на число в скобках.","Each run's DPS is taken against the average of its zone and difficulty. Few runs, little certainty: mind the count in brackets."))
+    local head1=Text(page,3,SIZE-1,MUTED,"RIGHT");head1:SetPoint("TOPRIGHT",page,"TOPRIGHT",-90,-50);head1:SetText("DPS")
+    local head2=Text(page,4,SIZE-1,MUTED,"RIGHT");head2:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,-50);head2:SetText(E.Text("время","time"))
+    local y,textIndex,iconIndex=-66,5,1
+    if not rows[1] then
+        local note=Text(page,textIndex,SIZE,MUTED);textIndex=textIndex+1;note:SetPoint("TOPLEFT",page,"TOPLEFT",6,y)
+        note:SetWidth(PAGE_WIDTH-6);note:SetHeight(32);note:SetJustifyV("TOP")
+        note:SetText(E.Text("Нужно больше забегов с билдом: каждая вещь должна быть хотя бы в двух забегах и отсутствовать хотя бы в двух.","More runs with a build are needed: each thing must be in at least two runs and missing from at least two."))
+    end
+    local shown=0
+    for index,item in ipairs(rows) do
+        -- The best eight and the worst four.
+        if index<=8 or index>table.getn(rows)-4 then
+            if y<-(HEIGHT+PAGE_TOP-40) then break end
+            local icon=Icon(page,iconIndex,20);iconIndex=iconIndex+1
+            icon:ClearAllPoints();icon:SetPoint("TOPLEFT",page,"TOPLEFT",6,y+2);icon.texture:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            icon.rank:SetText("");icon.label=item.name;icon.note=nil;icon:Show()
+            local name=Text(page,textIndex,SIZE);textIndex=textIndex+1;name:SetPoint("TOPLEFT",page,"TOPLEFT",32,y-2);name:SetWidth(PAGE_WIDTH-32-200);name:SetHeight(14)
+            name:SetText(item.name..GREY..string.format("  (%d / %d)",item.with,item.without).."|r")
+            local dps=Text(page,textIndex,SIZE,nil,"RIGHT");textIndex=textIndex+1;dps:SetPoint("TOPRIGHT",page,"TOPRIGHT",-90,y-2)
+            dps:SetText((item.dps>=0 and GREEN or RED)..string.format("%+.0f%%",item.dps*100).."|r")
+            local time=Text(page,textIndex,SIZE,nil,"RIGHT");textIndex=textIndex+1;time:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,y-2)
+            time:SetText((item.time>=0 and GREEN or RED)..string.format("%+.0f%%",item.time*100).."|r")
+            y=y-24;shown=shown+1
+        end
+    end
+    HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex)
+end
+
 function frame.Refresh()
     title:SetText(E.Text("Анализ забегов","Run analysis"))
     local runs=Runs()
@@ -653,6 +811,8 @@ function frame.Refresh()
     if state.tab=="overview" then Overview(page,run,target,targetName)
     elseif state.tab=="build" then Build(page,run)
     elseif state.tab=="skills" then Skills(page,run)
+    elseif state.tab=="profile" then Profile(page,list)
+    elseif state.tab=="works" then Works(page,list)
     else Compare(page,run,target,targetName) end
     page:Show()
 end
