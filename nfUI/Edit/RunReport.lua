@@ -66,7 +66,9 @@ close.label=Font(close,12,E.COLORS.text,"CENTER");close.label:SetPoint("CENTER",
 close:SetScript("OnClick",function() frame:Hide() end)
 
 -- versus: what a run is held against, "place" (the best other run of the same zone and difficulty) or "class".
-local state={class=nil,chosen=nil,tab="overview",versus="place"}
+local state={class=nil,chosen=nil,tab="overview",versus="place",significant=true}
+-- Picks that changed DPS by less than this are hidden while "only notable" is on.
+local NOTABLE=0.15
 local function Tab(parent,height)
     local button=CreateFrame("Button",nil,parent);button:SetHeight(height or 18)
     button.back=Flat(button);button.back:SetAllPoints(button)
@@ -323,13 +325,36 @@ local function Overview(page,run,best,bestName)
     local groups=Groups(run.events)
     local textIndex,iconIndex,hoverIndex=7,1,1
     page.hovers=page.hovers or {}
+    -- A switch beside the title: only the picks that changed much.
+    if not page.notable then
+        page.notable=Tab(page,18);page.notable:SetWidth(170)
+        page.notable:SetScript("OnClick",function() state.significant=not state.significant;frame.Refresh() end)
+    end
+    page.notable:ClearAllPoints();page.notable:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,y+40)
+    page.notable.label:SetText(E.Text("Только заметные (±15%)","Only notable (±15%)"));Lit(page.notable,state.significant)
+    page.notable:Show()
+    local shown,hidden={},0
+    for _,group in ipairs(groups) do
+        if state.significant and group.gain and math.abs(group.gain)<NOTABLE then hidden=hidden+1 else table.insert(shown,group) end
+    end
+    local biggest=0.01
+    for _,group in ipairs(shown) do if group.gain then biggest=math.max(biggest,math.abs(group.gain)) end end
     if not groups[1] then
         local note=Text(page,textIndex,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",6,y)
         note:SetText(E.Text("У этого забега покупки не записаны: они пишутся с версии 1.3.","This run has no picks kept: they are kept from version 1.3."));textIndex=textIndex+1
+        y=y-20
     end
-    local first=math.max(1,table.getn(groups)-11)
-    for index=first,table.getn(groups) do
-        local group=groups[index]
+    local first=math.max(1,table.getn(shown)-10)
+    local skipped=first-1+hidden
+    if skipped>0 then
+        local note=Text(page,textIndex,SIZE-1,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",6,y)
+        note:SetText(string.format(E.Text("не показано: %d (раньше или меньше ±15%%)","not shown: %d (earlier or under ±15%%)"),skipped));textIndex=textIndex+1
+        y=y-16
+    end
+    page.barsAt=page.barsAt or {}
+    local barAt=1
+    for index=first,table.getn(shown) do
+        local group=shown[index]
         -- The whole row answers the mouse with every pick of the group.
         local hover=page.hovers[hoverIndex]
         if not hover then
@@ -361,12 +386,25 @@ local function Overview(page,run,best,bestName)
             end
         end
         local what=Text(page,textIndex,SIZE);textIndex=textIndex+1
-        what:SetPoint("TOPLEFT",page,"TOPLEFT",92+4*20+4,y-3);what:SetWidth(PAGE_WIDTH-92-84-60);what:SetHeight(14);what:SetText(GroupText(group))
+        what:SetPoint("TOPLEFT",page,"TOPLEFT",92+4*20+4,y-3);what:SetWidth(PAGE_WIDTH-92-84-4-150);what:SetHeight(14);what:SetText(GroupText(group))
+        -- The change as a bar from the middle: right and green for a gain, left and red for a loss.
+        local mid=PAGE_WIDTH-44-50
+        local axis=page.barsAt[barAt] or Flat(page,"BORDER");page.barsAt[barAt]=axis;barAt=barAt+1
+        axis:ClearAllPoints();axis:SetPoint("TOPLEFT",page,"TOPLEFT",mid,y-1);axis:SetWidth(1);axis:SetHeight(16);axis:SetVertexColor(0.5,0.5,0.55,0.8);axis:Show()
+        local bar=page.barsAt[barAt] or Flat(page,"ARTWORK");page.barsAt[barAt]=bar;barAt=barAt+1
+        if group.gain then
+            local length=math.max(1,48*math.min(1,math.abs(group.gain)/biggest))
+            bar:ClearAllPoints()
+            if group.gain>=0 then bar:SetPoint("TOPLEFT",page,"TOPLEFT",mid+1,y-3);bar:SetVertexColor(0.5,0.85,0.5,0.85)
+            else bar:SetPoint("TOPLEFT",page,"TOPLEFT",mid-length,y-3);bar:SetVertexColor(1,0.45,0.45,0.85) end
+            bar:SetWidth(length);bar:SetHeight(12);bar:Show()
+        else bar:Hide() end
         local change=Text(page,textIndex,SIZE,nil,"RIGHT");textIndex=textIndex+1
-        change:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,y-3)
+        change:SetPoint("TOPRIGHT",page,"TOPRIGHT",0,y-3);change:SetWidth(44)
         change:SetText(group.gain and ((group.gain>=0 and GREEN or RED)..string.format("%+.0f%%",group.gain*100).."|r") or (GREY.."...|r"))
         y=y-22
     end
+    for index=barAt,table.getn(page.barsAt) do page.barsAt[index]:Hide() end
     HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex);HideFrom(page.hovers,hoverIndex)
 end
 
