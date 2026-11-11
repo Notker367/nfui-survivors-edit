@@ -134,7 +134,28 @@ gear:SetScript("OnUpdate",function()
     local near=(MouseIsOver and (MouseIsOver(Minimap) or MouseIsOver(this))) or (menu and menu:IsShown())
     this:SetAlpha(near and 1 or 0.3)
 end)
-E.Every(1,function() if E.On("mapSettings") then gear:Show() else gear:Hide() end end)
+-- Beside it, a sword: the run analysis, one click away.
+local sword=CreateFrame("Button","nfUIMapRuns",Minimap)
+sword:SetWidth(14);sword:SetHeight(14);sword:SetFrameLevel(Minimap:GetFrameLevel()+8);sword:SetPoint("LEFT",gear,"RIGHT",4,0)
+sword.back=sword:CreateTexture(nil,"BACKGROUND");sword.back:SetTexture(E.FLAT);sword.back:SetVertexColor(0,0,0,0.7);sword.back:SetPoint("TOPLEFT",sword,"TOPLEFT",-1,1);sword.back:SetPoint("BOTTOMRIGHT",sword,"BOTTOMRIGHT",1,-1)
+sword.art=sword:CreateTexture(nil,"ARTWORK");sword.art:SetAllPoints(sword);sword.art:SetTexture("Interface\\Icons\\INV_Sword_04");sword.art:SetTexCoord(0.07,0.93,0.07,0.93)
+sword:SetScript("OnClick",function() if E.ToggleRunReport then E.ToggleRunReport() end end)
+sword:SetScript("OnEnter",function()
+    GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(E.Text("Анализ забегов","Run analysis"),0.8,0.65,0.97)
+    GameTooltip:AddLine(E.Text("Забеги класса: DPS, прибавки, билды","The class's runs: DPS, picks, builds"),1,1,1);GameTooltip:Show()
+end)
+sword:SetScript("OnLeave",function() GameTooltip:Hide() end)
+local swordAge=0
+sword:SetScript("OnUpdate",function()
+    swordAge=swordAge+(arg1 or 0);if swordAge<0.05 then return end;swordAge=0
+    local report=getglobal("nfUIRunReport")
+    local near=(MouseIsOver and (MouseIsOver(Minimap) or MouseIsOver(this))) or (report and report:IsShown())
+    this:SetAlpha(near and 1 or 0.3)
+end)
+E.Every(1,function()
+    if E.On("mapSettings") then gear:Show() else gear:Hide() end
+    if E.On("mapSettings") and E.On("runsButton") then sword:Show() else sword:Hide() end
+end)
 
 -- A palette without the red and green pair, from Okabe and Ito's colour-blind safe set. It changes the shared
 -- colour tables, so what reads them follows at once and the rest after a /reload.
