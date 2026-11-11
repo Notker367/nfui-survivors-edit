@@ -268,7 +268,7 @@ local function Picks(entry,build,t,dealt)
             if text then
                 local from=DealtAt(entry,t-AROUND)
                 local span=math.min(AROUND,t)
-                table.insert(entry.events,{t=t,text=text,dealt=dealt,before=from and span>0 and (dealt-from)/span or nil})
+                table.insert(entry.events,{t=t,text=text,icon=piece.icon,dealt=dealt,before=from and span>0 and (dealt-from)/span or nil})
                 while table.getn(entry.events)>KEEP_EVENTS do table.remove(entry.events,1) end
             end
         end
