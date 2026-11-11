@@ -1,14 +1,32 @@
 # What's new
 
-## Next (not released yet)
+## 1.3.0
 
-- Picks in run history: each new skill, rank, piece of gear or jewelry with your DPS in the half minute before and after it. Hover "Now" for this run's picks, a past run for its best ones; picks close together share the change and are marked with ~.
-- Luck is kept with each run's build and compared in the hover. The odds of each rarity are not given to addons, so only your luck is shown.
-- Hover a picked spell in the skill pool for its rank, how many upgrades it has had this run and how far its cooldown has come down. The rarity of each upgrade is not given to addons.
-- Damage on you: one number per moment instead of a total and single hits beside it. It comes out of your health bar where the health was lost, with a short pop, and the bar flares red.
-- The shield is a blue frame around your health bar and a thin strip along its top, as long as the shield against your most health. Nothing jumps and nothing covers your health.
-- Run analysis: a window with every kept run of a class, from the quick menu, the sword by the minimap or `/nfui runs`, in four tabs. Overview: DPS through the whole run against the class's best, and the picks in groups with their icons and what each group did. Build: icons of skills, jewelry and gear with their ranks, talents and luck. Skills: damage by skill as bars. Compare: this run against the best over time, and the build's differences as icons. Runs now keep their date.
-- A sword beside the minimap gear opens the run analysis (quick menu switch: "Sword by the map"); the settings window has a "Run analysis" button too.
+**Run analysis**
+- A window with every kept run of your class: the sword by the minimap, the quick menu, the settings window or `/nfui runs`. Runs are named by the game's own zone names and keep their date.
+- Overview: the run in a sentence (its best and worst picks, when its damage got going), DPS through the whole run against the best run on the same zone and difficulty, and the picks marked on the graph and listed with bars for what each group did. "Only notable" hides changes under 15%.
+- Build: skills, jewelry and gear as icons with their names and ranks, talents and luck.
+- Skills: damage by skill as bars.
+- Compare: this run against the best here or the class's best, over time and in the build.
+- Profile: the class over all its runs: longest, strongest, averages, places played, what you pick and wear most.
+- What works: runs with each skill or piece of jewelry against runs without it, each run against the average of its own zone and difficulty.
+
+**After a run**
+- The death card has a *Run review* button.
+- Before the next run starts, a card shows your last run of the class, with a *Review* button.
+- Each run keeps how it ended (result, kills, damage taken, gold), ready for records later.
+
+**Easier start**
+- A one-minute setup for new players: how much to show and the layout. `/nfui setup` reopens it.
+- `update-nfUI.bat` installs as well as updates, keeps only the latest copy of the previous version, and sits at the top of the repository.
+
+**Hero frame**
+- Damage on you: one number at a time, coming out of your health bar where the health was lost, and the bar flares red.
+- The shield is a blue frame around your health bar and a thin strip along its top; nothing jumps or covers your health.
+
+**Run history**
+- Picks with your DPS in the half minute before and after them, in the history hover.
+- Luck is kept with each build. Hover a picked spell in the skill pool for its rank, upgrades this run and how far its cooldown came down. (Upgrade rarity and its odds are not given to addons.)
 
 ## 1.2.0
 
