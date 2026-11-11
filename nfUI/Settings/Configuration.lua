@@ -250,11 +250,13 @@ end
 -- The game gives addons no network and no files, so checking and installing happen outside it:
 -- this shows where the releases are and how to run the updater.
 local RELEASES="https://github.com/Notker367/nfui-survivors-edit/releases"
+-- And where to tell about a bug or an idea.
+local ISSUES="https://github.com/Notker367/nfui-survivors-edit/issues"
 local updates
 function C.ShowUpdates()
     if not updates then
         updates=CreateFrame("Frame","nfUIUpdates",UIParent)
-        updates:SetWidth(460);updates:SetHeight(150);updates:SetPoint("CENTER",UIParent,"CENTER",0,40)
+        updates:SetWidth(460);updates:SetHeight(196);updates:SetPoint("CENTER",UIParent,"CENTER",0,40)
         updates:SetFrameStrata("FULLSCREEN_DIALOG");updates:EnableMouse(true)
         Flat(updates,0.055,0.065,0.085)
         Text(updates,nfUIEdit.Text("\208\158\208\177\208\189\208\190\208\178\208\187\208\181\208\189\208\184\209\143","Updates"),14,-12,14,{0.3,0.82,1})
@@ -268,10 +270,17 @@ function C.ShowUpdates()
         link:SetScript("OnEscapePressed",function() this:ClearFocus();updates:Hide() end)
         link:SetScript("OnTextChanged",function() if this:GetText()~=RELEASES then this:SetText(RELEASES);this:HighlightText() end end)
         updates.link=link
-        Button("nfUIUpdatesClose",updates,"Done",346,-110,100,function() updates:Hide() end)
+        Text(updates,nfUIEdit.Text("Ошибки и идеи (или ветка в Discord игры):","Bugs and ideas (or the thread in the game's Discord):"),14,-108,11)
+        local issues=CreateFrame("EditBox","nfUIUpdatesIssues",updates)
+        issues:SetWidth(432);issues:SetHeight(22);issues:SetPoint("TOPLEFT",updates,"TOPLEFT",14,-126)
+        issues:SetFont(FONT,11);issues:SetAutoFocus(false);Flat(issues,0.1,0.12,0.15)
+        issues:SetScript("OnEscapePressed",function() this:ClearFocus();updates:Hide() end)
+        issues:SetScript("OnTextChanged",function() if this:GetText()~=ISSUES then this:SetText(ISSUES) end end)
+        updates.issues=issues
+        Button("nfUIUpdatesClose",updates,"Done",346,-156,100,function() updates:Hide() end)
         table.insert(UISpecialFrames,"nfUIUpdates")
     end
-    updates:Show();updates.link:SetText(RELEASES);updates.link:SetFocus();updates.link:HighlightText()
+    updates:Show();updates.issues:SetText(ISSUES);updates.link:SetText(RELEASES);updates.link:SetFocus();updates.link:HighlightText()
 end
 
 -- Past runs as text, to select and copy.

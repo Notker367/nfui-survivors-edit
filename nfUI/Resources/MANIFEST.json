@@ -95,7 +95,7 @@
   "Resources/media/tex/minimap/feather-9.tga": "b9b2a9f7bcbc81555fa9a0faa43fe96ca8e3941e2e79661835cae199a61b0ab1",
   "Resources/media/tex/timer/RunGradient.tga": "0f2ff81bd455534a1f248cb06fbfba95a831e76d6026c9919197c004378e5b3d",
   "Settings/Actions.lua": "50eeb1e7acc203f615dcf11f56f0c95804353fdddd5a2e77385d9e465fb9a61e",
-  "Settings/Configuration.lua": "601df529bc020951640e4442c07b493f6552ddcd7920a2ae9f00bf5376768943",
+  "Settings/Configuration.lua": "e6a7dd360a22343cff22735386d82465663e6506dfb62ae839be3c2b9386aeed",
   "Settings/FineAdjustments.lua": "8032348ac4f82a737e006925d291fa1bf2063b9a8f9ca6a99c2b75fa33394960",
   "Settings/Movers.lua": "cc15423904ad43c3516dbcf6bcb60fb17371c1e087d657c4116e4d95de29f9c6",
   "Settings/NumericInput.lua": "fef7a944e3d413a0856dc0e7de54e04c3f234832f1363289fe9b0b379c40a684",
