@@ -231,7 +231,7 @@ local function Graph(page,firstBar,firstText,x,y,width,height,one,two,caption,si
     local peak=Text(page,firstText+1,SIZE-1,MUTED,"RIGHT");peak:SetPoint("TOPRIGHT",back,"TOPRIGHT",-2,-2);peak:SetText(E.Short(top).." DPS")
     local startLabel=Text(page,firstText+2,SIZE-1,MUTED);startLabel:SetPoint("TOPLEFT",back,"BOTTOMLEFT",0,-2);startLabel:SetText("0:00")
     local endLabel=Text(page,firstText+3,SIZE-1,MUTED,"RIGHT");endLabel:SetPoint("TOPRIGHT",back,"BOTTOMRIGHT",0,-2);endLabel:SetText(Clock(count*STEP*(size or 1)))
-    return barIndex,y-14-height-16
+    return barIndex,y-14-height-16,back,count*STEP*(size or 1)
 end
 
 -- Picks closer than half a minute make one group: late in a run they come every few seconds, and only the group's
@@ -314,9 +314,37 @@ local function Overview(page,run,best,bestName)
     said:SetText(table.concat(lines,"\n"))
     local top=-(math.max(1,table.getn(lines))*16+8)
     local mine,bestSteps,size=Steps(run,best)
-    local barIndex,y=Graph(page,1,1,0,top,PAGE_WIDTH,90,mine,bestSteps,
+    local barIndex,y,back,covered=Graph(page,1,1,0,top,PAGE_WIDTH,90,mine,bestSteps,
         E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("   "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот забег, ","this run, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..(bestName or "")) or ""),size)
     HideFrom(page.bars,barIndex)
+    -- Each group of picks as a mark under the graph, at its moment: green for a gain, red for a loss.
+    page.ticks=page.ticks or {}
+    local tickIndex=1
+    for _,group in ipairs(Groups(run.events)) do
+        if covered and covered>0 and group.first.t<=covered then
+            local tick=page.ticks[tickIndex]
+            if not tick then
+                tick=CreateFrame("Frame",nil,page);tick:SetWidth(5);tick:SetHeight(9);tick:EnableMouse(true)
+                tick.fill=tick:CreateTexture(nil,"OVERLAY");tick.fill:SetTexture(E.FLAT);tick.fill:SetAllPoints(tick)
+                tick:SetScript("OnEnter",function()
+                    frame.hovering=true
+                    local g=this.group
+                    GameTooltip:SetOwner(this,"ANCHOR_TOP")
+                    GameTooltip:SetText(Clock(g.first.t)..(g.gain and ("   "..string.format("%+.0f%%",g.gain*100)) or ""),1,1,1)
+                    for _,event in ipairs(g.picks) do GameTooltip:AddLine(event.text,0.85,0.85,0.9) end
+                    GameTooltip:Show()
+                end)
+                tick:SetScript("OnLeave",function() frame.hovering=false;GameTooltip:Hide() end)
+                page.ticks[tickIndex]=tick
+            end
+            tick.group=group
+            local c=not group.gain and {0.6,0.6,0.65} or (group.gain>=0 and {0.5,0.85,0.5} or {1,0.45,0.45})
+            tick.fill:SetVertexColor(c[1],c[2],c[3],0.95)
+            tick:ClearAllPoints();tick:SetPoint("TOP",back,"BOTTOMLEFT",PAGE_WIDTH*group.first.t/covered,0);tick:Show()
+            tickIndex=tickIndex+1
+        end
+    end
+    for index=tickIndex,table.getn(page.ticks) do page.ticks[index]:Hide() end
     local t=Text(page,5,SIZE+1,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-6)
     t:SetText(E.Text("Что дали покупки","What the picks did"))
     local hint=Text(page,6,SIZE-1,MUTED);hint:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-22);hint:SetWidth(PAGE_WIDTH);hint:SetHeight(14)
