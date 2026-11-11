@@ -6,7 +6,7 @@ Windows and browser versions · English and Russian · free · an unofficial edi
 
 [Русская версия](README.ru.md) · [What's new](../CHANGELOG.md) · [Report a bug](../../../issues) · [Original nfUI readme](ORIGINAL-README.md)
 
-![The HUD at 3:00 of a real run, with numbered parts](media/overview.jpg)
+![The HUD at 1:30 of a real run, with numbered parts](media/overview.jpg)
 
 ## Install in a minute
 
