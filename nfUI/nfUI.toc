@@ -49,3 +49,4 @@ Edit/Extras.lua
 Edit/QuickMenu.lua
 Edit/DeathSummary.lua
 Edit/RunReport.lua
+Edit/Setup.lua
