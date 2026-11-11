@@ -107,7 +107,7 @@ The game gives addons no network or file access, so nothing can update from insi
 
 ## What has and has not been tested
 
-Tested without addon errors: 14 client language settings, all 9 classes, window shapes from 4:3 to ultrawide, `/reload`, upgrades from the original nfUI and earlier builds, a co-op run on two clients, and a run in the browser version.
+Tested for 1.3.0 without addon errors: all 9 classes in English and Russian (fresh install and an upgrade with a long history), long runs on a strong save, the first setup, the death card and run review at 16:9. Earlier builds were also tested on: 14 client language settings, all 9 classes, window shapes from 4:3 to ultrawide, `/reload`, upgrades from the original nfUI and earlier builds, a co-op run on two clients, and a run in the browser version.
 
 Not fully tested:
 

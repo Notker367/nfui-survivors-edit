@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: nfUI
-## Version: 1.2.0
+## Version: 1.3.0
 ## DefaultState: enabled
 ## Notes: Configurable HUD, movers, nameplates, combat text, run panels and compass.
 ## SavedVariables: nfUIDB, nfUIPlatesDB

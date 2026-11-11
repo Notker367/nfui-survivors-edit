@@ -24,12 +24,6 @@
 - Damage on you: one number at a time, coming out of your health bar where the health was lost, and the bar flares red.
 - The shield is a blue frame around your health bar and a thin strip along its top; nothing jumps or covers your health.
 
-**Run history**
-- Picks with your DPS in the half minute before and after them, in the history hover.
-- Luck is kept with each build. Hover a picked spell in the skill pool for its rank, upgrades this run and how far its cooldown came down. (Upgrade rarity and its odds are not given to addons.)
-
-## 1.2.0
-
 **Legendary amulets**
 - The legendary amulets of the spells you have sit on top of the jewelry pool, larger, each with its own picture from the game's Codex and its spell's icon in the corner. Your starting spell counts too.
 - The worn one has a thick green edge and comes first; with an amulet on, the other amulets turn faint. Click one to mark it banished, as with any card.
@@ -38,11 +32,13 @@
 - The last 20 runs of each class are kept, so one class no longer pushes the others out.
 - Each run keeps its build: skills with ranks, gear, jewelry and talents. Hover a run to see it and what differs from this run.
 - A new row compares you with the class's best run on any map and heroic level; the list below shows the class's latest runs anywhere, with the map when it is another one.
+- Picks with your DPS in the half minute before and after them, in the history hover.
+- Luck is kept with each build. Hover a picked spell in the skill pool for its rank, upgrades this run and how far its cooldown came down. (Upgrade rarity and its odds are not given to addons.)
 
 **Death**
 - A short card beside the game's end screen says what kind of death it was: one hit, a volley, a crowd or worn down. It also says what became of your shield and shows your health over the last seconds, the last 2 for a volley or a single hit. The game's own "Death recap" keeps the hit-by-hit list.
 - In co-op the card says "Down" and goes by itself a few seconds after you are raised.
-- A red line on your health bar marks the biggest hit of the last minute. When health and shield together fall under it, the bar pulses and says the next such hit kills. Quick menu: "One-shot line".
+- A red line on your health bar marks the biggest hit of the last minute, when it is at least a quarter of your health and shield. When health and shield together fall under it, the bar pulses and says the next such hit kills. Quick menu: "One-shot line".
 
 **Also**
 - Elite, guardian and boss plates stay solid: no fading with distance or behind other bars.
@@ -50,6 +46,7 @@
 - The run export has a heroic/difficulty column.
 - The skill pool shows each skill you have with the game's own icon.
 - `update-nfUI.bat` keeps only the latest copy of the previous version, and now sits at the top of the repository.
+- *Check for updates* also gives the link for reporting bugs and ideas.
 
 ## 1.1.2
 
