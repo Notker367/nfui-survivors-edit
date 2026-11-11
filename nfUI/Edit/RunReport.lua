@@ -278,10 +278,41 @@ local function GroupText(group)
     return table.concat(parts,", ")
 end
 
--- Overview: the graph against the best, and the picks with their icons.
+-- The run in a sentence or two: its best and worst picks, and when its damage got going.
+local function Summary(run)
+    local top,bottom
+    for _,group in ipairs(Groups(run.events)) do
+        if group.gain then
+            if not top or group.gain>top.gain then top=group end
+            if not bottom or group.gain<bottom.gain then bottom=group end
+        end
+    end
+    local lines={}
+    if top and top.gain>0 then table.insert(lines,E.Text("Лучше всего: ","Best pick: ")..GroupText(top).."  "..GREEN..string.format("%+.0f%%",top.gain*100).."|r") end
+    if bottom and bottom~=top and bottom.gain<0 then table.insert(lines,E.Text("Хуже всего: ","Worst pick: ")..GroupText(bottom).."  "..RED..string.format("%+.0f%%",bottom.gain*100).."|r") end
+    local halves=HalfMinutes(run)
+    local peak=0
+    for _,value in ipairs(halves) do peak=math.max(peak,value) end
+    for index,value in ipairs(halves) do
+        if peak>0 and value>=peak*0.5 then
+            table.insert(lines,string.format(E.Text("Половину пикового DPS (%s) набрал к %s из %s","Half the peak DPS (%s) by %s of %s"),E.Short(peak),Clock(index*STEP),Clock(run.t)))
+            break
+        end
+    end
+    return lines
+end
+
+-- Overview: the run in a few words, the graph against the chosen other run, and the picks with their icons.
 local function Overview(page,run,best,bestName)
+    local lines=Summary(run)
+    -- Its own line, apart from the page's numbered texts.
+    if not page.said then page.said=Font(page,SIZE+1,E.COLORS.text);page.said:SetJustifyV("TOP") end
+    local said=page.said
+    said:ClearAllPoints();said:SetPoint("TOPLEFT",page,"TOPLEFT",0,0);said:SetWidth(PAGE_WIDTH);said:SetHeight(18*3)
+    said:SetText(table.concat(lines,"\n"))
+    local top=-(math.max(1,table.getn(lines))*16+8)
     local mine,bestSteps,size=Steps(run,best)
-    local barIndex,y=Graph(page,1,1,0,0,PAGE_WIDTH,96,mine,bestSteps,
+    local barIndex,y=Graph(page,1,1,0,top,PAGE_WIDTH,90,mine,bestSteps,
         E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("   "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот забег, ","this run, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..(bestName or "")) or ""),size)
     HideFrom(page.bars,barIndex)
     local t=Text(page,5,SIZE+1,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-6)
