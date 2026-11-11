@@ -65,7 +65,8 @@ local close=CreateFrame("Button",nil,frame);close:SetWidth(18);close:SetHeight(1
 close.label=Font(close,12,E.COLORS.text,"CENTER");close.label:SetPoint("CENTER",close,"CENTER",0,0);close.label:SetText("x")
 close:SetScript("OnClick",function() frame:Hide() end)
 
-local state={class=nil,chosen=nil,tab="overview"}
+-- versus: what a run is held against, "place" (the best other run of the same zone and difficulty) or "class".
+local state={class=nil,chosen=nil,tab="overview",versus="place"}
 local function Tab(parent,height)
     local button=CreateFrame("Button",nil,parent);button:SetHeight(height or 18)
     button.back=Flat(button);button.back:SetAllPoints(button)
@@ -278,10 +279,10 @@ local function GroupText(group)
 end
 
 -- Overview: the graph against the best, and the picks with their icons.
-local function Overview(page,run,best)
-    local mine,bestSteps,size=Steps(run,best and best~=run and best or nil)
+local function Overview(page,run,best,bestName)
+    local mine,bestSteps,size=Steps(run,best)
     local barIndex,y=Graph(page,1,1,0,0,PAGE_WIDTH,96,mine,bestSteps,
-        E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("   "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот забег, ","this run, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..E.Text("лучший забег класса","the class's best")) or ""),size)
+        E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("   "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот забег, ","this run, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..(bestName or "")) or ""),size)
     HideFrom(page.bars,barIndex)
     local t=Text(page,5,SIZE+1,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-6)
     t:SetText(E.Text("Что дали покупки","What the picks did"))
@@ -418,19 +419,35 @@ local function Skills(page,run)
     HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex);HideFrom(page.bars,barIndex)
 end
 
--- Compare: this run against the class's best, over time and in the build.
-local function Compare(page,run,best)
-    if not best or best==run then
-        local note=Text(page,1,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",0,0)
-        note:SetText(run==best and E.Text("Это и есть лучший забег класса: выберите другой слева.","This is the class's best run: choose another on the left.")
-            or E.Text("Не с чем сравнить.","Nothing to compare with."))
+-- What to compare with: two buttons at the top of the Compare tab.
+local VERSUS={{"place","Та же карта и сложность","Same zone and difficulty"},{"class","Лучший забег класса","The class's best run"}}
+local versusButtons={}
+local function VersusButtons(page)
+    for index,choice in ipairs(VERSUS) do
+        local button=versusButtons[index]
+        if not button then
+            button=Tab(page,20);button:SetWidth(230);button.choice=choice
+            button:SetPoint("TOPLEFT",page,"TOPLEFT",(index-1)*236,0)
+            button:SetScript("OnClick",function() state.versus=this.choice[1];frame.Refresh() end)
+            versusButtons[index]=button
+        end
+        button.label:SetText(E.Text(choice[2],choice[3]));Lit(button,state.versus==choice[1])
+    end
+end
+-- Compare: this run against the chosen other one, over time and in the build.
+local function Compare(page,run,best,bestName)
+    VersusButtons(page)
+    if not best then
+        local note=Text(page,1,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",0,-30)
+        note:SetText(state.versus=="place" and E.Text("На этой карте и сложности других забегов класса нет. Сравните с лучшим забегом класса кнопкой выше.","No other run of this class on this zone and difficulty. Compare with the class's best with the button above.")
+            or E.Text("Это и есть лучший забег класса: выберите другой слева.","This is the class's best run: choose another on the left."))
         HideFrom(page.texts,2);HideFrom(page.icons,1);HideFrom(page.bars,1)
         return
     end
     local gain=Rate(best)>0 and (Rate(run)/Rate(best)-1) or 0
     local mine,theirs,size=Steps(run,best)
-    local barIndex,y=Graph(page,1,1,0,0,PAGE_WIDTH,110,mine,theirs,
-        GOLD..E.Text("этот забег","this run").."|r "..E.Short(Rate(run)).." DPS   |cffc6a0f6"..E.Text("лучший","best").."|r "..Tag(best).." "..E.Short(Rate(best)).." DPS   "
+    local barIndex,y=Graph(page,1,1,0,-30,PAGE_WIDTH,110,mine,theirs,
+        GOLD..E.Text("этот забег","this run").."|r "..E.Short(Rate(run)).." DPS   |cffc6a0f6"..bestName.."|r "..Tag(best).." "..E.Short(Rate(best)).." DPS   "
         ..(gain>=0 and GREEN or RED)..string.format("%+.0f%%",gain*100).."|r",size)
     HideFrom(page.bars,barIndex)
     local s2={text=5,icon=1}
@@ -439,7 +456,7 @@ local function Compare(page,run,best)
     for key,piece in pairs(here) do
         if not there[key] then table.insert(only,piece)
         elseif piece.rank and there[key].rank and piece.rank~=there[key].rank then
-            table.insert(ranks,{name=piece.name,icon=piece.icon,rank=piece.rank,note=E.Text("Ранг здесь ","Rank here ")..piece.rank..E.Text(", в лучшем ",", in the best ")..there[key].rank})
+            table.insert(ranks,{name=piece.name,icon=piece.icon,rank=piece.rank,note=E.Text("Ранг в этом забеге ","Rank in this run ")..piece.rank..E.Text(", в том ",", in that one ")..there[key].rank})
         end
     end
     for key,piece in pairs(there) do if not here[key] then table.insert(missing,piece) end end
@@ -449,7 +466,7 @@ local function Compare(page,run,best)
         note:SetText(E.Text("У одного из забегов билд не записан.","One of the runs has no build kept."))
     else
         if only[1] then y=IconRow(page,s2,E.Text("Было только в этом забеге","Only in this run"),only,y,28) end
-        if missing[1] then y=IconRow(page,s2,E.Text("Было только в лучшем забеге","Only in the best run"),missing,y,28) end
+        if missing[1] then y=IconRow(page,s2,E.Text("Было только в том забеге","Only in that run"),missing,y,28) end
         if ranks[1] then y=IconRow(page,s2,E.Text("Разные ранги (наведите на иконку)","Different ranks (hover an icon)"),ranks,y,28) end
     end
     HideFrom(page.texts,s2.text);HideFrom(page.icons,s2.icon)
@@ -499,6 +516,16 @@ function frame.Refresh()
         else row:Hide() end
     end
     local run=state.chosen
+    -- What the run is held against: the best other run of its zone and difficulty, or the class's best.
+    local target,targetName
+    if run and state.versus=="class" then
+        target=best~=run and best or nil;targetName=E.Text("лучший класса","class best")
+    elseif run then
+        for _,other in ipairs(list) do
+            if other~=run and other.zone==run.zone and other.mode==run.mode and (not target or Rate(other)>Rate(target)) then target=other end
+        end
+        targetName=E.Text("лучший здесь","best here")
+    end
     for _,page in pairs(pages) do page:Hide() end
     if not run then
         empty:SetText(E.Text("Пока нет забегов длиннее 30 секунд.","No runs longer than 30 seconds yet."));empty:Show()
@@ -509,20 +536,21 @@ function frame.Refresh()
     empty:Hide()
     head:SetText(Tag(run,true).."  ·  "..Clock(run.t)..(run.level and (E.Text("  ·  уровень ","  ·  level ")..run.level) or "")..(run.when and ("  ·  "..run.when) or ""))
     local versus=""
-    if best and best~=run and Rate(best)>0 then
-        local gain=math.floor((Rate(run)/Rate(best)-1)*100+0.5)
-        versus="   "..(gain>=0 and GREEN or RED)..string.format(E.Text("%+d%% к лучшему (%s)","%+d%% vs best (%s)"),gain,Tag(best)).."|r"
-    elseif run==best then versus="   "..GOLD..E.Text("лучший забег класса","the class's best run").."|r" end
+    if run==best then versus="   "..GOLD..E.Text("лучший забег класса","the class's best run").."|r"
+    elseif target and Rate(target)>0 then
+        local gain=math.floor((Rate(run)/Rate(target)-1)*100+0.5)
+        versus="   "..(gain>=0 and GREEN or RED)..string.format(E.Text("%+d%% к забегу «%s» (%s)","%+d%% vs %s (%s)"),gain,targetName,Tag(target)).."|r"
+    end
     local skills={}
     for index,skill in ipairs(run.skills or {}) do if index<=3 then table.insert(skills,skill.name.." "..E.Short(skill.dmg)) end end
     sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run))..E.Text(" DPS в среднем"," DPS on average")..versus
         ..(skills[1] and ("\n"..GREY..E.Text("Больше всего: ","Most: ")..table.concat(skills,", ").."|r") or ""))
     for _,button in ipairs(tabButtons) do button.label:SetText(E.Text(button.tab[2],button.tab[3]));Lit(button,button.tab[1]==state.tab);button:Show() end
     local page=pages[state.tab]
-    if state.tab=="overview" then Overview(page,run,best)
+    if state.tab=="overview" then Overview(page,run,target,targetName)
     elseif state.tab=="build" then Build(page,run)
     elseif state.tab=="skills" then Skills(page,run)
-    else Compare(page,run,best) end
+    else Compare(page,run,target,targetName) end
     page:Show()
 end
 
