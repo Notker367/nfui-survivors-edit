@@ -6,6 +6,8 @@ local E=nfUIEdit
 local WIDTH,HEIGHT,LIST_WIDTH,ROW,ROWS=820,620,250,22,20
 local SIZE=11
 local STEP=30
+-- Picks made before this second of a run get no change: there is no damage yet to set them against.
+local WARMUP=45
 -- Grey light enough to read on the dark window.
 local GREEN,RED,GREY,GOLD="|cff7fd67f","|cffff7070","|cffb4b4bc","|cffffd27f"
 local MUTED={0.72,0.72,0.78}
@@ -245,9 +247,10 @@ local function Groups(events)
         if group and event.t-group.last.t<STEP then table.insert(group.picks,event);group.last=event
         else group={first=event,last=event,picks={event}};table.insert(groups,group) end
     end
+    -- In the first seconds of a run the damage before a pick is next to nothing, and any pick would look huge.
     for _,group in ipairs(groups) do
         local before,after=group.first.before,group.last.after
-        if before and before>0 and after then group.gain=after/before-1 end
+        if before and before>0 and after and group.first.t>=WARMUP then group.gain=after/before-1 end
     end
     return groups
 end

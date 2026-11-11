@@ -282,7 +282,8 @@ local function Settle(entry,t,dealt)
         if not event.after and t>=event.t+AROUND then
             local at=DealtAt(entry,event.t+AROUND) or dealt
             event.after=(at-event.dealt)/AROUND
-            if event.before and event.before>0 then event.gain=event.after/event.before-1 end
+            -- Not in the first 45 seconds: there is next to no damage yet to set a pick against.
+            if event.before and event.before>0 and event.t>=45 then event.gain=event.after/event.before-1 end
             local nextEvent=events[index+1]
             event.shared=(nextEvent and nextEvent.t<event.t+AROUND) or (index>1 and events[index-1].t>event.t-AROUND) or nil
         end
