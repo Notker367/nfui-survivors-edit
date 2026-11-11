@@ -113,8 +113,8 @@ for _,group in ipairs(GROUPS) do
     y=y-4
 end
 -- The way to everything else.
-local function Link(textRu,textEn,action,x)
-    local button=CreateFrame("Button",nil,menu);button:SetHeight(18);button:SetWidth((WIDTH-16-2)/2)
+local function Link(textRu,textEn,action,x,wide)
+    local button=CreateFrame("Button",nil,menu);button:SetHeight(18);button:SetWidth(wide and (WIDTH-16) or (WIDTH-16-2)/2)
     button:SetPoint("TOPLEFT",menu,"TOPLEFT",x,y)
     button.back=button:CreateTexture(nil,"BACKGROUND");button.back:SetTexture(E.FLAT);button.back:SetAllPoints(button)
     button.back:SetVertexColor(E.COLORS.surface[1],E.COLORS.surface[2],E.COLORS.surface[3],1)
@@ -123,7 +123,11 @@ local function Link(textRu,textEn,action,x)
     button:SetScript("OnClick",function() menu:Hide();action() end)
     return button
 end
+-- The runs of each class, with picks and builds, in a window of their own.
+local reportLink=Link("Анализ забегов","Run analysis",function() if E.ToggleRunReport then E.ToggleRunReport() end end,8,true)
+y=y-22
 local links={
+    reportLink,
     Link("Все настройки","All settings",function() SlashCmdList["NFUI"]("") end,8),
     Link("Двигать панели","Move panels",function() C.ToggleMovers() end,8+(WIDTH-16-2)/2+2),
 }

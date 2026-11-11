@@ -7,6 +7,7 @@
 - Hover a picked spell in the skill pool for its rank, how many upgrades it has had this run and how far its cooldown has come down. The rarity of each upgrade is not given to addons.
 - Damage on you: one number per moment instead of a total and single hits beside it. It comes out of your health bar where the health was lost, with a short pop, and the bar flares red.
 - The shield is a blue frame around your health bar and a thin strip along its top, as long as the shield against your most health. Nothing jumps and nothing covers your health.
+- Run analysis: a window with every kept run of a class, from the quick menu ("Run analysis") or `/nfui runs`. For the chosen run: DPS per half minute against the class's best, the picks in groups with what each group did, the build, and what differs from the best run. Runs now keep their date.
 
 ## 1.2.0
 

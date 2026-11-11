@@ -320,7 +320,8 @@ local function Record()
         current=nil;lastBuild=0;lastPieces=nil;dealtLine={}
         for _,entry in ipairs(list) do if entry.run==run then current=entry end end
         if not current then
-            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0}}
+            local okDate,when=pcall(date,"%d.%m %H:%M")
+            current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0},when=okDate and when or nil}
             table.insert(list,current)
             Trim(list,current.class)
         end
