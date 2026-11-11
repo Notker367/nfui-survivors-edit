@@ -81,7 +81,7 @@ The first start replaces an earlier nfUI layout with this one. It fits your scre
 
 ## Update
 
-The game gives addons no network or file access, so nothing can update from inside it. In the game, `/nfui` > **Switches** > **Check for updates** shows your version and the link. To update in one step, put [`tools/update-nfUI.bat`](../tools/update-nfUI.bat) next to `benilla-config` and run it: it installs or updates to the latest release, keeps a copy of the previous version (only the latest one) and leaves your settings alone.
+The game gives addons no network or file access, so nothing can update from inside it. In the game, `/nfui` > **Switches** > **Check for updates** shows your version and the link. To update in one step, put [`update-nfUI.bat`](../update-nfUI.bat) next to `benilla-config` and run it: it installs or updates to the latest release, keeps a copy of the previous version (only the latest one) and leaves your settings alone.
 
 ## What has and has not been tested
 

@@ -31,7 +31,7 @@
 - Party marks no longer fight between two copies of the addon: each hero gets their own mark, a downed ally gets the skull, hand-set marks are left alone.
 - The run export has a heroic/difficulty column.
 - The skill pool shows each skill you have with the game's own icon.
-- `update-nfUI.bat` keeps only the latest copy of the previous version.
+- `update-nfUI.bat` keeps only the latest copy of the previous version, and now sits at the top of the repository.
 
 ## 1.1.2
 
