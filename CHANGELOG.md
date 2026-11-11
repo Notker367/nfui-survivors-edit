@@ -1,5 +1,9 @@
 # What's new
 
+## Next (not released yet)
+
+- Picks in run history: each new skill, rank, piece of gear or jewelry with your DPS in the half minute before and after it. Hover "Now" for this run's picks, a past run for its best ones; picks close together share the change and are marked with ~.
+
 ## 1.2.0
 
 **Legendary amulets**

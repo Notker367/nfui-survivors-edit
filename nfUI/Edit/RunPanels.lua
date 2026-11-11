@@ -224,8 +224,70 @@ end
 -- History. Every 30 seconds of a run its total damage is written down, so any moment of it can be compared later.
 -- Runs are kept per class: the last ones of each, with the build they were played with, so builds can be tested.
 -- Each is compared with runs of the same zone and difficulty, and with the class's best anywhere.
-local STEP,KEEP_PER_CLASS,KEEP_ALL,MAX_STEPS,BUILD_EVERY=30,20,200,240,10
+local STEP,KEEP_PER_CLASS,KEEP_ALL,MAX_STEPS,BUILD_EVERY=30,20,200,240,2
 local current,lastBuild=nil,0
+-- Picks: each new skill, rank, piece of gear or jewelry, with the damage per second in the half minute before it and
+-- the half minute after. Another pick inside that half minute shares the change, and says so.
+local AROUND,KEEP_EVENTS=30,40
+local lastPieces
+local dealtLine={}
+-- Total damage at a moment of the run: from the last minute's samples, else from the half-minute marks.
+local function DealtAt(entry,t)
+    if t<=0 then return 0 end
+    local before,after
+    for _,sample in ipairs(dealtLine) do
+        if sample.t<=t then before=sample elseif not after then after=sample end
+    end
+    if before and after then return before.dealt+(after.dealt-before.dealt)*(t-before.t)/math.max(0.01,after.t-before.t) end
+    if before and t-before.t<1.5 then return before.dealt end
+    local step=math.floor(t/STEP)
+    local low,high=entry.marks and entry.marks[step],entry.marks and entry.marks[step+1]
+    if not low then return nil end
+    high=high or entry.dealt or low
+    return low+(high-low)*(t-step*STEP)/STEP
+end
+local function PiecesOf(build)
+    local pieces={}
+    for _,part in ipairs({"skills","gear","jewels","talents"}) do
+        for _,piece in ipairs(type(build)=="table" and build[part] or {}) do pieces[piece.key]=piece end
+    end
+    return pieces
+end
+-- What changed since the last look, as picks.
+local function Picks(entry,build,t,dealt)
+    local pieces=PiecesOf(build)
+    if lastPieces then
+        entry.events=entry.events or {}
+        for key,piece in pairs(pieces) do
+            local was=lastPieces[key]
+            local text
+            if not was then text="+ "..piece.name..(piece.rank and (" "..piece.rank) or "")
+            elseif piece.rank and was.rank and tonumber(piece.rank) and tonumber(was.rank) and tonumber(piece.rank)>tonumber(was.rank) then
+                text=piece.name.." "..was.rank.." > "..piece.rank
+            end
+            if text then
+                local from=DealtAt(entry,t-AROUND)
+                local span=math.min(AROUND,t)
+                table.insert(entry.events,{t=t,text=text,dealt=dealt,before=from and span>0 and (dealt-from)/span or nil})
+                while table.getn(entry.events)>KEEP_EVENTS do table.remove(entry.events,1) end
+            end
+        end
+    end
+    lastPieces=pieces
+end
+-- Half a minute after a pick, its damage per second after it is known.
+local function Settle(entry,t,dealt)
+    local events=entry.events or {}
+    for index,event in ipairs(events) do
+        if not event.after and t>=event.t+AROUND then
+            local at=DealtAt(entry,event.t+AROUND) or dealt
+            event.after=(at-event.dealt)/AROUND
+            if event.before and event.before>0 then event.gain=event.after/event.before-1 end
+            local nextEvent=events[index+1]
+            event.shared=(nextEvent and nextEvent.t<event.t+AROUND) or (index>1 and events[index-1].t>event.t-AROUND) or nil
+        end
+    end
+end
 local function History()
     if type(nfUIDB.runHistory)~="table" then nfUIDB.runHistory={} end
     return nfUIDB.runHistory
@@ -255,7 +317,7 @@ local function Record()
     if not run or not t or not dealt then return nil end
     local list=History()
     if not current or current.run~=run then
-        current=nil;lastBuild=0
+        current=nil;lastBuild=0;lastPieces=nil;dealtLine={}
         for _,entry in ipairs(list) do if entry.run==run then current=entry end end
         if not current then
             current={run=run,class=AZS_ZONE.cname,zone=AZS_ZONE.zone,mode=RunMode(),marks={[0]=0}}
@@ -272,12 +334,23 @@ local function Record()
             if type(line)=="table" and line.name then table.insert(current.skills,{name=line.name,dmg=tonumber(line.dmg) or 0}) end
         end
     end
+    -- A sample of total damage each second, for the minute around a pick.
+    local lastSample=dealtLine[table.getn(dealtLine)]
+    if lastSample and t<lastSample.t then dealtLine={};lastSample=nil end
+    if not lastSample or t-lastSample.t>=1 then
+        table.insert(dealtLine,{t=t,dealt=dealt})
+        while dealtLine[1] and t-dealtLine[1].t>AROUND*2+5 do table.remove(dealtLine,1) end
+    end
     -- The build as it stands, every few seconds: the last one seen is the one the run ended with.
     if E.RunBuild and GetTime()-lastBuild>=BUILD_EVERY then
         lastBuild=GetTime()
         local ok,build=pcall(E.RunBuild)
-        if ok and type(build)=="table" then current.build=build end
+        if ok and type(build)=="table" then
+            current.build=build
+            pcall(Picks,current,build,t,dealt)
+        end
     end
+    pcall(Settle,current,t,dealt)
     local step=math.floor(t/STEP)
     if step>0 and step<=MAX_STEPS and not current.marks[step] then current.marks[step]=dealt end
     return current,t,dealt
@@ -333,6 +406,28 @@ local function SummaryHover(index,run)
             GameTooltip:AddDoubleLine(E.Text("Урон","Damage"),E.Short(shown.dealt or 0),1,0.82,0,1,1,1)
             GameTooltip:AddDoubleLine("DPS",E.Short((shown.dealt or 0)/math.max(1,shown.t or 1)),1,0.82,0,1,1,1)
             for _,skill in ipairs(shown.skills or {}) do GameTooltip:AddDoubleLine(skill.name,E.Short(skill.dmg),0.8,0.8,0.85,1,1,1) end
+            -- The picks and what they did: the latest of this run, the best of a past one.
+            local events=shown.events or {}
+            if events[1] then
+                local list={}
+                for _,event in ipairs(events) do table.insert(list,event) end
+                if shown~=current then
+                    table.sort(list,function(a,b) return (a.gain or -9)>(b.gain or -9) end)
+                    GameTooltip:AddLine(E.Text("Лучшие прибавки (DPS за 30 с до и после)","Best picks (DPS 30 s before and after)"),1,1,1)
+                else
+                    GameTooltip:AddLine(E.Text("Прибавки (DPS за 30 с до и после)","Picks (DPS 30 s before and after)"),1,1,1)
+                end
+                local first=shown~=current and 1 or math.max(1,table.getn(list)-9)
+                for index=first,math.min(table.getn(list),first+9) do
+                    local event=list[index]
+                    local value,r,g,b="...",0.6,0.6,0.65
+                    if event.gain then
+                        value=(event.shared and "~" or "")..string.format("%+.0f%%",event.gain*100)
+                        if event.gain>=0 then r,g,b=0.5,0.85,0.5 else r,g,b=1,0.45,0.45 end
+                    end
+                    GameTooltip:AddDoubleLine(Clock(event.t).."  "..event.text,value,0.85,0.85,0.9,r,g,b)
+                end
+            end
             local build=shown.build
             if type(build)=="table" then
                 local titles={skills=E.Text("Скилы","Skills"),gear=E.Text("Снаряжение","Gear"),jewels=E.Text("Бижутерия","Jewelry"),talents=E.Text("Таланты","Talents")}
@@ -371,7 +466,7 @@ local function UpdateHistory()
     local rows=historyFrame.rows
     rows[1].left:SetText(E.Text("Сейчас ","Now ")..Clock(t));rows[1].left:SetTextColor(c.text[1],c.text[2],c.text[3])
     rows[1].right:SetText(E.Short(now).." DPS");rows[1].right:SetTextColor(c.yellow[1],c.yellow[2],c.yellow[3])
-    SummaryHover(1,nil)
+    SummaryHover(1,entry)
     local list=History()
     -- Here: the same zone and difficulty. Class: any zone, any heroic.
     local previous,previousRun,best,bestRun,classBest,classBestRun
