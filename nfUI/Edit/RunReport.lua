@@ -6,7 +6,9 @@ local E=nfUIEdit
 local WIDTH,HEIGHT,LIST_WIDTH,ROW,ROWS=820,620,250,22,20
 local SIZE=11
 local STEP=30
-local GREEN,RED,GREY,GOLD="|cff7fd67f","|cffff7070","|cff8a8a96","|cffffd27f"
+-- Grey light enough to read on the dark window.
+local GREEN,RED,GREY,GOLD="|cff7fd67f","|cffff7070","|cffb4b4bc","|cffffd27f"
+local MUTED={0.72,0.72,0.78}
 
 local frame=CreateFrame("Frame","nfUIRunReport",UIParent)
 -- Above the HUD's own texts, which sit high.
@@ -32,10 +34,10 @@ local function Clock(seconds)
     seconds=math.max(0,math.floor((seconds or 0)+0.5))
     return string.format("%d:%02d",math.floor(seconds/60),math.mod(seconds,60))
 end
-local function Tag(run)
-    local _,_,heroic=string.find(run.mode or "","^(%d+)/")
-    heroic=tonumber(heroic) or 0
-    return tostring(run.zone or "?")..(heroic>0 and (E.Text(" Г"," H")..heroic) or "")
+-- Where a run was played, in the game's own names: short for lists, full for the header.
+local function Tag(run,full)
+    if E.RunPlace then return E.RunPlace(run,not full) end
+    return tostring(run.zone or "?")
 end
 local function Rate(run) return (run.dealt or 0)/math.max(1,run.t or 1) end
 local function Runs() return type(nfUIDB)=="table" and type(nfUIDB.runHistory)=="table" and nfUIDB.runHistory or {} end
@@ -97,6 +99,18 @@ for index=1,ROWS do
     row.left=Font(row,SIZE,E.COLORS.text);row.left:SetPoint("LEFT",row,"LEFT",6,0);row.left:SetWidth(LIST_WIDTH-84);row.left:SetHeight(ROW)
     row.right=Font(row,SIZE,E.COLORS.text,"RIGHT");row.right:SetPoint("RIGHT",row,"RIGHT",-6,0)
     row:SetScript("OnClick",function() state.chosen=this.run;frame.Refresh() end)
+    row:SetScript("OnEnter",function()
+        local run=this.run
+        if not run then return end
+        frame.hovering=true
+        GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(Tag(run,true),1,1,1)
+        if run.when then GameTooltip:AddLine(run.when,0.75,0.75,0.8) end
+        GameTooltip:AddDoubleLine(E.Text("Длительность","Length"),Clock(run.t),0.75,0.75,0.8,1,1,1)
+        if run.level then GameTooltip:AddDoubleLine(E.Text("Уровень","Level"),run.level,0.75,0.75,0.8,1,1,1) end
+        GameTooltip:AddDoubleLine("DPS",E.Short(Rate(run)),0.75,0.75,0.8,1,1,1)
+        GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave",function() frame.hovering=false;GameTooltip:Hide() end)
     rows[index]=row
 end
 
@@ -120,7 +134,7 @@ for _,tab in ipairs(TABS) do
     page:SetWidth(PAGE_WIDTH);page:SetHeight(HEIGHT+PAGE_TOP-10)
     pages[tab[1]]=page
 end
-local empty=Font(frame,SIZE,{0.6,0.6,0.65});empty:SetPoint("TOPLEFT",frame,"TOPLEFT",LEFT,-60)
+local empty=Font(frame,SIZE,MUTED);empty:SetPoint("TOPLEFT",frame,"TOPLEFT",LEFT,-60)
 
 -- Icons: a picture with a rank in its corner and its name on hover. Each page keeps its own.
 local function Icon(page,index,size)
@@ -210,10 +224,10 @@ local function Graph(page,firstBar,firstText,x,y,width,height,one,two,caption,si
         end
     end
     if two and two[1] then Draw(one,E.COLORS.yellow,0,0.5);Draw(two,E.COLORS.mauve,0.5,0.5) else Draw(one,E.COLORS.yellow,0,1) end
-    local label=Text(page,firstText,SIZE-1,{0.6,0.6,0.65});label:SetPoint("TOPLEFT",page,"TOPLEFT",x,y);label:SetText(caption)
-    local peak=Text(page,firstText+1,SIZE-1,{0.6,0.6,0.65},"RIGHT");peak:SetPoint("TOPRIGHT",back,"TOPRIGHT",-2,-2);peak:SetText(E.Short(top).." DPS")
-    local startLabel=Text(page,firstText+2,SIZE-1,{0.6,0.6,0.65});startLabel:SetPoint("TOPLEFT",back,"BOTTOMLEFT",0,-2);startLabel:SetText("0:00")
-    local endLabel=Text(page,firstText+3,SIZE-1,{0.6,0.6,0.65},"RIGHT");endLabel:SetPoint("TOPRIGHT",back,"BOTTOMRIGHT",0,-2);endLabel:SetText(Clock(count*STEP*(size or 1)))
+    local label=Text(page,firstText,SIZE-1,MUTED);label:SetPoint("TOPLEFT",page,"TOPLEFT",x,y);label:SetText(caption)
+    local peak=Text(page,firstText+1,SIZE-1,MUTED,"RIGHT");peak:SetPoint("TOPRIGHT",back,"TOPRIGHT",-2,-2);peak:SetText(E.Short(top).." DPS")
+    local startLabel=Text(page,firstText+2,SIZE-1,MUTED);startLabel:SetPoint("TOPLEFT",back,"BOTTOMLEFT",0,-2);startLabel:SetText("0:00")
+    local endLabel=Text(page,firstText+3,SIZE-1,MUTED,"RIGHT");endLabel:SetPoint("TOPRIGHT",back,"BOTTOMRIGHT",0,-2);endLabel:SetText(Clock(count*STEP*(size or 1)))
     return barIndex,y-14-height-16
 end
 
@@ -232,20 +246,34 @@ local function Groups(events)
     end
     return groups
 end
-local function PickName(event)
-    local _,_,name=string.find(event.text,"^%+? ?(.-) [%d]+ > [%d]+$")
-    if not name then _,_,name=string.find(event.text,"^%+ (.-) ?[%d]*$") end
-    return name or event.text
+-- A pick's name, its rank after it, and whether it was new: "Whirlwind 28 > 29" or "+ Whirlwind 1".
+local function PickParts(event)
+    local _,_,name,_,rank=string.find(event.text,"^(.-) (%d+) > (%d+)$")
+    if name then return name,rank,false end
+    local _,_,newName,newRank=string.find(event.text,"^%+ (.-) ?(%d*)$")
+    if newName then return newName,newRank~="" and newRank or nil,true end
+    return event.text,nil,false
 end
+local function PickName(event) local name=PickParts(event);return name end
+-- Short enough for one line: "Whirlwind 30 (+2), Ring 13, Execute (new)".
 local function GroupText(group)
-    local names,order={},{}
+    local items,order={},{}
     for _,event in ipairs(group.picks) do
-        local name=PickName(event)
-        if not names[name] then names[name]={count=0,text=event.text};table.insert(order,name) end
-        names[name].count=names[name].count+1;names[name].text=event.text
+        local name,rank,new=PickParts(event)
+        local item=items[name]
+        if not item then item={count=0};items[name]=item;table.insert(order,name) end
+        item.count=item.count+1;item.rank=rank or item.rank;item.new=item.new or new
     end
     local parts={}
-    for _,name in ipairs(order) do local item=names[name];table.insert(parts,item.count>1 and (name.." x"..item.count) or item.text) end
+    for _,name in ipairs(order) do
+        local item=items[name]
+        local text=name..(item.rank and (" "..item.rank) or "")
+        if item.new then text=name..E.Text(" (новый)"," (new)")
+        elseif item.count>1 then text=text.." (+"..item.count..")" end
+        table.insert(parts,text)
+    end
+    -- Two names fit a line; the rest are counted, and the row's tooltip lists them all.
+    if table.getn(parts)>2 then return parts[1]..", "..parts[2]..E.Text(" и ещё "," and ")..(table.getn(parts)-2) end
     return table.concat(parts,", ")
 end
 
@@ -253,21 +281,39 @@ end
 local function Overview(page,run,best)
     local mine,bestSteps,size=Steps(run,best and best~=run and best or nil)
     local barIndex,y=Graph(page,1,1,0,0,PAGE_WIDTH,96,mine,bestSteps,
-        E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("  ·  "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот, ","this one, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..E.Text("лучший","the best")) or ""),size)
+        E.Text("DPS по ходу забега","DPS through the run")..(bestSteps and ("   "..GOLD..E.Text("жёлтый","yellow").."|r "..E.Text("этот забег, ","this run, ").."|cffc6a0f6"..E.Text("сиреневый","violet").."|r "..E.Text("лучший забег класса","the class's best")) or ""),size)
     HideFrom(page.bars,barIndex)
-    local t=Text(page,5,SIZE,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-6)
-    t:SetText(E.Text("Прибавки: DPS за 30 с до и после, близкие покупки вместе","Picks: DPS 30 s before and after, close ones together"))
-    y=y-26
+    local t=Text(page,5,SIZE+1,{1,0.82,0.5});t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-6)
+    t:SetText(E.Text("Что дали покупки","What the picks did"))
+    local hint=Text(page,6,SIZE-1,MUTED);hint:SetPoint("TOPLEFT",page,"TOPLEFT",0,y-22);hint:SetWidth(PAGE_WIDTH);hint:SetHeight(14)
+    hint:SetText(E.Text("DPS за 30 с после покупки против 30 с до неё; покупки ближе 30 с друг к другу считаются вместе","DPS 30 s after a pick against 30 s before; picks closer than 30 s count together"))
+    y=y-42
     local groups=Groups(run.events)
-    local textIndex,iconIndex=6,1
+    local textIndex,iconIndex,hoverIndex=7,1,1
+    page.hovers=page.hovers or {}
     if not groups[1] then
-        local note=Text(page,textIndex,SIZE,{0.6,0.6,0.65});note:SetPoint("TOPLEFT",page,"TOPLEFT",6,y)
-        note:SetText(E.Text("У этого забега их нет: они пишутся с версии 1.3.","None for this run: they are kept from version 1.3."));textIndex=textIndex+1
+        local note=Text(page,textIndex,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",6,y)
+        note:SetText(E.Text("У этого забега покупки не записаны: они пишутся с версии 1.3.","This run has no picks kept: they are kept from version 1.3."));textIndex=textIndex+1
     end
     local first=math.max(1,table.getn(groups)-11)
     for index=first,table.getn(groups) do
         local group=groups[index]
-        local when=Text(page,textIndex,SIZE,{0.6,0.6,0.65});textIndex=textIndex+1
+        -- The whole row answers the mouse with every pick of the group.
+        local hover=page.hovers[hoverIndex]
+        if not hover then
+            hover=CreateFrame("Frame",nil,page);hover:EnableMouse(true);hover:SetHeight(20);hover:SetWidth(PAGE_WIDTH)
+            hover:SetScript("OnEnter",function()
+                frame.hovering=true
+                GameTooltip:SetOwner(this,"ANCHOR_RIGHT");GameTooltip:SetText(E.Text("Покупки","Picks"),1,1,1)
+                for _,event in ipairs(this.group.picks) do GameTooltip:AddDoubleLine(Clock(event.t),event.text,0.75,0.75,0.8,1,1,1) end
+                GameTooltip:Show()
+            end)
+            hover:SetScript("OnLeave",function() frame.hovering=false;GameTooltip:Hide() end)
+            page.hovers[hoverIndex]=hover
+        end
+        hover.group=group;hover:ClearAllPoints();hover:SetPoint("TOPLEFT",page,"TOPLEFT",0,y+1);hover:Show()
+        hoverIndex=hoverIndex+1
+        local when=Text(page,textIndex,SIZE,MUTED);textIndex=textIndex+1
         when:SetPoint("TOPLEFT",page,"TOPLEFT",6,y-3);when:SetText(Clock(group.first.t)..(group.last~=group.first and ("-"..Clock(group.last.t)) or ""))
         -- Up to four icons of the group's picks.
         local seen,x={},92
@@ -289,7 +335,7 @@ local function Overview(page,run,best)
         change:SetText(group.gain and ((group.gain>=0 and GREEN or RED)..string.format("%+.0f%%",group.gain*100).."|r") or (GREY.."...|r"))
         y=y-22
     end
-    HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex)
+    HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex);HideFrom(page.hovers,hoverIndex)
 end
 
 -- A row of icons for a part of a build, with a title; returns the y below it.
@@ -315,7 +361,7 @@ local function Build(page,run)
     local build=run.build
     local s2={text=1,icon=1}
     if type(build)~="table" then
-        local note=Text(page,1,SIZE,{0.6,0.6,0.65});note:SetPoint("TOPLEFT",page,"TOPLEFT",0,0)
+        local note=Text(page,1,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",0,0)
         note:SetText(E.Text("У этого забега билд не записан.","No build was kept for this run."))
         HideFrom(page.texts,2);HideFrom(page.icons,1)
         return
@@ -366,7 +412,7 @@ local function Skills(page,run)
         y=y-34
     end
     if not list[1] then
-        local note=Text(page,textIndex,SIZE,{0.6,0.6,0.65});textIndex=textIndex+1;note:SetPoint("TOPLEFT",page,"TOPLEFT",0,y)
+        local note=Text(page,textIndex,SIZE,MUTED);textIndex=textIndex+1;note:SetPoint("TOPLEFT",page,"TOPLEFT",0,y)
         note:SetText(E.Text("Урон по скилам не записан.","No damage by skill was kept."))
     end
     HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex);HideFrom(page.bars,barIndex)
@@ -375,7 +421,7 @@ end
 -- Compare: this run against the class's best, over time and in the build.
 local function Compare(page,run,best)
     if not best or best==run then
-        local note=Text(page,1,SIZE,{0.6,0.6,0.65});note:SetPoint("TOPLEFT",page,"TOPLEFT",0,0)
+        local note=Text(page,1,SIZE,MUTED);note:SetPoint("TOPLEFT",page,"TOPLEFT",0,0)
         note:SetText(run==best and E.Text("Это и есть лучший забег класса: выберите другой слева.","This is the class's best run: choose another on the left.")
             or E.Text("Не с чем сравнить.","Nothing to compare with."))
         HideFrom(page.texts,2);HideFrom(page.icons,1);HideFrom(page.bars,1)
@@ -384,7 +430,7 @@ local function Compare(page,run,best)
     local gain=Rate(best)>0 and (Rate(run)/Rate(best)-1) or 0
     local mine,theirs,size=Steps(run,best)
     local barIndex,y=Graph(page,1,1,0,0,PAGE_WIDTH,110,mine,theirs,
-        GOLD..E.Text("этот","this one").."|r "..E.Short(Rate(run)).." DPS   |cffc6a0f6"..E.Text("лучший","best").."|r "..Tag(best).." "..E.Short(Rate(best)).." DPS   "
+        GOLD..E.Text("этот забег","this run").."|r "..E.Short(Rate(run)).." DPS   |cffc6a0f6"..E.Text("лучший","best").."|r "..Tag(best).." "..E.Short(Rate(best)).." DPS   "
         ..(gain>=0 and GREEN or RED)..string.format("%+.0f%%",gain*100).."|r",size)
     HideFrom(page.bars,barIndex)
     local s2={text=5,icon=1}
@@ -399,12 +445,12 @@ local function Compare(page,run,best)
     for key,piece in pairs(there) do if not here[key] then table.insert(missing,piece) end end
     y=y-4
     if type(run.build)~="table" or type(best.build)~="table" then
-        local note=Text(page,s2.text,SIZE,{0.6,0.6,0.65});s2.text=s2.text+1;note:SetPoint("TOPLEFT",page,"TOPLEFT",0,y)
+        local note=Text(page,s2.text,SIZE,MUTED);s2.text=s2.text+1;note:SetPoint("TOPLEFT",page,"TOPLEFT",0,y)
         note:SetText(E.Text("У одного из забегов билд не записан.","One of the runs has no build kept."))
     else
-        if only[1] then y=IconRow(page,s2,E.Text("Только в этом","Only in this one"),only,y,28) end
-        if missing[1] then y=IconRow(page,s2,E.Text("Только в лучшем","Only in the best"),missing,y,28) end
-        if ranks[1] then y=IconRow(page,s2,E.Text("Другой ранг (наведите)","Another rank (hover)"),ranks,y,28) end
+        if only[1] then y=IconRow(page,s2,E.Text("Было только в этом забеге","Only in this run"),only,y,28) end
+        if missing[1] then y=IconRow(page,s2,E.Text("Было только в лучшем забеге","Only in the best run"),missing,y,28) end
+        if ranks[1] then y=IconRow(page,s2,E.Text("Разные ранги (наведите на иконку)","Different ranks (hover an icon)"),ranks,y,28) end
     end
     HideFrom(page.texts,s2.text);HideFrom(page.icons,s2.icon)
 end
@@ -461,7 +507,7 @@ function frame.Refresh()
         return
     end
     empty:Hide()
-    head:SetText(Tag(run).."  ·  "..Clock(run.t)..(run.level and (E.Text("  ·  ур. ","  ·  lv. ")..run.level) or "")..(run.when and ("  ·  "..run.when) or ""))
+    head:SetText(Tag(run,true).."  ·  "..Clock(run.t)..(run.level and (E.Text("  ·  уровень ","  ·  level ")..run.level) or "")..(run.when and ("  ·  "..run.when) or ""))
     local versus=""
     if best and best~=run and Rate(best)>0 then
         local gain=math.floor((Rate(run)/Rate(best)-1)*100+0.5)
@@ -469,7 +515,7 @@ function frame.Refresh()
     elseif run==best then versus="   "..GOLD..E.Text("лучший забег класса","the class's best run").."|r" end
     local skills={}
     for index,skill in ipairs(run.skills or {}) do if index<=3 then table.insert(skills,skill.name.." "..E.Short(skill.dmg)) end end
-    sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run)).." DPS"..versus
+    sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run))..E.Text(" DPS в среднем"," DPS on average")..versus
         ..(skills[1] and ("\n"..GREY..E.Text("Больше всего: ","Most: ")..table.concat(skills,", ").."|r") or ""))
     for _,button in ipairs(tabButtons) do button.label:SetText(E.Text(button.tab[2],button.tab[3]));Lit(button,button.tab[1]==state.tab);button:Show() end
     local page=pages[state.tab]

@@ -296,11 +296,25 @@ local function RunMode()
     return tostring(AZS_ZONE.heroic or 0).."/"..tostring(AZS_ZONE.diff or 0)
 end
 -- "feralas H2": where a run was played, for the class-wide rows.
-local function RunTag(run)
+-- The game's own names of its zones, full and short, so that a run reads "Naxxramas, heroic 1", not "naxx H1".
+local ZONES={
+    naxx={"Наксрамас","Naxxramas"},aq={"Врата Ан'Киража","Gates of Ahn'Qiraj","Ан'Кираж","Ahn'Qiraj"},
+    scholomance={"Некроситет","Scholomance"},brm={"Черная гора","Blackrock Mountain"},av={"Альтеракская долина","Alterac Valley","Альтерак","Alterac"},
+    sm={"Монастырь Алого ордена","Scarlet Monastery","Монастырь","Monastery"},arena={"Арена Гурубаши","Gurubashi Arena","Арена","Arena"},
+    feralas={"Фералас","Feralas"},elwynn={"Элвиннский лес","Elwynn Forest","Элвинн","Elwynn"},duskwood={"Сумеречный лес","Duskwood"},
+    ungoro={"Кратер Ун'Горо","Un'Goro Crater","Ун'Горо","Un'Goro"},
+}
+-- Where a run was played: full ("Naxxramas, heroic 1") or short ("Naxxramas h.1") for lists.
+function E.RunPlace(run,short)
+    local names=ZONES[run.zone or ""]
+    local name=names and ((short and names[3]) and E.Text(names[3],names[4]) or E.Text(names[1],names[2])) or tostring(run.zone or "?")
     local _,_,heroic=string.find(run.mode or "","^(%d+)/")
     heroic=tonumber(heroic) or 0
-    return tostring(run.zone or "?")..(heroic>0 and (E.Text(" Г"," H")..heroic) or "")
+    if heroic<=0 then return name end
+    if short then return name..E.Text(" гер."," h.")..heroic end
+    return name..E.Text(", героик ",", heroic ")..heroic
 end
+local function RunTag(run) return E.RunPlace(run,true) end
 -- A class with too many runs loses its oldest; the others keep theirs.
 local function Trim(list,class)
     local count=0
