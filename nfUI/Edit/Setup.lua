@@ -85,15 +85,21 @@ function E.ShowSetup() frame.Refresh();frame:Show() end
 
 -- Once, a few seconds into the world, for a new player only: one who has played with this addon before has made
 -- these choices already.
+-- Who is new is decided now, as the addon loads: saved settings are in already, and the run history has not yet
+-- written this run down.
+local newPlayer
+do
+    local db=type(nfUIDB)=="table" and nfUIDB or {}
+    local played=type(db.runHistory)=="table" and db.runHistory[1]
+    newPlayer=not (db.setupDone or played or db.uiMode or db.layoutPreset)
+    if not newPlayer and type(nfUIDB)=="table" then nfUIDB.setupDone=true end
+end
 local age=0
 local watcher=CreateFrame("Frame")
 watcher:SetScript("OnUpdate",function()
     age=age+(arg1 or 0);if age<4 then return end
     this:SetScript("OnUpdate",nil)
-    if type(nfUIDB)~="table" or nfUIDB.setupDone then return end
-    local played=type(nfUIDB.runHistory)=="table" and nfUIDB.runHistory[1]
-    if played or nfUIDB.uiMode or nfUIDB.layoutPreset then nfUIDB.setupDone=true;return end
-    E.ShowSetup()
+    if newPlayer then E.ShowSetup() end
 end)
 
 local command=SlashCmdList["NFUI"]
