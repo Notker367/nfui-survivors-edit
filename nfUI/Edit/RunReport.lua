@@ -662,6 +662,65 @@ function E.ToggleRunReport()
     state.chosen=nil;state.class=nil
     frame.Refresh();frame:Show()
 end
+-- Open on one run: the one given, else the current or just ended one, on its Overview.
+function E.OpenRunReport(run)
+    if not run and type(AZS_ZONE)=="table" then
+        for _,entry in ipairs(Runs()) do if entry.run==AZS_ZONE.run then run=entry end end
+    end
+    state.class=run and run.class or nil;state.chosen=run;state.tab="overview"
+    frame.Refresh();frame:Show()
+    -- A run shorter than half a minute is not listed; the latest listed one stands in.
+    if run and state.chosen~=run then state.chosen=nil;frame.Refresh() end
+end
+
+-- Before a run starts ("move to begin"), a card with the last run of the class: where, how long, how it went
+-- against the best there, and a button to its analysis. It goes as soon as the run starts.
+local card=CreateFrame("Frame","nfUILastRun",UIParent)
+card:SetWidth(420);card:SetHeight(74);card:SetFrameStrata("HIGH");card:SetPoint("TOP",UIParent,"TOP",0,-110);card:Hide()
+local cardFill=card:CreateTexture(nil,"BACKGROUND");cardFill:SetTexture(E.FLAT);cardFill:SetAllPoints(card)
+cardFill:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.9)
+E.Polish(card)
+local cardTitle=Font(card,12,E.COLORS.mauve);cardTitle:SetPoint("TOPLEFT",card,"TOPLEFT",10,-8)
+local cardLine=Font(card,SIZE,E.COLORS.text);cardLine:SetPoint("TOPLEFT",card,"TOPLEFT",10,-26);cardLine:SetWidth(400);cardLine:SetHeight(14)
+local cardNote=Font(card,SIZE,E.COLORS.text);cardNote:SetPoint("TOPLEFT",card,"TOPLEFT",10,-42);cardNote:SetWidth(290);cardNote:SetHeight(26);cardNote:SetJustifyV("TOP")
+local cardButton=Tab(card,22);cardButton:SetWidth(110);cardButton:SetPoint("BOTTOMRIGHT",card,"BOTTOMRIGHT",-8,8);Lit(cardButton,true)
+cardButton:SetScript("OnClick",function() card:Hide();card.dismissed=true;E.OpenRunReport(card.run) end)
+local cardClose=CreateFrame("Button",nil,card);cardClose:SetWidth(16);cardClose:SetHeight(16);cardClose:SetPoint("TOPRIGHT",card,"TOPRIGHT",-4,-4)
+cardClose.label=Font(cardClose,11,E.COLORS.text,"CENTER");cardClose.label:SetPoint("CENTER",cardClose,"CENTER",0,0);cardClose.label:SetText("x")
+cardClose:SetScript("OnClick",function() card:Hide();card.dismissed=true end)
+local cardAge=0
+local cardDriver=CreateFrame("Frame")
+cardDriver:SetScript("OnUpdate",function()
+    cardAge=cardAge+(arg1 or 0);if cardAge<0.5 then return end;cardAge=0
+    local ready=AZS_GetPhase and AZS_GetPhase()=="ready"
+    if not ready then card:Hide();card.dismissed=nil;return end
+    if card.dismissed or not E.On("lastRunCard") or type(AZS_ZONE)~="table" then card:Hide();return end
+    -- The class's latest finished run, other than the one about to start.
+    local last,best
+    local runs=Runs()
+    for index=table.getn(runs),1,-1 do
+        local run=runs[index]
+        if run.class==AZS_ZONE.cname and run.run~=AZS_ZONE.run and (run.t or 0)>=30 then
+            if not last then last=run end
+            if last and run~=last and run.zone==last.zone and run.mode==last.mode and (not best or Rate(run)>Rate(best)) then best=run end
+        end
+    end
+    if not last then card:Hide();return end
+    card.run=last
+    cardTitle:SetText(E.Text("Прошлый забег","Last run")..(last.when and ("  "..GREY..last.when.."|r") or ""))
+    local final=type(last.final)=="table" and last.final or {}
+    cardLine:SetText(Tag(last,true).."  ·  "..Clock(last.t)..(last.level and (E.Text("  ·  ур. ","  ·  lv. ")..last.level) or "")
+        .."  ·  "..E.Short(Rate(last)).." DPS"..(final.kills and ("  ·  "..E.Short(final.kills)..E.Text(" убийств"," kills")) or ""))
+    local note
+    if best and Rate(best)>0 then
+        local gain=Rate(last)/Rate(best)-1
+        note=(gain>=0 and (GREEN..E.Text("Лучший здесь","Best here").."|r") or ((RED..string.format("%+.0f%%",gain*100).."|r")..E.Text(" к лучшему здесь"," vs the best here")))
+    else note=GREY..E.Text("Других забегов здесь нет","No other runs here").."|r" end
+    local summary=Summary(last)
+    cardNote:SetText(note..(summary[1] and ("\n"..summary[1]) or ""))
+    cardButton.label:SetText(E.Text("Разбор","Review"))
+    card:Show()
+end)
 -- Kept fresh while open, as the current run goes on; not while the mouse is over an icon, so its tooltip stays.
 local age=0
 frame:SetScript("OnUpdate",function()

@@ -143,7 +143,14 @@ for index=1,GRAPH_BARS do
     bar:SetPoint("BOTTOMLEFT",graphBack,"BOTTOMLEFT",(index-1)*barWidth,0)
     graph[index]=bar
 end
-frame:SetHeight(GRAPH_TOP+11+GRAPH_HEIGHT+8)
+-- The way to the whole run: a button under the graph that opens the run analysis on this run.
+local review=CreateFrame("Button",nil,frame);review:SetHeight(20);review:SetWidth(WIDTH-16)
+review:SetPoint("TOPLEFT",frame,"TOPLEFT",8,-(GRAPH_TOP+11+GRAPH_HEIGHT+8))
+local reviewBack=review:CreateTexture(nil,"BACKGROUND");reviewBack:SetTexture(E.FLAT);reviewBack:SetAllPoints(review)
+reviewBack:SetVertexColor(E.COLORS.mauve[1]*0.55,E.COLORS.mauve[2]*0.55,E.COLORS.mauve[3]*0.55,1)
+local reviewText=review:CreateFontString(nil,"OVERLAY");reviewText:SetFont(E.FONT,11,"OUTLINE");reviewText:SetPoint("CENTER",review,"CENTER",0,0);reviewText:SetTextColor(1,1,1)
+review:SetScript("OnClick",function() frame:Hide();if E.OpenRunReport then E.OpenRunReport() end end)
+frame:SetHeight(GRAPH_TOP+11+GRAPH_HEIGHT+8+28)
 
 local function Clock(seconds)
     seconds=math.max(0,math.floor((seconds or 0)+0.5))
@@ -193,6 +200,7 @@ function E.ShowDeathSummary(summary)
             bar:SetHeight(math.max(1,GRAPH_HEIGHT*share));bar:Show()
         else bar:Hide() end
     end
+    reviewText:SetText(E.Text("Разбор забега","Run review"))
     Place();frame:Show()
 end
 
