@@ -244,7 +244,8 @@ local function Groups(events)
     local groups={}
     for _,event in ipairs(events or {}) do
         local group=groups[table.getn(groups)]
-        if group and event.t-group.last.t<STEP then table.insert(group.picks,event);group.last=event
+        -- A group spans at most half a minute from its first pick: chained, early picks made one three-minute group.
+        if group and event.t-group.first.t<STEP then table.insert(group.picks,event);group.last=event
         else group={first=event,last=event,picks={event}};table.insert(groups,group) end
     end
     -- In the first seconds of a run the damage before a pick is next to nothing, and any pick would look huge.
