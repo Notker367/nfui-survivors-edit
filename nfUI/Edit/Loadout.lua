@@ -247,6 +247,8 @@ function E.RunBuild()
     for _,entry in ipairs(loadout.talents or {}) do
         if (tonumber(entry.rank) or 1)>0 then Add(build.talents,entry.sourceKey,entry.rank) end
     end
+    -- Luck: better odds of rarer upgrades at a level-up. The odds themselves are not given to addons.
+    build.luck=type(AZS_STATS)=="table" and tonumber(AZS_STATS.luck) or nil
     return build
 end
 local function ShowAlly(holder)

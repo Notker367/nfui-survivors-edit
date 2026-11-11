@@ -3,6 +3,7 @@
 ## Next (not released yet)
 
 - Picks in run history: each new skill, rank, piece of gear or jewelry with your DPS in the half minute before and after it. Hover "Now" for this run's picks, a past run for its best ones; picks close together share the change and are marked with ~.
+- Luck is kept with each run's build and compared in the hover. The odds of each rarity are not given to addons, so only your luck is shown.
 
 ## 1.2.0
 

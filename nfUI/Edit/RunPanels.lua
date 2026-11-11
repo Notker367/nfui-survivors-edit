@@ -434,6 +434,7 @@ local function SummaryHover(index,run)
                 for _,part in ipairs(PARTS) do
                     if build[part] and build[part][1] then GameTooltip:AddLine(titles[part]..": |cffd9d9e0"..Joined(build[part]).."|r",1,0.82,0,true) end
                 end
+                if build.luck then GameTooltip:AddLine(E.Text("Удача: ","Luck: ").."|cffd9d9e0"..string.format("%+.0f%%",build.luck*100).."|r",1,0.82,0) end
                 -- What sets that build apart from this run's.
                 local now=current~=shown and current and current.build
                 if type(now)=="table" then
@@ -448,6 +449,9 @@ local function SummaryHover(index,run)
                     if only[1] then GameTooltip:AddLine("− "..table.concat(only,", "),1,0.45,0.45,true) end
                     if missing[1] then GameTooltip:AddLine("+ "..table.concat(missing,", "),0.5,0.85,0.5,true) end
                     if ranks[1] then GameTooltip:AddLine(E.Text("Ранги: ","Ranks: ")..table.concat(ranks,", "),0.75,0.75,0.8,true) end
+                    if build.luck and now.luck and math.abs(build.luck-now.luck)>=0.005 then
+                        GameTooltip:AddLine(string.format(E.Text("Удача: %+.0f%% там, %+.0f%% сейчас","Luck: %+.0f%% there, %+.0f%% now"),build.luck*100,now.luck*100),0.75,0.75,0.8)
+                    end
                 end
             end
             GameTooltip:Show()
