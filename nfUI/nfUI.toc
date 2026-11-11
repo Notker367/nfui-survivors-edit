@@ -1,8 +1,8 @@
 ## Interface: 11200
-## Title: nfUI
-## Version: 1.3.0
+## Title: Survivors HUD
+## Version: 1.4.0
 ## DefaultState: enabled
-## Notes: Configurable HUD, movers, nameplates, combat text, run panels and compass.
+## Notes: Based on nfUI by nfmous. Shows what will kill you, what can still drop, and why a run ended.
 ## SavedVariables: nfUIDB, nfUIPlatesDB
 Edit/Locale.lua
 Edit/Strings.lua

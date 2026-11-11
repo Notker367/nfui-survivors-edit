@@ -83,8 +83,19 @@ nfUIModules:NewMod("DPSMeter",5,function()
     local function Short(value) return nfUIEdit.Short(value) end
     -- Skill icons by name, for the hero's own meter and the party's.
     local topIcons,topIconsAge={},-1000
+    -- The game's meter names some sources in English ("Melee") while the loadout names them in the client's
+    -- language, so a source is looked up by both. Melee shows the weapon in hand, as the combat text does.
+    local function IconFor(name)
+        if not name then return nil end
+        local icon=topIcons[name] or topIcons[nfUIEdit.L(name)]
+        if icon then return icon end
+        if name=="Melee" or nfUIEdit.L(name)==nfUIEdit.L("Melee") then
+            return GetInventoryItemTexture and GetInventoryItemTexture("player",16) or "Interface\\Icons\\INV_Sword_04"
+        end
+    end
+    nfUIEdit.MeterIcon=IconFor
     local function RefreshTopIcons()
-        if GetTime()-topIconsAge<15 then return end
+        if GetTime()-topIconsAge<1 then return end
         topIconsAge=GetTime()
         local context=AZS_GetMeterContext and AZS_GetMeterContext()
         if type(context)~="table" or not context.runId then return end
@@ -139,7 +150,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
             return measure.GetStringWidth and measure:GetStringWidth() or string.len(text)*7
         end
         for _,line in ipairs(lines) do
-            if not topIcons[line.name] then pcall(RefreshTopIcons);break end
+            if not IconFor(line.name) then pcall(RefreshTopIcons);break end
         end
         fittedWidth=math.max(112,Measure(summary:GetText())+16)
         -- After a skill's DPS and share: how often it fired and its biggest hit, both over the last minute.
@@ -220,7 +231,8 @@ nfUIModules:NewMod("DPSMeter",5,function()
             local value=RowValue(line)
             local valueWidth=Measure(value)
             row:SetValue(math.min(1,line.share));row.name:SetWidth(math.max(1,width-20-columnsWidth-valueWidth-12))
-            if topIcons[line.name] then row.icon:SetTexture(topIcons[line.name]);row.icon:Show() else row.icon:Hide() end
+            local icon=IconFor(line.name)
+            if icon then row.icon:SetTexture(icon);row.icon:Show() else row.icon:Hide() end
             row.name:SetHeight(14);row.name:SetText(nfUIEdit.L(line.name))
             row.valueText:SetWidth(valueWidth);row.valueText:SetHeight(14);row.valueText:SetJustifyH("RIGHT");row.valueText:SetText(value);row.info=line;row:Show()
         end
@@ -251,7 +263,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
         if not ok or type(lines)~="table" or table.getn(lines)==0 or not Number(total) or not Number(dps) then party:Hide();return end
         party:SetScale(panel:GetScale())
         for _,line in ipairs(lines) do
-            if type(line.top)=="string" and not topIcons[line.top] then pcall(RefreshTopIcons);break end
+            if type(line.top)=="string" and not IconFor(line.top) then pcall(RefreshTopIcons);break end
         end
         partyTitle:SetText(nfUIEdit.Text("\208\147\209\128\209\131\208\191\208\191\208\176: ","Party: ")..Short(dps).." DPS")
         -- As wide as the longest name with its numbers, so big values never run into the name.
@@ -317,7 +329,7 @@ nfUIModules:NewMod("DPSMeter",5,function()
                 row.top.name:SetText(line.top)
                 row.top.value:SetText(Short(line.topdps).." | "..string.format("%.0f%%",topShare*100))
                 row.top.name:SetWidth(math.max(1,partyWidth-32-Width(row.top.value:GetText(),9)-12))
-                local path=topIcons[line.top]
+                local path=IconFor(line.top)
                 if path then row.top.icon:SetTexture(path);row.top.icon:Show() else row.top.icon:Hide() end
                 row.top:Show()
             else row.top:Hide();row.top.icon:Hide() end

@@ -1,4 +1,4 @@
-# nfUI Survivors Edit для браузерной версии
+# Survivors HUD для браузерной версии
 
 В этой папке лежит готовый архив для браузерной версии [Azeroth Survivors](https://wow.aethus.pl/). Распаковывать его не нужно.
 

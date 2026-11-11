@@ -512,7 +512,7 @@ local function Skills(page,run)
     for _,skill in ipairs(list) do
         local icon=Icon(page,iconIndex,28);iconIndex=iconIndex+1
         icon:ClearAllPoints();icon:SetPoint("TOPLEFT",page,"TOPLEFT",0,y)
-        icon.texture:SetTexture(IconByName(run.build,skill.name) or "Interface\\Icons\\INV_Misc_QuestionMark")
+        icon.texture:SetTexture(IconByName(run.build,skill.name) or (E.MeterIcon and E.MeterIcon(skill.name)) or "Interface\\Icons\\INV_Misc_QuestionMark")
         icon.rank:SetText("");icon.label=skill.name;icon.note=nil;icon:Show()
         local back=Bar(page,barIndex,"BORDER");barIndex=barIndex+1;back:SetVertexColor(0,0,0,0.3)
         back:SetPoint("TOPLEFT",page,"TOPLEFT",36,y-2);back:SetWidth(PAGE_WIDTH-36);back:SetHeight(24)

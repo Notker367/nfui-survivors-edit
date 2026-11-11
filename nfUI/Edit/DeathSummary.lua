@@ -202,7 +202,7 @@ end
 function E.ShowDeathSummary(summary)
     summary=summary or (type(nfUIDB)=="table" and nfUIDB.lastDeath)
     if type(summary)~="table" or type(summary.verdict)~="table" then
-        if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("nfUI: "..E.Text("смертей в этой сессии ещё не было","no death recorded yet")) end
+        if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(E.NAME..": "..E.Text("смертей в этой сессии ещё не было","no death recorded yet")) end
         return
     end
     -- In co-op the hero goes down first and may be raised.

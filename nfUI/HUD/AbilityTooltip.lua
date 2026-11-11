@@ -37,6 +37,12 @@ function C.AbilityTooltipModel(lines)
     if not cast then return nil end
     local blocks={};local details={}
     for index=cast+1,table.getn(lines) do
+        -- A line with a value on the right (the run's DPS, share and damage) keeps it.
+        local right=Clean(lines[index].right)
+        if right~="" then
+            local text=Clean(lines[index].left)
+            if text~="" then table.insert(details,{text=text,right=right,color=lines[index].color or neutral}) end
+        else
         for piece in string.gfind((lines[index].left or "").."\n","([^\n]*)\n") do
             local text=Clean(piece)
             local section
@@ -52,6 +58,7 @@ function C.AbilityTooltipModel(lines)
                 table.insert(details,{text=text,color=lines[index].color or neutral})
             end
         end
+        end
     end
     if not recognized then return nil end
     local tint={0.9,0.68,0.45}
@@ -62,7 +69,10 @@ function C.AbilityTooltipModel(lines)
     local stats={Clean(lines[cast].left)}
     for index=2,cast-1 do local value=Clean(lines[index].left);if value~="" then table.insert(stats,value) end end
     table.insert(output,{left=table.concat(stats," / "),right=Numbers(Clean(lines[cast].right)),color=neutral})
-    for _,detail in ipairs(details) do table.insert(output,{left=Numbers(detail.text),color=detail.color,wrap=true}) end
+    for _,detail in ipairs(details) do
+        if detail.right then table.insert(output,{left=detail.text,right="|cffffffff"..detail.right.."|r",color=detail.color})
+        else table.insert(output,{left=Numbers(detail.text),color=detail.color,wrap=true}) end
+    end
     for _,section in ipairs(blocks) do
         table.insert(output,{left=nfUIEdit.L(section.title),color=section.color,separator=true})
         for _,text in ipairs(section.items) do

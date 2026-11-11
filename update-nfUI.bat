@@ -1,5 +1,5 @@
 @echo off
-rem nfUI Survivors Edit updater. Put it in the game folder, next to benilla-config, and run it.
+rem Survivors HUD updater. Put it in the game folder, next to benilla-config, and run it.
 rem Optional argument: a zip already on this computer, installed instead of the latest release.
 rem The previous version is kept in benilla-config\nfUI-update-<date>; only the latest such copy stays.
 setlocal

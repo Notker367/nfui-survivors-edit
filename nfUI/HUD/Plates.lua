@@ -694,7 +694,7 @@ layoutDriver:SetScript("OnUpdate",function()
 end)
 
 local function Say(text)
-	DEFAULT_CHAT_FRAME:AddMessage("nfUI Plates: "..text)
+	DEFAULT_CHAT_FRAME:AddMessage(nfUIEdit.NAME..": "..text)
 end
 
 SLASH_NFUIPLATES1 = "/nfplates"

@@ -4,7 +4,7 @@ local E,C=nfUIEdit,nfUIConfig
 
 -- How much is shown: default, detailed (adds hero stats and the DPS graph) or hidden (no info panels).
 local MODES={"default","detailed","hidden"}
-local MODE_NAMES={default={"обычный","default"},detailed={"подробный","detailed"},hidden={"скрытый","hidden"}}
+local MODE_NAMES={default={"Обычный","Default"},detailed={"Подробный","Detailed"},hidden={"Минимум","Minimal"}}
 function E.ModeName()
     local names=MODE_NAMES[E.Mode()] or MODE_NAMES.default
     return names[E.IsRussian() and 1 or 2]
@@ -16,11 +16,11 @@ function E.CycleMode()
         if mode==now then nextMode=MODES[math.mod(index,table.getn(MODES))+1] end
     end
     nfUIDB.uiMode=nextMode
-    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("nfUI: "..E.Text("режим: ","mode: ")..E.ModeName()) end
+    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(E.NAME..": "..E.Text("режим: ","mode: ")..E.ModeName()) end
     if E.RefreshPools then E.RefreshPools() end
     if C.Refresh then C.Refresh() end
 end
-BINDING_HEADER_NFUI="nfUI"
+BINDING_HEADER_NFUI=E.NAME
 BINDING_NAME_NFUI_MODE="Cycle interface detail"
 
 -- A warning in the middle of the screen.
@@ -120,7 +120,7 @@ gear:SetScript("OnClick",function()
     else E.ToggleQuickMenu(this) end
 end)
 gear:SetScript("OnEnter",function()
-    GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText("nfUI",0.8,0.65,0.97)
+    GameTooltip:SetOwner(this,"ANCHOR_LEFT");GameTooltip:SetText(E.NAME,0.8,0.65,0.97)
     GameTooltip:AddLine(E.Text("Клик: быстрое меню","Click: quick menu"),1,1,1)
     GameTooltip:AddLine(E.Text("Shift+клик: все настройки","Shift+click: all settings"),1,1,1)
     GameTooltip:AddLine(E.Text("Правая кнопка: двигать панели","Right click: move panels"),1,1,1);GameTooltip:Show()
@@ -164,7 +164,7 @@ local original={}
 for name,color in pairs(E.COLORS) do original[name]={color[1],color[2],color[3]} end
 local shown=false
 E.Every(1,function()
-    local wanted=type(nfUIDB)=="table" and type(nfUIDB.edit)=="table" and nfUIDB.edit.colorblind==true
+    local wanted=type(nfUIDB)=="table" and E.On("colorblind")
     if wanted==shown then return end
     shown=wanted
     for name,target in pairs(E.COLORS) do
@@ -188,18 +188,19 @@ function E.ExportText()
 end
 
 -- Raid marks set by themselves, without two copies of the addon taking one mark from each other.
--- Each hero gets a mark of their own from the party's names in alphabetical order, the same on every client, and
--- marks only themselves. An ally who is down gets the skull from everyone; once up, they take their own mark back.
+-- An ally who is down gets the skull from everyone; once up, it comes off.
 -- A mark someone set by hand is left alone for the rest of the run, and a client the game does not let mark stops trying.
-local HERO_MARKS={1,2,3,5,4} -- star, circle, diamond, triangle, moon
 local SKULL=8
 local marked,lastSet,manual,refusedUntil={},{},{},0
+local DOWN_MARKS={SKULL,7,6,5,4}
+local IS_DOWN_MARK={}
+for _,index in ipairs(DOWN_MARKS) do IS_DOWN_MARK[index]=true end
 local function Mark(unit,index)
     if not SetRaidTarget or not UnitExists(unit) or GetTime()<refusedUntil then return end
     local now=GetRaidTargetIndex and GetRaidTargetIndex(unit) or 0
     if now==index then return end
     -- Someone else changed one's own mark after this addon set it: theirs wins. Allies' marks are their own clients' to set.
-    if unit=="player" and lastSet[unit] and now~=lastSet[unit] and now~=0 and now~=SKULL then manual[unit]=true end
+    if unit=="player" and lastSet[unit] and now~=lastSet[unit] and now~=0 and not IS_DOWN_MARK[now] then manual[unit]=true end
     if manual[unit] then return end
     -- Setting the same mark again would take it off, so 0 only when one is there.
     if index==0 and now==0 then lastSet[unit]=nil;return end
@@ -215,15 +216,11 @@ local function IsDown(unit)
     end
     return false
 end
-local function OwnMark()
-    local names={UnitName("player") or ""}
-    for index=1,4 do local name=UnitExists("party"..index) and UnitName("party"..index);if name then table.insert(names,name) end end
-    table.sort(names)
-    local me=UnitName("player")
-    for index,name in ipairs(names) do if name==me then return HERO_MARKS[index] or 0 end end
-    return 0
-end
-local markTime=0
+local markTime,oldMarkCleared=0,false
+-- Several heroes can be down at once, and every hero may run this addon. A mark belongs to one unit at a time, so each
+-- downed hero gets a mark of their own, in the order of their names: every client works out the same order and puts
+-- the same mark on the same hero, and none takes a mark from another. Skull first, then cross, square, moon, triangle.
+local UNITS={"player","party1","party2","party3","party4"}
 E.Every(0.5,function()
     -- A new run, its clock back at the start, has no hand-set marks to respect.
     local time=type(AZS_RUN)=="table" and tonumber(AZS_RUN.t) or 0
@@ -233,18 +230,36 @@ E.Every(0.5,function()
         for unit in pairs(marked) do Mark(unit,0);marked[unit]=nil end
         return
     end
-    local party=UnitExists("party1")
-    -- One's own mark, unless down: then the others' skull stays.
-    if party and not IsDown("player") then Mark("player",OwnMark());marked.player=true
-    elseif not party and marked.player then Mark("player",0);marked.player=nil end
-    for index=1,4 do
-        local unit="party"..index
-        if UnitExists(unit) and IsDown(unit) then Mark(unit,SKULL);marked[unit]=true
-        elseif marked[unit] then
-            -- Up again: the skull goes, unless their own client has already put their mark back.
-            if UnitExists(unit) and GetRaidTargetIndex and GetRaidTargetIndex(unit)==SKULL then Mark(unit,0) end
-            marked[unit]=nil
-        end
+    -- Heroes wear no mark of their own any more; one an earlier build put on the player comes off once.
+    if not oldMarkCleared then
+        oldMarkCleared=true
+        local now=GetRaidTargetIndex and GetRaidTargetIndex("player") or 0
+        if now>0 and not IS_DOWN_MARK[now] and not IsDown("player") then lastSet.player=now;Mark("player",0) end
+    end
+    if not UnitExists("party1") then
+        for unit in pairs(marked) do Mark(unit,0);marked[unit]=nil end
+        return
+    end
+    local down={}
+    for _,unit in ipairs(UNITS) do
+        if UnitExists(unit) and IsDown(unit) then table.insert(down,UnitName(unit) or "") end
+    end
+    table.sort(down)
+    local markOf={}
+    for order,name in ipairs(down) do markOf[name]=DOWN_MARKS[order] end
+    for _,unit in ipairs(UNITS) do
+        if UnitExists(unit) then
+            local index=markOf[UnitName(unit) or ""]
+            if index then Mark(unit,index);marked[unit]=true
+            else
+                -- Raised: the mark of the fallen comes off, whoever put it there.
+                local now=GetRaidTargetIndex and GetRaidTargetIndex(unit) or 0
+                if IS_DOWN_MARK[now] and (marked[unit] or unit=="player") then
+                    local keep=manual[unit];manual[unit]=nil;Mark(unit,0);manual[unit]=keep
+                end
+                marked[unit]=nil
+            end
+        elseif marked[unit] then marked[unit]=nil end
     end
 end)
 

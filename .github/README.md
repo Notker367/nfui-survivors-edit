@@ -1,135 +1,121 @@
-# nfUI Survivors Edit
+# Survivors HUD
 
-**A readable HUD for Azeroth Survivors: see what is hitting you, what each pick did and how your build grows from run to run, even in a swarm.**
+**See what will kill you. See what can still drop. See why the run ended.**
 
-Windows and browser versions · English and Russian · free · an unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous
+An interface for Azeroth Survivors · Windows and browser · English and Russian · free
+An unofficial edit of [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous
 
-[Русская версия](README.ru.md) · [What's new](../CHANGELOG.md) · [Report a bug](../../../issues) · [Original nfUI readme](ORIGINAL-README.md)
+[Русский](README.ru.md) · [What's new](../CHANGELOG.md) · [Feedback and bugs](../../../issues/new/choose)
 
-![The HUD at 1:30 of a real run, with numbered parts](media/overview.jpg)
+![Survivors HUD in a fight](media/hud-en.jpg)
 
 ## Install in a minute
 
-1. Download [`update-nfUI.bat`](../../../releases/latest) from the latest release.
-2. Put it in the game folder, next to `benilla-config`, and run it. It installs the addon, and later updates it the same way; your settings stay.
-3. Start the game. A one-minute setup asks how much to show and which layout you like.
+1. Download [`update-nfUI.bat`](../../../releases/latest) and put it in the game folder, next to `benilla-config`.
+2. Run it. It installs the addon and updates it the same way later; your settings stay.
+3. Start the game and pick a style: **Classic** or **Modern**.
 
-Without the bat: download `nfUI-survivors-edit.zip` from [Releases](../../../releases), delete any old `nfUI` folder, unzip so that you get `benilla-config/AddOns/nfUI`, enable **nfUI** in the addon list and restart the game fully.
+<details>
+<summary><b>Install by hand, without the bat file</b></summary>
 
-**Browser version** ([wow.aethus.pl](https://wow.aethus.pl/)): see [web/README.md](../web/README.md). No unzipping needed.
+1. Download `nfUI-survivors-edit.zip` from the [latest release](../../../releases/latest).
+2. Close the game. If `benilla-config/AddOns` already has an `nfUI` folder, delete it.
+3. Unzip the archive into `benilla-config/AddOns`, so that you get `benilla-config/AddOns/nfUI`.
+4. Start the game and enable **Survivors HUD** in the addon list.
 
-## The main things
+Updating works the same way: delete the old folder, unzip the new one. Your settings are kept elsewhere and stay.
 
-**In the fight.** Your health as a number with a red line at the hit that would kill you, the shield as a blue frame, one damage number at a time coming out of your bar. Enemies, elites, guardians and bosses each look different, with their distance in metres. Countdowns to every boss and guardian.
+</details>
 
-**For your build.** The skill and jewelry pools show what can still come up; the legendary amulets of the spells you have sit on top, with their pictures from the game's Codex. Click a card to mark it banished.
+**Browser version:** Options → AddOns → Install AddOns → [`nfUI-survivors-edit.zip`](../web/nfUI-survivors-edit.zip). No unpacking needed.
 
-**After the run.** A short card says what killed you: one hit, a volley, a crowd or worn down. Its *Run review* button opens the run analysis; the same run waits on a card before your next one.
+## What it gives you
 
-![The run analysis: DPS through the run against the best, and what each pick did](media/analysis.jpg)
-
-## For players who dig into numbers
-
-**Run analysis** (the sword by the minimap, or `/nfui runs`) keeps the last 20 runs of each class:
-
-- **Overview:** the run in a sentence, DPS through the run against the best run on the same zone and difficulty, and every pick marked on the graph with what it did.
-- **Build:** skills, jewelry and gear with ranks, talents and luck.
-- **Skills:** damage by skill.
-- **Compare:** this run against the best here or the class's best, over time and in the build.
-- **Profile:** the class over all runs: longest, strongest, averages, places played, what you pick most.
-- **What works:** runs with each skill or piece of jewelry against runs without it, each run taken against its own zone's average.
-
-The **detailed** mode adds hero stats and a DPS graph against your last run. `/nfui export` gives all runs as text.
-
-## What is on the screen
-
-| # | Part | What it does |
+| See the danger | Know your build | Learn from runs |
 |---|---|---|
-| 1 | Hero frame | Current health as a number, regeneration per second at the bar's end, level on the portrait, the shield as a blue frame around the bar with its amount, a chest icon when you can afford one. A red line marks the biggest hit of the last minute: when health and shield fall under it, the bar pulses and says the next such hit kills |
-| 2 | Skill bar | Cooldown numbers on every skill, with rank and DPS under each. Hover a skill for its DPS, share of damage and damage this run |
-| 3 | Bosses | Countdown to every boss of the run: yellow under 30 sec, red under 10, the final boss in violet |
-| 4 | Guardians | Each lair: countdown until its guardian appears, then asleep or its health. The `>` marks the one the game points at |
-| 5 | Damage taken | What has hurt you this run: enemy or boss, melee, spell or area, with shares |
-| 6 | History | Your DPS now against your last and best run with the same class in the same zone and difficulty, and the class's best anywhere, **at the same moment of the run**. Below, the class's latest runs on any map |
-| 7 | Skill pool | Picked skills on their own row with a green edge, what can still come up below. Dims when all 6 are picked |
-| 8 | Jewelry pool | A row for each kind, same order of effects: damage, survival, utility. Worn pieces have a green edge. On top, larger, the legendary amulets of the spells you have, each with its spell in the corner as in the Codex. Rings and trinkets dim once both slots are full, other amulets once one is worn. Hover to read them |
-| 9 | Chat | A clear narrow font, even margins, tabs always visible, the input box above it |
-| 10 | Enemy bars | Level coloured as in classic WoW (grey, green, yellow, orange, red), current health, distance in metres, a red edge on enemies next to you. Mobs, elites, guardians and bosses differ in size, mark and edge colour; allies get an edge in their class colour, the party's pets a thin bar without a name. Health drains smoothly and leaves a trail. Pale bars are enemies beyond the game's own nameplates |
-| 11 | Damage numbers | Your hits, also above the target's health with the skill's icon. Bigger hits are larger and stay longer. Hits that cannot be placed merge into one number instead of a pile |
-| 12 | Damage and healing on you | One red number at a time comes out of your health bar where the health was lost, and the bar flares red; active healing rises in green beside it. Bigger numbers are larger |
-| 13 | DPS meter | Click to expand: every skill with its icon, hits per second and its biggest hit, and the party's in co-op |
+| ![One-shot line](media/danger-en.jpg) | ![Pools](media/pools-en.jpg) | ![Run review](media/analysis.jpg) |
+| Health as a number and a red line at the hit that kills. A countdown to every boss and guardian, metres to enemies. | What you have and what can still drop, with your skills' legendaries pictured as in the Codex. | What killed you, DPS against your best run, and what each pick gave. |
 
-Also on the screen: a short card beside the game's end screen when you die (one hit, a volley, a crowd or worn down, the shield, and your health over the last 5 seconds), a warning with a sound 10 seconds before each boss, and guardians (blue when asleep, orange when awake) and caches (yellow) on the minimap. A pin at the map's edge points the way to one further off.
+One menu sets it up: the gear by the minimap.
 
-## What you can do
+![Quick menu](media/quickmenu-en.jpg)
 
-**Switch panels from the minimap.** The small gear in the minimap's corner stays faint until the mouse comes near. Click it for the quick menu: the three modes, the layout, and on/off for the panels you use most (DPS meter, compass, side panels, pools, numbers, pet bars). Shift+click opens all settings, right click moves panels.
+<details>
+<summary><b>Everything on the screen</b></summary>
 
-**Lay it out as in the old WoW.** In the quick menu, **Classic** puts your frame and the target's in the top left, buffs beside the minimap and the bar at the bottom centre. **Mine** brings back your own layout from before.
-
-**Move and lock anything.** Open `/nfui` and press **Movers**, then drag a panel. Right-click one for exact sizes and **Lock**: a locked panel turns red and stays put.
-
-![Movers with the right-click menu](media/movers.jpg)
-
-**Fold what you do not need.** Click a panel's `[-]` title; the panels below move up.
-
-![The same panels open and folded](media/panels-fold.jpg)
-
-**Mark banished cards.** Click any icon in a pool. It is crossed out and listed at the top right with a count, for this run. The game does not tell addons about banishes, so this is by hand.
-
-![Banished cards at the top right](media/banished.jpg)
-
-**Choose how much you see.** Three modes: default, detailed and hidden. Detailed adds hero stats and a graph of your DPS (bars) against your last run (marks). Hidden removes the info panels for a clean screen. Switch with `/nfui mode`, the button in **Switches**, or a key: **Key Bindings > nfUI > Cycle interface detail**.
-
-![Detailed mode: hero stats, panels and the DPS graph](media/detailed.jpg)
-
-**Compare your runs and builds.** The last 20 runs of each class are kept with the build they were played with: skills and ranks, gear, jewelry and talents. Hover a run in **History** for its damage, best skills, build, and what differs from this run's. `/nfui export` gives all your runs as text to copy.
-
-**Switch things off.** Every on/off choice is in one place, the **Switches** tab. Sizes of the new panels and fonts are in **Blocks**.
-
-| Switches | Blocks |
+| Part | What it shows |
 |---|---|
-| ![Switches tab](media/switches.jpg) | ![Blocks tab](media/blocks.jpg) |
+| Hero frame | Health as a number, regeneration per second, shield as a frame, a chest when gold covers a cache. A red line at the biggest hit of the last minute; below it the bar flashes |
+| Skill buttons | Cooldowns, rank and DPS under each. The tooltip adds damage per second, share and damage this run |
+| Bosses and guardians | A countdown to each boss; when each guardian wakes and its health |
+| You against your best | DPS now against your last and best run with this class at the same second |
+| Skill and jewelry pools | What you have in a row of its own, below what can still drop. A click on an icon marks it banished |
+| Enemy bars | Level in the classic WoW colours, health, metres, a red edge on close enemies. Elites, guardians and bosses look different |
+| Damage numbers | Your hits above the target with the skill's icon; damage and healing on you in a column above your health |
+| DPS meter | Damage by skill; in co-op the whole party |
+| Death card | One-shot, burst, swarmed or worn down; health and shield over the last seconds |
+| Minimap | Guardians (blue asleep, orange awake) and caches |
+| Co-op | Allies' loadouts under their frames, a skull on a downed ally until they are raised |
 
-**Read your stats.** The character page shows them in two columns; click a group to fold what your build does not need.
+</details>
 
-![Character page with foldable groups](media/character.jpg)
+<details>
+<summary><b>Styles, modes and text size</b></summary>
 
-**Keep settings simple.** The common ones are shown first; **Show advanced** opens the rest.
+**Style.** Classic puts large hero and target frames in the top left and the buttons at the bottom centre, as in the old WoW. Modern keeps everything compact under the hero. If you moved anything, going back to Modern brings your own layout back.
 
-**Colour-blind palette.** One switch in **Switches** replaces the red and green pair, then `/reload`.
+![Classic style](media/classic-en.jpg)
 
-**Reset safely.** `Reset section`, `Reset all` and `Reset positions` return to this edit's layout, fitted to your screen. Your run history is kept.
+**How much to show.** Minimal: the fight only. Default: adds bosses, guardians, pools and the comparison with your best run. Detailed: everything, including hero stats and the DPS graph. Any switch can be turned on or off over the mode; it is marked as changed.
 
-## Update
+**Text size.** A−, A or A+ changes all the addon's fonts and side panels at once.
 
-The game gives addons no network or file access, so nothing can update from inside it. In the game, `/nfui` > **Switches** > **Check for updates** shows your version and the link. To update in one step, put [`update-nfUI.bat`](../update-nfUI.bat) next to `benilla-config` and run it: it installs or updates to the latest release, keeps a copy of the previous version (only the latest one) and leaves your settings alone.
+</details>
 
-## What has and has not been tested
+<details>
+<summary><b>Settings, commands and keys</b></summary>
 
-Tested for 1.3.0 without addon errors: all 9 classes in English and Russian (fresh install and an upgrade with a long history), long runs on a strong save, the first setup, the death card and run review at 16:9. Earlier builds were also tested on: 14 client language settings, all 9 classes, window shapes from 4:3 to ultrawide, `/reload`, upgrades from the original nfUI and earlier builds, a co-op run on two clients, and a run in the browser version.
+![Settings](media/settings-en.jpg)
 
-Not fully tested:
+- **Gear by the minimap:** click for the quick menu, Shift+click for all settings, right click to move panels.
+- **Sword beside it:** run analysis.
+- `/nfui` all settings · `/nfui setup` first setup · `/nfui runs` run analysis · `/nfui death` the last death card · `/nfui export` run history as text.
+- A key for the mode: Key Bindings → Survivors HUD.
+- **Moving panels:** Movers in the settings; a right click on a panel gives exact sizes and a lock.
 
-- **Worn jewelry outline:** checked on data in the game's format, not on jewelry dropped in a real run.
-- **Late game:** runs past the first boss, killed guardians returning.
+</details>
 
-Other limits: addon text is English or Russian, game text follows the client's language. 3 pieces of jewelry show only part of their effect or none, because the game's table has no text for it. Legendary amulets and their pictures come from the game's Codex; one not yet offered in a run shows its spell instead of its name. Skill descriptions cover about two thirds of skills. In the browser the minimap is square. Hits above the target are matched by name.
+<details>
+<summary><b>Run analysis</b></summary>
 
-## Questions
+Keeps the last 20 runs of each class.
 
-**Is it safe?** It is a plain addon: it only reads what the game gives addons and draws on the screen. It has no network or file access; the game does not allow it.
+- **Overview:** the run in one line, DPS over the run against your best, picks marked on the graph with what they gave.
+- **Build:** skills, jewelry and gear with ranks, talents.
+- **Skills:** damage by skill.
+- **Compare:** this run against the best here or the best of the class.
+- **Profile:** the class over all runs: longest, strongest, where you play, what you pick most.
+- **What works:** runs with each skill or item against runs without it.
 
-**Will it slow the game?** It is built to be light, and every panel can be switched off on the minimap gear.
+</details>
 
-**How do I go back?** Delete the `benilla-config/AddOns/nfUI` folder. To return to the original nfUI, install it as before.
+<details>
+<summary><b>Questions</b></summary>
 
-**My language is not English or Russian.** The addon's own text is in English then; the game's names (skills, items, zones) follow your client.
+**Is it safe?** It is an ordinary addon: it reads only what the game gives addons and draws on the screen. It has no network and no files.
 
-**Something looks wrong.** `/nfui setup` reopens the first setup; in `/nfui`, *Reset positions* puts every panel back.
+**Will it slow the game?** It is light, and any panel can be switched off.
 
-## Credits and license
+**How do I go back?** Delete the `benilla-config/AddOns/nfUI` folder.
 
-The original nfUI is by [nfmous](https://github.com/nfmous). This repository is a fork, and the notices for third-party code are kept in [`nfUI/Resources/licenses`](../nfUI/Resources/licenses). The original has no license for the whole addon, so none is added here, and the rights to the original code stay with its author. The colours follow [Catppuccin](https://catppuccin.com/) Mocha.
+**Something is in the wrong place.** `/nfui setup` or Reset all in the settings. Your run history stays.
 
-Found a bug? [Open an issue](../../../issues/new/choose) or write in the thread in the game's Discord where you found this build, with a screenshot.
+</details>
+
+## Feedback and bugs
+
+Write in [Issues](../../../issues/new/choose): what does not work, what is unclear, what is missing. Add a screenshot to a bug.
+
+---
+
+Based on [nfUI](https://github.com/nfmous/nfui_AZSRV) by nfmous. An unofficial project, not affiliated with nfmous, the Azeroth Survivors developers or Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment. Third-party notices: [`nfUI/Resources/licenses`](../nfUI/Resources/licenses). Colours after the [Catppuccin](https://catppuccin.com/) palette.

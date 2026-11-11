@@ -1,5 +1,29 @@
 # What's new
 
+## 1.4.0
+
+**A new name: Survivors HUD.** The folder, your settings and `/nfui` stay as they were, so updating keeps everything.
+
+**Settings you can read**
+- Tabs by what you want: Main, Fight, Build, Run; frame sizes and looks under Show advanced.
+- Every switch says in a line what it does and where it shows.
+- How much to show (Minimal, Default, Detailed) sets the defaults; a switch you set yourself wins and is marked as changed. Reset section gives it back to the mode.
+- A bigger settings window with larger text. Reset all asks once more before it acts.
+- The quick menu on the minimap gear: mode, style, text size and ten main switches, each with a tooltip.
+
+**Styles and text size**
+- Classic: large hero and target frames in the top left, buttons at the bottom centre, as in the old WoW. Modern: everything compact under the hero, with your own layout kept.
+- Text size A-, A or A+: every font of the addon and the side panels together.
+- The first setup asks three things: how much to show, the style and the text size.
+
+**Fixes**
+- Tooltips of pool and ally icons open beside the icon, and an enemy behind the panel no longer takes them over.
+- The skill tooltip shows its numbers again: damage per second, share and damage this run.
+- The DPS meter shows an icon for melee in the Russian client, and a new skill gets its icon at once.
+- Stormstrike has its icon in the shaman's pool.
+- Raid marks only when they matter: a skull on an ally who is down, a mark of its own for each when several are, and it comes off once they are up.
+- The same names for the modes everywhere; no cut-off lines in the quick menu.
+
 ## 1.3.0
 
 **Run analysis**

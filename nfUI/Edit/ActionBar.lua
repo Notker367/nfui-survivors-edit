@@ -88,9 +88,10 @@ if setAction then
             local line=MeterLine(first and first:GetText())
             if line then
                 self:AddLine(" ")
-                self:AddDoubleLine(E.Text("Урон в секунду","Damage per second"),E.Short(line.dps).." DPS",1,0.82,0,1,1,1)
-                if type(line.share)=="number" then self:AddDoubleLine(E.Text("Доля урона","Damage share"),string.format("%.0f%%",line.share*100),1,0.82,0,1,1,1) end
-                if type(line.dmg)=="number" then self:AddDoubleLine(E.Text("Урон за забег","Damage this run"),E.Short(line.dmg),1,0.82,0,1,1,1) end
+                self:AddLine(E.Text("В этом забеге","This run"),0.54,0.71,0.98)
+                self:AddDoubleLine(E.Text("Урон в секунду","Damage per second"),E.Short(line.dps).." DPS",0.8,0.82,0.88,1,1,1)
+                if type(line.share)=="number" then self:AddDoubleLine(E.Text("Доля урона","Damage share"),string.format("%.0f%%",line.share*100),0.8,0.82,0.88,1,1,1) end
+                if type(line.dmg)=="number" then self:AddDoubleLine(E.Text("Урон за забег","Damage this run"),E.Short(line.dmg),0.8,0.82,0.88,1,1,1) end
                 self:Show()
             end
         end

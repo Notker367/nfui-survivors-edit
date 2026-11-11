@@ -10,7 +10,30 @@ local SPOTS={
 }
 -- The old game's places, on the same 3440x1440 basis: your frame and the target's in the top left, the debuffs
 -- under the target, the bar and the experience at the bottom centre. The buffs go beside the minimap.
-local CLASSIC={player={40,795},target={280,795},targetDebuffs={280,767},actionBar={921,8},xp={922,38}}
+local CLASSIC={player={40,795},target={330,795},targetDebuffs={330,762},actionBar={881,8},xp={882,46}}
+-- Classic is also the old game's sizes: larger frames with portraits, larger buttons, a wider experience strip.
+local CLASSIC_SIZES={
+    player={width=200,height=24,portrait=40,powerHeight=4,nameFont=13,valueFont=13},
+    target={width=200,height=24,portrait=40,powerHeight=4,nameFont=13,valueFont=13},
+    playerStyle={showPortrait=true},targetStyle={showPortrait=true},
+    action={size=34,gap=3,hotkeyFont=10,cooldownFont=14,countFont=11},
+    xp={width=244,height=6},
+    auras={size=26,gap=2,timeFont=11,stackFont=11},debuffs={size=24,gap=2,stackFont=11},
+}
+local function SizesOf(db)
+    local copy={}
+    for name,values in pairs(CLASSIC_SIZES) do
+        copy[name]={}
+        for key in pairs(values) do if type(db[name])=="table" then copy[name][key]=db[name][key] end end
+    end
+    return copy
+end
+local function PutSizes(db,sizes)
+    for name,values in pairs(sizes or {}) do
+        if type(db[name])~="table" then db[name]={} end
+        for key,value in pairs(values) do db[name][key]=value end
+    end
+end
 local CLASSIC_CENTERED={actionBar=true,xp=true}
 local function Merge(target,values)
     if type(target)~="table" then return end
@@ -183,14 +206,23 @@ local function Copy(value)
     return copy
 end
 -- "classic" puts everything where the old game had it and keeps the player's layout; "mine" brings that back.
+-- A style keeps its sizes at the normal text size, so it is switched at that size and the player's text size is put back after.
+local ApplyLayoutAtNormalText
 function nfUIEdit.ApplyLayout(name)
+    local size=nfUIEdit.TextSize and nfUIEdit.TextSize() or "normal"
+    if size~="normal" and nfUIEdit.SetTextSize then nfUIEdit.SetTextSize("normal") end
+    ApplyLayoutAtNormalText(name)
+    if size~="normal" and nfUIEdit.SetTextSize then nfUIEdit.SetTextSize(size) end
+end
+ApplyLayoutAtNormalText=function(name)
     local db=nfUIDB
     if type(db)~="table" then return end
     local width,height=ScreenUnits()
     if not width or width<=0 or not height or height<=0 then return end
     db.positions=type(db.positions)=="table" and db.positions or {}
     if name=="classic" then
-        if db.layoutPreset~="classic" then db.savedLayout={positions=Copy(db.positions),basis=Copy(db.layoutBasis)} end
+        if db.layoutPreset~="classic" then db.savedLayout={positions=Copy(db.positions),basis=Copy(db.layoutBasis),sizes=SizesOf(db)} end
+        PutSizes(db,CLASSIC_SIZES)
         local temp={positions={},layoutPreset="classic"}
         for key,spot in pairs(SPOTS) do temp.positions[key]={x=spot[1],y=spot[2]} end
         for key,spot in pairs(CLASSIC) do temp.positions[key]={x=spot[1],y=spot[2]} end
@@ -212,15 +244,57 @@ function nfUIEdit.ApplyLayout(name)
         db.layoutPreset="classic"
     elseif name=="mine" then
         local saved=db.savedLayout
-        if type(saved)~="table" or type(saved.positions)~="table" then return end
+        if type(saved)~="table" or type(saved.positions)~="table" then
+            -- Nothing kept from before Classic: the edit's own layout and sizes for this screen.
+            local fresh=nfUIEdit.FreshProfile()
+            saved={positions=fresh.positions,basis=fresh.layoutBasis,sizes=SizesOf(fresh)}
+        end
         local temp={positions=Copy(saved.positions)}
         local basis=type(saved.basis)=="table" and saved.basis or {width=width,height=height}
         if math.abs(basis.width-width)>2 or math.abs(basis.height-height)>2 then
             nfUILayoutRescale(temp,basis.width,basis.height,width,height)
         end
         db.positions=temp.positions
+        PutSizes(db,saved.sizes)
         db.layoutPreset=nil
     else return end
     db.layoutBasis={width=width,height=height}
+    if nfUIConfig.Apply then pcall(nfUIConfig.Apply) end
+end
+
+-- Text size: every font size the addon keeps, and its side panels, larger or smaller together.
+nfUIEdit.TEXT_SIZES={{"small",0.9,"Мелкий","Small"},{"normal",1,"Обычный","Normal"},{"large",1.15,"Крупный","Large"}}
+local FONT_KEYS={player={"nameFont","valueFont"},target={"nameFont","valueFont"},action={"hotkeyFont","cooldownFont","countFont"},
+    auras={"timeFont","stackFont"},debuffs={"stackFont"},chat={"font","tabFont","editFont"},nameplates={"nameFont","healthFont"},
+    blocks={"risingFont","skillStatsFont","metresFont","ownLevelFont"}}
+local SCALE_KEYS={blocks={"groupRightScale","groupLeftScale"},dpsDisplay={"scale"}}
+function nfUIEdit.TextSize() return type(nfUIDB)=="table" and nfUIDB.textSize or "normal" end
+function nfUIEdit.SetTextSize(name)
+    local db=nfUIDB
+    if type(db)~="table" then return end
+    local factor,old=nil,1
+    for _,size in ipairs(nfUIEdit.TEXT_SIZES) do
+        if size[1]==name then factor=size[2] end
+        if size[1]==nfUIEdit.TextSize() then old=size[2] end
+    end
+    if not factor or factor==old then db.textSize=name;return end
+    local ratio=factor/old
+    for section,keys in pairs(FONT_KEYS) do
+        if type(db[section])=="table" then
+            for _,key in ipairs(keys) do
+                local value=tonumber(db[section][key])
+                if value then db[section][key]=math.floor(value*ratio+0.5) end
+            end
+        end
+    end
+    for section,keys in pairs(SCALE_KEYS) do
+        if type(db[section])=="table" then
+            for _,key in ipairs(keys) do
+                local value=tonumber(db[section][key])
+                if value then db[section][key]=value*ratio end
+            end
+        end
+    end
+    db.textSize=name
     if nfUIConfig.Apply then pcall(nfUIConfig.Apply) end
 end

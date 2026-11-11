@@ -18,6 +18,8 @@ NFUI_FONT=Usable(LANGUAGE_FONTS[language]) or FALLBACK_FONT
 -- Narrower and clearer at small sizes, for the bars over heads. It has no Romanian s and t with a comma.
 NFUI_PLATE_FONT=Usable(LANGUAGE_FONTS[language]) or (language=="ro" and FALLBACK_FONT) or Usable("Fonts\\ARIALN.TTF") or FALLBACK_FONT
 E.FONT=NFUI_FONT
+-- The name players see. The folder, the saved settings and /nfui keep the original nfUI name, so updates keep working.
+E.NAME="Survivors HUD"
 E.FLAT="Interface\\Buttons\\WHITE8X8"
 -- The interface's colours, after Catppuccin Mocha. Level colours stay the classic game's.
 local function RGB(hex)
@@ -42,16 +44,54 @@ E.BUTTONS={1,2,3,4,5,6,12}
 function E.Mode()
     return type(nfUIDB)=="table" and nfUIDB.uiMode or "default"
 end
--- What the hidden mode takes away, and what only the detailed mode adds.
-local INFO_PANELS={bossSchedule=true,lairPanel=true,takenPanel=true,historyPanel=true,skillPool=true,jewelPool=true,heroStats=true,dpsGraph=true}
-local DETAILED_ONLY={heroStats=true,dpsGraph=true}
--- A switch from the settings' Switches tab. Anything not switched off counts as on.
+-- How much is shown is a set of defaults. Minimal keeps the fight; Default adds bosses, guardians, pools and the run
+-- against the best; Detailed adds everything for testing builds. A switch the player sets by hand wins over the mode
+-- and is marked as changed; "Reset section" gives it back to the mode.
+E.MODE_DEFAULTS={
+    hidden={bossSchedule=false,lairPanel=false,takenPanel=false,historyPanel=false,skillPool=false,jewelPool=false,legendRow=false,
+        heroStats=false,dpsGraph=false,farPlates=false,skillRate=false,targetOfTarget=false,separateHits=false,banishMarks=false},
+    default={takenPanel=false,heroStats=false,dpsGraph=false,farPlates=false,skillRate=false,targetOfTarget=false},
+    detailed={takenPanel=true,heroStats=true,dpsGraph=true,farPlates=true,skillRate=true,targetOfTarget=false},
+}
+-- Earlier builds kept every switch with its value, so a switch differing from the old default is one the player chose.
+local OLD_DEFAULT_OFF={colorblind=true}
+local function Migrate(db)
+    if db.editMigrated then return end
+    db.editMigrated=true
+    db.editSet=type(db.editSet)=="table" and db.editSet or {}
+    for key,value in pairs(type(db.edit)=="table" and db.edit or {}) do
+        local was=not OLD_DEFAULT_OFF[key]
+        if (value~=false)~=was then db.editSet[key]=true end
+    end
+end
+-- Whether the player has set this switch by hand.
+function E.SwitchChanged(key)
+    local db=type(nfUIDB)=="table" and nfUIDB
+    if not db then return false end
+    Migrate(db)
+    return type(db.editSet)=="table" and db.editSet[key]==true
+end
+function E.SetSwitch(key,value)
+    if type(nfUIDB)~="table" then return end
+    Migrate(nfUIDB)
+    if type(nfUIDB.edit)~="table" then nfUIDB.edit={} end
+    nfUIDB.edit[key]=value and true or false
+    nfUIDB.editSet[key]=true
+end
+function E.ResetSwitch(key)
+    if type(nfUIDB)~="table" then return end
+    Migrate(nfUIDB)
+    nfUIDB.editSet[key]=nil
+    if type(nfUIDB.edit)=="table" then nfUIDB.edit[key]=nil end
+end
+-- A switch as it works now: the player's own choice, else the mode's default, else on.
 function E.On(key)
-    local mode=E.Mode()
-    if mode=="hidden" and INFO_PANELS[key] then return false end
-    if mode~="detailed" and DETAILED_ONLY[key] then return false end
-    local switches=type(nfUIDB)=="table" and nfUIDB.edit
-    return not switches or switches[key]~=false
+    local db=type(nfUIDB)=="table" and nfUIDB
+    if db and E.SwitchChanged(key) then return type(db.edit)~="table" or db.edit[key]~=false end
+    local preset=E.MODE_DEFAULTS[E.Mode()]
+    if preset and preset[key]~=nil then return preset[key] end
+    if OLD_DEFAULT_OFF[key] then return false end
+    return true
 end
 
 function E.IsRussian() return GetCVar("azsLanguage")=="ru" end

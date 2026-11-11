@@ -5,8 +5,63 @@ local FONT=NFUI_FONT
 local categories={
     {key="layout",title="Overall layout",description="Overall scale. Use Movers to position each element independently.",
         fields={{"scale","Overall scale"}}},
-    {key="edit",title="Switches",description="Everything that turns on and off, in one place.",
-        fields={{"updates","Version","update"},{"mode","Interface detail (/nfui mode)","mode"},{"export","Run history (/nfui export)","export"},{"colorblind","Colour-blind palette (then /reload)","check"},{"groupRight","Right panels","group",keys={"bossSchedule","lairPanel","takenPanel","historyPanel","heroStats","dpsGraph"}},{"bossSchedule","Boss schedule","check"},{"lairPanel","Guardians panel","check"},{"takenPanel","Damage taken panel","check"},{"historyPanel","Run history panel","check"},{"heroStats","Hero stats (detailed mode)","check"},{"dpsGraph","DPS graph (detailed mode)","check"},{"groupLeft","Skill and jewelry pools","group",keys={"skillPool","jewelPool","legendRow","banishMarks","ownLoadout","skillStats"}},{"skillPool","Skill pool","check"},{"jewelPool","Jewelry pool","check"},{"legendRow","Skill legendaries in the jewelry pool","check"},{"banishMarks","Banished cards panel","check"},{"ownLoadout","Own jewelry panel","check"},{"skillStats","Rank and DPS under skills","check"},{"groupNumbers","Numbers","group",keys={"risingDamage","risingHeal","targetRising","fullHits","separateHits","skillRate"}},{"risingDamage","Rising damage numbers above health","check"},{"risingHeal","Green healing numbers beside them","check"},{"targetRising","Your hits above the target's health","check"},{"fullHits","Damage numbers in full: 12 345, not 12k","check"},{"separateHits","Separate hits beside the total","check"},{"skillRate","DPS meter: hits per second and biggest hit","check"},{"groupBars","Enemy bars","group",keys={"levels","hitImpact","plateTrail","plateFade","farPlates","metres","redEdge","friendFade"}},{"levels","Levels before names","check"},{"hitImpact","Health bars react to hits","check"},{"plateTrail","Plate health drain animation","check"},{"plateFade","Far and covered bars fade","check"},{"farPlates","Bars for far enemies","check"},{"metres","Metres beside plates","check"},{"redEdge","Red edge on nearby and attacking enemies","check"},{"friendFade","Pets' bars stay faint","check"},{"groupHero","Hero and target","group",keys={"ownLevel","regenText","targetOfTarget","chestIcon"}},{"ownLevel","Hero level on the portrait","check"},{"regenText","Regeneration per second on the health bar","check"},{"targetOfTarget","Target of target","check"},{"chestIcon","Chest icon when affordable","check"},{"groupParty","Allies","group",keys={"partyLoadout","autoMarks","allyLoadout"}},{"partyLoadout","Allies' skills and jewelry under their frames","check"},{"autoMarks","Marks: a star on you, a skull on a downed ally","check"},{"allyLoadout","Ally skills and jewelry","check"},{"groupMap","Map and chat","group",keys={"bossAlert","mapPins","mapSettings","chatNarrowFont","chatTabs"}},{"bossAlert","Warning 10 sec before a boss","check"},{"mapPins","Guardians and caches on the minimap","check"},{"mapSettings","Settings button on the minimap","check"},{"chatNarrowFont","Chat: narrow clear font","check"},{"chatTabs","Chat: tabs always visible","check"}}},
+    -- The switches, by what the player wants from them. Each says in a line what it does and where it shows.
+    {key="main",title="Main",ru="Основное",description="How much to show and what matters most.",descRu="Сколько показывать и самое нужное.",fields={
+        {"style","Style","style",ru="Стиль",desc={"Классический: как в старом WoW. Современный: всё под героем.","Classic: as in the old WoW. Modern: everything under the hero."}},
+        {"textSize","Text size","textsize",ru="Размер текста",desc={"Все шрифты аддона и боковые панели вместе.","All the addon's fonts and side panels together."}},
+        {"mode","How much to show","mode",ru="Сколько показывать",desc={"Минимум: только бой. Обычный: плюс боссы и пулы. Подробный: всё.","Minimal: the fight only. Default: adds bosses and pools. Detailed: all."}},
+        {"dangerLine","One-shot line","switch",ru="Порог ваншота",desc={"Красная черта на ХП: ниже неё следующий такой удар убьёт.","A red line on health: below it the next hit like that kills."}},
+        {"deathSummary","Death card","switch",ru="Карточка смерти",desc={"После смерти: что убило и кнопка разбора забега.","After a death: what killed you and a button to review the run."}},
+        {"bossAlert","Boss warning","switch",ru="Предупреждение о боссе",desc={"Звук и надпись за 10 секунд до босса.","A sound and a line 10 seconds before a boss."}},
+        {"skillStats","Rank and DPS under skills","switch",ru="Ранг и DPS под скилами",desc={"Под каждой кнопкой скила его ранг и урон в секунду.","Each skill button shows its rank and damage per second."}},
+        {"dpsMeter","DPS meter","switch",ru="DPS-метр",desc={"Урон по скилам справа внизу; клик по заголовку разворачивает.","Damage by skill in the bottom right; click the header to unfold."}},
+        {"runsButton","Run analysis button","switch",ru="Кнопка анализа забегов",desc={"Меч у мини-карты открывает разбор забегов.","A sword by the minimap opens the run analysis."}},
+        {"lastRunCard","Last run at the start","switch",ru="Прошлый забег на старте",desc={"Перед забегом карточка прошлого: как далеко дошли и что убило.","Before a run, a card of the last one: how far it went and what killed you."}},
+        {"colorblind","Colour-blind palette","switch",ru="Палитра для дальтоников",desc={"Красный и зелёный заменяются синим и оранжевым. Затем /reload.","Red and green become blue and orange. Then /reload."}},
+        {"export","Run history as text","export",ru="История забегов текстом",desc={"Все забеги одной строкой, чтобы скопировать.","Every run in one line, to copy."}},
+        {"updates","Version","update",ru="Версия",desc={"Где взять новую версию и куда писать об ошибках.","Where to get a new version and where to report a bug."}}}},
+    {key="fight",title="Fight",ru="Бой",description="Numbers, enemy bars and the hero frame.",descRu="Цифры, полоски врагов и панель героя.",fields={
+        {"risingDamage","Damage you take","switch",ru="Урон по вам",desc={"Красные цифры поднимаются над вашим ХП.","Red numbers rise above your health."}},
+        {"risingHeal","Healing you get","switch",ru="Хил по вам",desc={"Зелёные цифры рядом с уроном.","Green numbers beside the damage."}},
+        {"targetRising","Your hits on the target","switch",ru="Ваши удары по цели",desc={"Цифры над ХП цели со значком скила.","Numbers above the target's health with the skill's icon."}},
+        {"levels","Enemy levels","switch",ru="Уровень врагов",desc={"Перед именем, в цветах классического WoW.","Before the name, in the classic WoW colours."}},
+        {"metres","Metres to enemies","switch",ru="Метры до врагов",desc={"Расстояние рядом с полоской врага.","The distance beside an enemy's bar."}},
+        {"redEdge","Red edge on close enemies","switch",ru="Красная рамка у ближних",desc={"Враг рядом с вами обведён красным.","An enemy close to you gets a red edge."}},
+        {"farPlates","Far enemies","switch",ru="Дальние враги",desc={"Бледные полоски врагов за пределами обычных.","Pale bars for enemies beyond the game's own."}},
+        {"petBars","Pet bars","switch",ru="Полоски питомцев",desc={"Тонкая полоска без имени у питомцев группы.","A thin nameless bar on the party's pets."}},
+        {"noSpellEffects","Spell effects","cvar",ru="Эффекты заклинаний",invert=true,desc={"Вспышки и следы заклинаний. Без них проще видеть врагов.","Flashes and trails of spells. Without them enemies are easier to see."}},
+        {"regenText","Regeneration per second","switch",ru="Реген в секунду",adv=true,desc={"Зелёное число на конце полоски ХП.","A green number at the end of the health bar."}},
+        {"ownLevel","Hero level on the portrait","switch",ru="Уровень на портрете",adv=true,desc={"Число на портрете героя.","A number on the hero's portrait."}},
+        {"chestIcon","Chest when affordable","switch",ru="Сундук по карману",adv=true,desc={"Значок у панели героя, когда золота хватает на сундук.","An icon by the hero frame when gold covers a cache."}},
+        {"fullHits","Damage numbers in full","switch",ru="Урон полным числом",adv=true,desc={"12 345 вместо 12k.","12 345 instead of 12k."}},
+        {"separateHits","Separate hits beside the total","switch",ru="Отдельные удары",adv=true,desc={"Каждый удар рядом с общей цифрой.","Each hit beside the total."}},
+        {"hitImpact","Bars react to hits","switch",ru="Полоски вздрагивают",adv=true,desc={"Полоска врага вспыхивает от удара.","An enemy's bar flashes when hit."}},
+        {"plateTrail","Health drain trail","switch",ru="След убывания ХП",adv=true,desc={"Убывающее ХП оставляет светлый след.","Lost health leaves a light trail."}},
+        {"plateFade","Far and covered bars fade","switch",ru="Дальние полоски бледнее",adv=true,desc={"Чем дальше враг, тем бледнее его полоска.","The farther an enemy, the paler its bar."}},
+        {"friendFade","Pets' bars stay faint","switch",ru="Питомцы бледнее",adv=true,desc={"Полоски питомцев не отвлекают от врагов.","Pets' bars do not draw the eye from enemies."}},
+        {"targetOfTarget","Target of target","switch",ru="Цель цели",adv=true,desc={"В Survivors это почти всегда вы.","In Survivors it is almost always you."}}}},
+    {key="build",title="Build",ru="Билд",description="What you have and what can still drop.",descRu="Что взято и что ещё может выпасть.",fields={
+        {"skillPool","Skill pool","switch",ru="Пул скилов",desc={"Взятые скилы отдельным рядом, ниже то, что ещё может выпасть.","Picked skills in a row of their own, below what can still drop."}},
+        {"jewelPool","Jewelry pool","switch",ru="Пул бижутерии",desc={"Кольца, талисманы и амулеты: надетое в рамке, остальное ещё возможно.","Rings, trinkets and amulets: worn ones framed, the rest still possible."}},
+        {"legendRow","Skill legendaries","switch",ru="Легендарки на скилы",desc={"Легендарные амулеты ваших скилов сверху, с картинками из Кодекса.","Your skills' legendary amulets on top, with the Codex pictures."}},
+        {"banishMarks","Banished cards","switch",ru="Изгнанные карты",desc={"Клик по значку в пуле отмечает его изгнанным.","A click on a pool icon marks it as banished."}},
+        {"ownLoadout","Your jewelry","switch",ru="Ваша бижутерия",adv=true,desc={"Надетое под панелью скилов.","What you wear, under the skill bar."}},
+        {"partyLoadout","Allies' loadouts","switch",ru="Снаряжение союзников",adv=true,desc={"Скилы и бижутерия под рамками группы.","Skills and jewelry under the party frames."}},
+        {"allyLoadout","Chosen ally's loadout","switch",ru="Снаряжение выбранного союзника",adv=true,desc={"Под целью, когда выбран союзник.","Under the target when an ally is chosen."}},
+        {"autoMarks","Mark downed allies","switch",ru="Метки на упавших",adv=true,desc={"Череп на упавшем союзнике, чтобы его подняли. Снимается после подъёма.","A skull on an ally who is down, so they get raised. Comes off once up."}}}},
+    {key="run",title="Run",ru="Забег",description="Panels on the right: bosses, guardians, history.",descRu="Панели справа: боссы, стражи, история.",fields={
+        {"bossSchedule","Bosses","switch",ru="Боссы",desc={"Отсчёт до каждого босса забега.","A countdown to each boss of the run."}},
+        {"lairPanel","Guardians","switch",ru="Стражи",desc={"Когда проснётся каждый страж и сколько у него ХП.","When each guardian wakes and its health."}},
+        {"historyPanel","You against your best","switch",ru="Ты против лучшего",desc={"DPS сейчас против прошлого и лучшего забега в ту же секунду.","DPS now against the last and best run at the same second."}},
+        {"takenPanel","What hurts you","switch",ru="Кто бьёт героя",desc={"Доли урона по вам: враги, боссы, удары, заклинания.","Shares of the damage you take: enemies, bosses, hits, spells."}},
+        {"heroStats","Hero stats","switch",ru="Статы героя",desc={"Урон, крит, скорость и остальное столбиком.","Damage, crit, speed and the rest in a column."}},
+        {"dpsGraph","DPS graph","switch",ru="График DPS",desc={"DPS по ходу забега против прошлого.","DPS over the run against the last one."}},
+        {"skillRate","Hits per second in the meter","switch",ru="Удары в секунду в метре",adv=true,desc={"В DPS-метре: как часто бьёт скил и самый сильный удар.","In the DPS meter: how often a skill hits and its biggest hit."}},
+        {"mapPins","Guardians and caches on the minimap","switch",ru="Стражи и сундуки на карте",adv=true,desc={"Голубые стражи спят, оранжевые проснулись, жёлтые сундуки.","Blue guardians sleep, orange ones are awake, yellow are caches."}}}},
+    {key="look",title="Look",ru="Внешний вид",description="Chat, minimap and the switches of each frame.",descRu="Чат, мини-карта и переключатели каждой панели.",fields={
+        {"mapSettings","Gear by the minimap","switch",ru="Шестерёнка у мини-карты",desc={"Быстрое меню. Без неё настройки открываются командой /nfui.","The quick menu. Without it, settings open with /nfui."}},
+        {"chatNarrowFont","Narrow chat font","switch",ru="Узкий шрифт чата",desc={"Чёткий шрифт, больше слов в строке.","A crisp font, more words per line."}},
+        {"chatTabs","Chat tabs always visible","switch",ru="Вкладки чата всегда видны",desc={"Иначе появляются при наведении.","Otherwise they show on hover."}}}},
     {key="blocks",title="Blocks",description="Size of each movable block. Drag them with Movers; right-click one to lock it.",
         fields={{"headRight","Right panels","heading"},{"groupRightScale","Whole group"},{"bossesScale","Boss schedule"},{"lairsScale","Guardians"},{"takenScale","Damage taken"},{"historyScale","Run history"},{"graphScale","DPS graph"},{"statsScale","Hero stats"},{"headLeft","Skill and jewelry pools","heading"},{"groupLeftScale","Whole group"},{"poolScale","Skill pool"},{"jewelPoolScale","Jewelry pool"},{"pickedEdgeSize","Picked items: edge thickness"},{"banishedScale","Banished cards"},{"ownScale","Own jewelry"},{"headNumbers","Numbers","heading"},{"risingFont","Rising damage: font"},{"risingHeight","Rising damage: how high"},{"risingScale","Rising damage: block"},{"targetRisingScale","Damage on the target"},{"skillStatsFont","Rank and DPS font"},{"headBars","Enemy bars","heading"},{"farRadius","Far bars: radius (yards)"},{"allyPlateWidth","Ally bar width (%)"},{"allyPlateHeight","Ally bar height"},{"plateFadeScale","Farthest bars: opacity"},{"metresFont","Metres font"},{"headOther","Other","heading"},{"mapPinSize","Minimap icons: size"},{"ownLevelFont","Hero level font"},{"totScale","Target of target"},{"chestScale","Chest icon"},{"allyScale","Ally skills and jewelry"}}},
     {key="player",title="Player frame",description="Player size, text placement, health formatting, portrait, colors and shields.",
@@ -37,9 +92,8 @@ local categories={
         fields={{"damageMode","Damage text mode","select","root"},{"sctStyle","Scrolling text style","select","root"}}}
 }
 -- What most players reach for is shown first. Everything else waits behind "Show advanced", with its values kept.
-local ADVANCED_SECTIONS={auras=true,debuffs=true,xp=true,micro=true,compassStyle=true,statsDisplay=true,runDisplay=true}
+local ADVANCED_SECTIONS={look=true,blocks=true,auras=true,debuffs=true,xp=true,micro=true,compassStyle=true,statsDisplay=true,runDisplay=true}
 local COMMON_FIELDS={
-    edit={fullHits=1,autoMarks=1,chestIcon=1,mapSettings=1,partyLoadout=1,skillRate=1,friendFade=1,hitImpact=1,plateFade=1,separateHits=1,risingHeal=1,targetRising=1,regenText=1,updates=1,mode=1,export=1,levels=1,ownLevel=1,risingDamage=1,plateTrail=1,farPlates=1,metres=1,redEdge=1,bossAlert=1,mapPins=1,bossSchedule=1,lairPanel=1,takenPanel=1,historyPanel=1,skillPool=1,jewelPool=1,legendRow=1,banishMarks=1,colorblind=1},
     blocks={allyPlateWidth=1,allyPlateHeight=1,groupRightScale=1,groupLeftScale=1,mapPinSize=1,plateFadeScale=1,pickedEdgeSize=1,farRadius=1,bossesScale=1,lairsScale=1,takenScale=1,historyScale=1,poolScale=1,jewelPoolScale=1,banishedScale=1,risingFont=1,risingHeight=1},
     player={scale=1,width=1,height=1,healthText=1,healthArea=1},
     target={scale=1,width=1,height=1,healthText=1},
@@ -53,7 +107,12 @@ local function ShowingAdvanced() return C.Settings().showAdvanced==true end
 -- The rows of a section as they are shown now.
 local function ShownFields(category)
     local common=COMMON_FIELDS[category.key]
-    if ShowingAdvanced() or not common then return category.fields end
+    if ShowingAdvanced() then return category.fields end
+    if not common then
+        local shown={}
+        for _,field in ipairs(category.fields) do if not field.adv then table.insert(shown,field) end end
+        return shown
+    end
     local shown={}
     for _,field in ipairs(category.fields) do
         if common[field[1]] or field[3]=="group" or field[3]=="heading" then table.insert(shown,field) end
@@ -61,6 +120,13 @@ local function ShownFields(category)
     return shown
 end
 local selected=categories[1]
+for _,category in ipairs(categories) do if category.key=="main" then selected=category end end
+-- A tab's or a row's own words: Russian written beside the English, or else the shared table.
+local function Words(item,english,russian)
+    if russian then return nfUIEdit.Text(russian,english) end
+    return nfUIEdit.L(english)
+end
+local ROW=54
 local function SettingsCategory(key)
     if selected.key=="player" or selected.key=="target" then
         local style=selected.key.."Style"
@@ -82,6 +148,8 @@ local function StoreOf(store)
 end
 local function ReadValue(key)
     local field=SelectedField(key)
+    if field and field[3]=="switch" then return nfUIEdit.On(key) end
+    if field and field[3]=="cvar" then local on=GetCVar(key)=="1";if field.invert then return not on end;return on end
     -- A group's own switch is on while any of its members is.
     if field and field.keys then
         for _,member in ipairs(field.keys) do
@@ -100,6 +168,8 @@ local function ReadValue(key)
 end
 local function WriteValue(key,value)
     local field=SelectedField(key)
+    if field and field[3]=="switch" then nfUIEdit.SetSwitch(key,value);if nfUIEdit.RefreshPools then nfUIEdit.RefreshPools() end;return end
+    if field and field[3]=="cvar" then if field.invert then value=not value end;SetCVar(key,value and "1" or "0");return end
     if field and field.keys then
         for _,member in ipairs(field.keys) do C.Settings().edit[member]=value end
         return
@@ -181,9 +251,9 @@ function C.Refresh()
     end
     if not ShowingAdvanced() and ADVANCED_SECTIONS[selected.key] then selected=categories[1] end
     local shownFields=ShownFields(selected)
-    content.title:SetText(nfUIEdit.L(selected.title))
-    content.description:SetText(nfUIEdit.L(selected.description))
-    content:SetHeight(math.max(435,60+table.getn(shownFields)*49))
+    content.title:SetText(Words(selected,selected.title,selected.ru))
+    content.description:SetText(Words(selected,selected.description,selected.descRu))
+    content:SetHeight(math.max(435,60+table.getn(shownFields)*ROW))
     if C.LayoutSidebar then C.LayoutSidebar() end
     if C.advancedButton then C.advancedButton:SetText(ShowingAdvanced() and "Hide advanced" or "Show advanced") end
     scrollOffset=math.min(scrollOffset,math.max(0,content:GetHeight()-contentScroll:GetHeight()/0.7))
@@ -195,7 +265,14 @@ function C.Refresh()
             local key=field[1]
             row.key=key
             local lo,hi,step=C.Range(SettingsCategory(key),key)
-            row.label:SetText(field.store and field[2] or nfUIEdit.L(field[2]))
+            local label=field.store and field[2] or Words(field,field[2],field.ru)
+            -- A switch set by hand over the mode says so, and "Reset section" gives it back.
+            if field[3]=="switch" and nfUIEdit.SwitchChanged(key) then label=label.."  |cff8a8a96"..nfUIEdit.Text("изменено","changed").."|r" end
+            row.label:SetText(label)
+            row.desc:SetText(field.desc and nfUIEdit.Text(field.desc[1],field.desc[2]) or "")
+            -- Beside a button the line would run under it, so it goes below the button there.
+            local buttonRow=field[3]=="mode" or field[3]=="style" or field[3]=="textsize" or field[3]=="export" or field[3]=="update" or field[3]=="select" or field[3]=="color"
+            row.desc:ClearAllPoints();row.desc:SetPoint("TOPLEFT",row,"TOPLEFT",0,buttonRow and -31 or -18)
             row.check:Hide(); row.choice:Hide(); row.menu:Hide(); row.slider:Hide(); row.value:Hide();row.color:Hide();row.action:Hide()
             local isTitle=field[3]=="group" or field[3]=="heading"
             local tint=isTitle and nfUIEdit.COLORS.mauve or {0.85,0.87,0.9}
@@ -204,8 +281,14 @@ function C.Refresh()
                 -- A title only.
             elseif field[3]=="group" then
                 row.check:SetChecked(ReadValue(key));row.check:Show()
+            elseif field[3]=="style" then
+                row.action:SetText((nfUIDB.layoutPreset=="classic" and nfUIEdit.Text("Классический","Classic") or nfUIEdit.Text("Современный","Modern")).."  >");row.action:Show()
+            elseif field[3]=="textsize" then
+                local now=nfUIEdit.TextSize()
+                for _,size in ipairs(nfUIEdit.TEXT_SIZES) do if size[1]==now then row.action:SetText(nfUIEdit.Text(size[3],size[4]).."  >") end end
+                row.action:Show()
             elseif field[3]=="mode" then
-                row.action:SetText(nfUIEdit.ModeName());row.action:Show()
+                row.action:SetText(nfUIEdit.ModeName().."  >");row.action:Show()
             elseif field[3]=="export" then
                 row.action:SetText("Export");row.action:Show()
             elseif field[3]=="update" then
@@ -213,7 +296,7 @@ function C.Refresh()
                 row.action:SetText("Check for updates");row.action:Show()
             elseif field[3]=="action" then
                 row.action:SetText("Reset tracking");row.action:Show()
-            elseif field[3]=="check" then
+            elseif field[3]=="check" or field[3]=="switch" or field[3]=="cvar" then
                 row.check:SetChecked(ReadValue(key)); row.check:Show()
             elseif field[3]=="select" then
                 row.choiceValues=key=="sctStyle" and {"Explosive","Methodical","Biggest Hit"} or key=="damageMode" and damageModes or key=="amount" and {"Target","All","5 max","10 max"} or key=="anchor" and {"BOTTOM","TOP"} or key=="healthArea" and {"Left","Middle","Right"} or {"Percentage","CurrentHP+%","Numerical"}
@@ -270,7 +353,7 @@ function C.ShowUpdates()
         link:SetScript("OnEscapePressed",function() this:ClearFocus();updates:Hide() end)
         link:SetScript("OnTextChanged",function() if this:GetText()~=RELEASES then this:SetText(RELEASES);this:HighlightText() end end)
         updates.link=link
-        Text(updates,nfUIEdit.Text("Ошибки и идеи (или ветка в Discord игры):","Bugs and ideas (or the thread in the game's Discord):"),14,-108,11)
+        Text(updates,nfUIEdit.Text("Отзывы, идеи и ошибки:","Feedback, ideas and bugs:"),14,-108,11)
         local issues=CreateFrame("EditBox","nfUIUpdatesIssues",updates)
         issues:SetWidth(432);issues:SetHeight(22);issues:SetPoint("TOPLEFT",updates,"TOPLEFT",14,-126)
         issues:SetFont(FONT,11);issues:SetAutoFocus(false);Flat(issues,0.1,0.12,0.15)
@@ -310,9 +393,9 @@ local function MoveSwitches()
     if switchesMoved then return end
     switchesMoved=true
     local tab
-    for _,category in ipairs(categories) do if category.key=="edit" then tab=category end end
+    for _,category in ipairs(categories) do if category.key=="look" then tab=category end end
     for _,category in ipairs(categories) do
-        if category~=tab and category.key~="statsDisplay" then
+        if category~=tab and category.key~="statsDisplay" and category.key~="main" and category.key~="fight" and category.key~="build" and category.key~="run" then
             local kept={}
             for _,field in ipairs(category.fields) do
                 if field[3]=="check" then
@@ -343,7 +426,10 @@ local function Build()
     MoveSwitches()
     for _,category in ipairs(categories) do rowCount=math.max(rowCount,table.getn(category.fields)) end
     panel=CreateFrame("Frame","nfUISettings",UIParent)
-    local window=C.Settings().settingsWindow or {width=594.1,height=555}
+    -- Wider than before, so the words read at a normal size; a window kept from an earlier build grows once.
+    local db=C.Settings()
+    if not db.settingsWindowV2 then db.settingsWindowV2=true;db.settingsWindow=nil end
+    local window=db.settingsWindow or {width=math.min(UIParent:GetWidth()-40,780),height=math.min(UIParent:GetHeight()-60,720)}
     panel:Hide(); panel:SetWidth(window.width); panel:SetHeight(window.height)
     panel:SetPoint("CENTER",UIParent,"CENTER",0,40)
     panel:SetFrameStrata("DIALOG"); panel:SetMovable(true); panel:SetClampedToScreen(true)
@@ -357,7 +443,7 @@ local function Build()
     local header=CreateFrame("Frame","nfUISettingsHeader",body)
     header:SetWidth(590.1); header:SetHeight(48); header:SetPoint("TOP",body,"TOP",0,-2)
     Flat(header,nfUIEdit.COLORS.mantle[1],nfUIEdit.COLORS.mantle[2],nfUIEdit.COLORS.mantle[3])
-    Text(header,"nfUI",18,-12,20,nfUIEdit.COLORS.mauve)
+    Text(header,nfUIEdit.NAME,18,-14,16,nfUIEdit.COLORS.mauve)
     Text(header,"CONFIGURATION",170,-18,11)
     header:EnableMouse(true)
     header:SetScript("OnMouseDown",function() panel:StartMoving() end)
@@ -376,7 +462,7 @@ local function Build()
     Flat(sidebar,nfUIEdit.COLORS.mantle[1],nfUIEdit.COLORS.mantle[2],nfUIEdit.COLORS.mantle[3])
     for i,category in ipairs(categories) do
         local choice=category
-        buttons[choice.key]=Button("nfUISettingsCategory"..i,sidebar,choice.title,4,-5-(i-1)*28,157,
+        buttons[choice.key]=Button("nfUISettingsCategory"..i,sidebar,Words(choice,choice.title,choice.ru),4,-5-(i-1)*28,157,
             function() C.CancelNumberInputs(); selected=choice;scrollOffset=0;C.Refresh() end)
     end
     function C.LayoutSidebar()
@@ -396,7 +482,7 @@ local function Build()
     contentScroll:SetWidth(387.1);contentScroll:SetHeight(435);contentScroll:SetPoint("TOPLEFT",body,"TOPLEFT",192,-64)
     contentScroll:EnableMouseWheel(true)
     contentScroll:SetScript("OnMouseWheel",function()
-        scrollOffset=math.max(0,math.min(math.max(0,content:GetHeight()-contentScroll:GetHeight()/0.7),scrollOffset-(arg1 or 0)*49))
+        scrollOffset=math.max(0,math.min(math.max(0,content:GetHeight()-contentScroll:GetHeight()/0.7),scrollOffset-(arg1 or 0)*ROW))
         contentScroll:SetVerticalScroll(scrollOffset*0.7)
     end)
     content=CreateFrame("Frame",nil,contentScroll)
@@ -405,13 +491,14 @@ local function Build()
     contentScroll:SetScrollChild(content)
     content.title=Text(content,"",0,0,17,{0.93,0.94,0.96})
     content.description=Text(content,"",0,-27,11)
-    content.description:SetWidth(535);content.description:SetHeight(16)
+    content.description:SetWidth(535);content.description:SetHeight(16);content.description:SetJustifyH("LEFT")
     for i=1,rowCount do
         local option=CreateFrame("Frame","nfUISettingsOption"..i,content)
         rows[i]=option
         option:SetWidth(535); option:SetHeight(48)
-        option:SetPoint("TOPLEFT",content,"TOPLEFT",0,-60-(i-1)*49)
-        option.label=Text(option,"",0,0,12)
+        option:SetPoint("TOPLEFT",content,"TOPLEFT",0,-60-(i-1)*ROW)
+        option.label=Text(option,"",0,0,13)
+        option.desc=Text(option,"",0,-18,11,{0.62,0.64,0.7});option.desc:SetWidth(480);option.desc:SetJustifyH("LEFT")
         option.value=C.CreateNumberInput("nfUISettingsInput"..i,option,86,20,{
             get=function() return SelectedSettings(option.key)[option.key] end,
             percent=function() return option.key=="scale" or string.find(option.key or "","Scale$") or option.key=="backdropOpacity" end,
@@ -445,6 +532,11 @@ local function Build()
             if option.key=="resetRun" then nfUI_ResetRun();C.Refresh()
             elseif option.key=="updates" then C.ShowUpdates()
             elseif option.key=="mode" then nfUIEdit.CycleMode()
+            elseif option.key=="style" then nfUIEdit.ApplyLayout(nfUIDB.layoutPreset=="classic" and "mine" or "classic");C.Refresh()
+            elseif option.key=="textSize" then
+                local sizes,now,nextSize=nfUIEdit.TEXT_SIZES,nfUIEdit.TextSize(),nil
+                for index,size in ipairs(sizes) do if size[1]==now then nextSize=sizes[math.mod(index,table.getn(sizes))+1][1] end end
+                nfUIEdit.SetTextSize(nextSize or "normal");C.Refresh()
             elseif option.key=="export" then C.ShowExport() end
         end)
         option.choice=Button("nfUISettingsChoice"..i,option,"",235,0,275,function()
@@ -515,7 +607,9 @@ local function Build()
         elseif selected.key=="runDisplay" then C.Settings().runPanel=true;C.SetRunCollapsed(true)
         elseif selected.key=="dpsDisplay" then C.SetDPSCollapsed(true)
         elseif selected.key=="combatText" then C.SetDamageMode("quick");C.SetSCTStyle("Explosive")
-        elseif selected.key=="edit" then
+        elseif selected.key=="main" or selected.key=="fight" or selected.key=="build" or selected.key=="run" or selected.key=="look" then
+            for _,field in ipairs(selected.fields) do if field[3]=="switch" then nfUIEdit.ResetSwitch(field[1]) end end
+            if nfUIEdit.RefreshPools then nfUIEdit.RefreshPools() end
             for _,field in ipairs(selected.fields) do
                 local store=field.store
                 if store and not store.root then C.Settings()[store.category][store.key]=C.defaults[store.category][store.key] end
@@ -523,7 +617,15 @@ local function Build()
         end
         C.ResetSection(selected.key);C.Refresh()
     end)
-    Button("nfUISettingsResetAll",footer,"Reset all",262,-6,105,function()
+    -- Everything goes back at once, so the first click only asks; a second within a few seconds does it.
+    local resetAll
+    resetAll=Button("nfUISettingsResetAll",footer,"Reset all",262,-6,105,function()
+        if not resetAll.armed or GetTime()-resetAll.armed>4 then
+            resetAll.armed=GetTime();resetAll:SetText(nfUIEdit.Text("Точно?","Sure?"))
+            resetAll:SetScript("OnUpdate",function() if GetTime()-(resetAll.armed or 0)>4 then resetAll.armed=nil;resetAll:SetText("Reset all");resetAll:SetScript("OnUpdate",nil) end end)
+            return
+        end
+        resetAll.armed=nil;resetAll:SetText("Reset all");resetAll:SetScript("OnUpdate",nil)
         C.Settings().compass=true;C.Settings().runPanel=true
         C.SetRunCollapsed(true);C.SetDPSCollapsed(true);C.SetDamageMode("quick");C.SetSCTStyle("Explosive")
         C.ResetAll();C.Refresh()
@@ -586,10 +688,10 @@ SlashCmdList["NFUI"]=C.Toggle
 
 
 function C.OpenCategory(key)
-    if key=="playerStyle" then key="player" elseif key=="targetStyle" then key="target" end
+    if key=="playerStyle" then key="player" elseif key=="targetStyle" then key="target" elseif key=="edit" then key="main" end
     Build()
     C.CancelNumberInputs();scrollOffset=0
     for _,category in ipairs(categories) do if category.key==key then selected=category end end
-    if ADVANCED_SECTIONS[selected.key] or (COMMON_FIELDS[selected.key]==nil and selected.key~="layout" and selected.key~="combatText") then C.Settings().showAdvanced=true end
+    if ADVANCED_SECTIONS[selected.key] or (COMMON_FIELDS[selected.key]==nil and selected.key~="layout" and selected.key~="combatText" and selected.key~="main" and selected.key~="fight" and selected.key~="build" and selected.key~="run") then C.Settings().showAdvanced=true end
     panel:Show(); C.Refresh()
 end

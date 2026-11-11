@@ -2,11 +2,11 @@
 -- stand. Everything else keeps its default and stays a click away on the minimap gear. Shown once to new players;
 -- `/nfui setup` opens it again.
 local E,C=nfUIEdit,nfUIConfig
-local WIDTH,HEIGHT=560,330
+local WIDTH,HEIGHT=560,420
 local frame=CreateFrame("Frame","nfUISetup",UIParent)
 frame:SetWidth(WIDTH);frame:SetHeight(HEIGHT);frame:SetFrameStrata("FULLSCREEN_DIALOG");frame:EnableMouse(true);frame:Hide()
--- Below the middle of the screen, where the game writes "move to begin" over everything.
-frame:SetPoint("TOP",UIParent,"CENTER",0,-40)
+-- In the middle, kept on the screen: with three choices it is too tall to sit below the game's "move to begin".
+frame:SetPoint("CENTER",UIParent,"CENTER",0,-20);frame:SetClampedToScreen(true)
 table.insert(UISpecialFrames,"nfUISetup")
 local fill=frame:CreateTexture(nil,"BACKGROUND");fill:SetTexture(E.FLAT);fill:SetAllPoints(frame)
 fill:SetVertexColor(E.COLORS.base[1],E.COLORS.base[2],E.COLORS.base[3],0.97)
@@ -43,18 +43,24 @@ local MODES={
     {"detailed","Подробный","Detailed","Всё: статы героя, график DPS. Для разбора билдов.","Everything: hero stats, DPS graph. For build testing."},
 }
 local LAYOUTS={
-    {"classic","Классика","Classic","Рамки слева сверху, панель внизу, как в старом WoW.","Frames top left, bar at the bottom, as in the old WoW."},
-    {"mine","Как есть","As it is","Оставить раскладку этого аддона.","Keep this addon's layout."},
+    {"classic","Классический","Classic","Крупные рамки слева сверху, кнопки внизу, как в старом WoW.","Large frames top left, buttons at the bottom, as in the old WoW."},
+    {"mine","Современный","Modern","Всё компактно под героем.","Everything compact under the hero."},
 }
 local modeRow=Choices(-76,{"Сколько показывать","How much to show"},MODES,function() return E.Mode() end,function(mode)
     nfUIDB.uiMode=mode
     if E.RefreshPools then E.RefreshPools() end
     if C.Refresh then C.Refresh() end
 end)
-local layoutRow=Choices(-176,{"Раскладка","Layout"},LAYOUTS,function() return nfUIDB.layoutPreset=="classic" and "classic" or "mine" end,function(layout)
+local layoutRow=Choices(-176,{"Стиль","Style"},LAYOUTS,function() return nfUIDB.layoutPreset=="classic" and "classic" or "mine" end,function(layout)
     if layout=="classic" and nfUIDB.layoutPreset~="classic" and E.ApplyLayout then E.ApplyLayout("classic")
     elseif layout=="mine" and nfUIDB.layoutPreset=="classic" and E.ApplyLayout then E.ApplyLayout("mine") end
 end)
+local SIZES={}
+for _,size in ipairs(E.TEXT_SIZES or {}) do
+    table.insert(SIZES,{size[1],size[3],size[4],size[1]=="large" and "Для больших экранов и тех, кто далеко сидит." or (size[1]=="small" and "Больше места для игры." or "Как задумано."),
+        size[1]=="large" and "For large screens or sitting far away." or (size[1]=="small" and "More room for the game." or "As designed.")})
+end
+local sizeRow=Choices(-276,{"Размер текста","Text size"},SIZES,function() return E.TextSize() end,function(size) E.SetTextSize(size) end)
 local foot=Font(frame,10,{0.7,0.7,0.75});foot:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",14,14);foot:SetWidth(WIDTH-160);foot:SetHeight(28);foot:SetJustifyV("TOP")
 local done=CreateFrame("Button",nil,frame);done:SetWidth(120);done:SetHeight(26);done:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-14,12)
 done.back=done:CreateTexture(nil,"BACKGROUND");done.back:SetTexture(E.FLAT);done.back:SetAllPoints(done)
@@ -63,10 +69,10 @@ done.label=Font(done,12,E.COLORS.text,"CENTER");done.label:SetPoint("CENTER",don
 done:SetScript("OnClick",function() nfUIDB.setupDone=true;frame:Hide() end)
 
 function frame.Refresh()
-    title:SetText(E.Text("nfUI Survivors Edit: настройка за минуту","nfUI Survivors Edit: a one-minute setup"))
+    title:SetText(E.Text(E.NAME..": настройка за минуту",E.NAME..": a one-minute setup"))
     intro:SetText(E.Text("Выберите, сколько интерфейса видеть и где ему стоять. Всё остальное уже настроено и меняется потом на шестерёнке у миникарты.",
         "Choose how much of the interface to see and where it stands. The rest is set already and changes later on the gear by the minimap."))
-    for _,row in ipairs({modeRow,layoutRow}) do
+    for _,row in ipairs({modeRow,layoutRow,sizeRow}) do
         row.head:SetText(E.Text(row.heading[1],row.heading[2]))
         local now=row.current()
         for _,button in ipairs(row.buttons) do
