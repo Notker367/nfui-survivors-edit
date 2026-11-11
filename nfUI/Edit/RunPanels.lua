@@ -618,6 +618,23 @@ local function UpdateGraph()
     end
     return true
 end
+-- How a run ended, as the game's end screen has it, kept with the run: what a future record or ladder needs, and
+-- what the analysis shows. Written once, when the game first gives the summary for the current run.
+local FINAL={"result","t","lvl","kills","elites","guardians","bosses","dmg","taken","gold","chests","zname"}
+E.Every(1,function()
+    local ok,summary=pcall(AZS_GetRunSummary or function() end)
+    if not ok or type(summary)~="table" or not summary.result then return end
+    local run=type(AZS_ZONE)=="table" and AZS_ZONE.run
+    if not run or type(nfUIDB)~="table" or type(nfUIDB.runHistory)~="table" then return end
+    for _,entry in ipairs(nfUIDB.runHistory) do
+        if entry.run==run and not entry.final then
+            local final={}
+            for _,key in ipairs(FINAL) do final[key]=tonumber(summary[key]) or summary[key] end
+            entry.final=final
+            if final.zname then entry.zoneName=final.zname end
+        end
+    end
+end)
 E.Every(0.25,function()
     -- Saved choices arrive after this file loads.
     if not foldedOnce and type(nfUIDB)=="table" then
