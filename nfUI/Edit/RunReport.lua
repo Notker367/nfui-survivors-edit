@@ -297,7 +297,7 @@ local function Summary(run)
     for _,value in ipairs(halves) do peak=math.max(peak,value) end
     for index,value in ipairs(halves) do
         if peak>0 and value>=peak*0.5 then
-            table.insert(lines,string.format(E.Text("Половину пикового DPS (%s) набрал к %s из %s","Half the peak DPS (%s) by %s of %s"),E.Short(peak),Clock(index*STEP),Clock(run.t)))
+            table.insert(lines,string.format(E.Text("Половину пикового DPS набрал к %s из %s","Half the peak DPS by %s of %s"),Clock(index*STEP),Clock(run.t)))
             break
         end
     end
@@ -622,14 +622,14 @@ function frame.Refresh()
     end
     local run=state.chosen
     -- What the run is held against: the best other run of its zone and difficulty, or the class's best.
-    local target,targetName
+    local target,targetName,versusWords
     if run and state.versus=="class" then
-        target=best~=run and best or nil;targetName=E.Text("лучший класса","class best")
+        target=best~=run and best or nil;targetName=E.Text("лучший класса","class best");versusWords=E.Text("к лучшему забегу класса","vs the class's best run")
     elseif run then
         for _,other in ipairs(list) do
             if other~=run and other.zone==run.zone and other.mode==run.mode and (not target or Rate(other)>Rate(target)) then target=other end
         end
-        targetName=E.Text("лучший здесь","best here")
+        targetName=E.Text("лучший здесь","best here");versusWords=E.Text("к лучшему забегу здесь","vs the best run here")
     end
     for _,page in pairs(pages) do page:Hide() end
     if not run then
@@ -644,7 +644,7 @@ function frame.Refresh()
     if run==best then versus="   "..GOLD..E.Text("лучший забег класса","the class's best run").."|r"
     elseif target and Rate(target)>0 then
         local gain=math.floor((Rate(run)/Rate(target)-1)*100+0.5)
-        versus="   "..(gain>=0 and GREEN or RED)..string.format(E.Text("%+d%% к забегу «%s» (%s)","%+d%% vs %s (%s)"),gain,targetName,Tag(target)).."|r"
+        versus="   "..(gain>=0 and GREEN or RED)..string.format("%+d%% %s (%s)",gain,versusWords,Tag(target)).."|r"
     end
     -- Damage by skill is on its own tab; the header keeps to the totals.
     sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run))..E.Text(" DPS в среднем"," DPS on average")..versus)
