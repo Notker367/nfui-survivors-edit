@@ -5,6 +5,8 @@
 - Picks in run history: each new skill, rank, piece of gear or jewelry with your DPS in the half minute before and after it. Hover "Now" for this run's picks, a past run for its best ones; picks close together share the change and are marked with ~.
 - Luck is kept with each run's build and compared in the hover. The odds of each rarity are not given to addons, so only your luck is shown.
 - Hover a picked spell in the skill pool for its rank, how many upgrades it has had this run and how far its cooldown has come down. The rarity of each upgrade is not given to addons.
+- Damage on you: one number per moment instead of a total and single hits beside it. It comes out of your health bar where the health was lost, with a short pop, and the bar flares red.
+- The shield is a blue frame around your health bar and a thin strip along its top, as long as the shield against your most health. Nothing jumps and nothing covers your health.
 
 ## 1.2.0
 

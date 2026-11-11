@@ -179,7 +179,9 @@ local function UnitFrame(unit,name,side,dropdown)
     -- A pale trail of lost health, and smooth bars.
     local ghost=widget.health:CreateTexture(nil,"ARTWORK");ghost:SetTexture(FLAT);ghost:SetVertexColor(nfUIEdit.COLORS.yellow[1],nfUIEdit.COLORS.yellow[2],nfUIEdit.COLORS.yellow[3],0.85);ghost:Hide()
     -- A brief white flare over the whole bar, stronger for a bigger hit.
-    local hitFill=widget.health:CreateTexture(nil,"OVERLAY");hitFill:SetTexture(FLAT);hitFill:SetVertexColor(1,1,1,1);hitFill:SetAllPoints(widget.health);hitFill:Hide()
+    -- On the hero's own bar the flare is red: the hit is on them.
+    local hitFill=widget.health:CreateTexture(nil,"OVERLAY");hitFill:SetTexture(FLAT);hitFill:SetAllPoints(widget.health);hitFill:Hide()
+    if unit=="player" then hitFill:SetVertexColor(1,0.22,0.18,1) else hitFill:SetVertexColor(1,1,1,1) end
     widget:SetScript("OnUpdate",function()
         local elapsed=arg1 or 0
         local step=math.min(1,elapsed*12)
@@ -203,6 +205,13 @@ local function UnitFrame(unit,name,side,dropdown)
                 ghost:SetVertexColor(nfUIEdit.TrailColor(0))
             end
             local width=this.health:GetWidth()
+            -- The shield: a frame around the bar while it holds, and a thin strip along the top as long as the shield
+            -- is against the most health. Neither depends on health, so nothing jumps and nothing is covered.
+            local share=this.shieldShare
+            if share and share>0 then
+                this.shield:SetWidth(math.max(1,width*math.min(1,share)));this.shield:Show()
+                this.shieldFrame.Show()
+            else this.shield:Hide();this.shieldFrame.Hide() end
             if trail-shown>0.002 then
                 ghost:ClearAllPoints()
                 ghost:SetPoint("TOPLEFT",this.health,"TOPLEFT",width*shown,0)
@@ -228,8 +237,11 @@ local function UnitFrame(unit,name,side,dropdown)
     for _,label in ipairs({widget.name,widget.value,widget.percent}) do label:SetShadowColor(0,0,0,0.9);label:SetShadowOffset(1,-1) end
     local absorb=CreateFrame("StatusBar",nil,widget.health)
     absorb:SetMinMaxValues(0,1);absorb:SetStatusBarTexture(FLAT);absorb:SetStatusBarColor(nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3],0.6)
-    absorb:SetWidth(FRAME_WIDTH);absorb:SetHeight(3);absorb:SetPoint("BOTTOMLEFT",widget.health,"BOTTOMLEFT",0,0);absorb:Hide()
+    absorb:SetWidth(FRAME_WIDTH);absorb:SetHeight(3);absorb:SetPoint("TOPLEFT",widget.health,"TOPLEFT",0,0);absorb:Hide()
+    absorb:SetStatusBarColor(nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3],0.95)
     widget.shield=absorb;widget.shieldText=Text(textLayer,11,"CENTER",0,0)
+    widget.shieldFrame=nfUIEdit.Edge(widget.health,nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3],1)
+    widget.shieldFrame.SetSize(2);widget.shieldFrame.Hide()
     widget.shieldText:SetTextColor(nfUIEdit.COLORS.sapphire[1],nfUIEdit.COLORS.sapphire[2],nfUIEdit.COLORS.sapphire[3]);widget.shieldText:SetShadowColor(0,0,0,0.9);widget.shieldText:SetShadowOffset(1,-1);widget.shieldText:Hide()
     widget:RegisterForClicks("LeftButtonUp","RightButtonUp");widget:RegisterForDrag("LeftButton")
     widget:SetScript("OnClick",function()
@@ -306,18 +318,12 @@ local function UpdateUnitFrame(widget)
     local total=nfUIConfig.GetShield and nfUIConfig.GetShield(unit)
     widget.shieldAvailable=total~=nil
     if options.showShield and total and total>0 and maximum>0 then
-        -- The shield continues the health bar, its number right after it.
-        local barWidth=widget.health:GetWidth()
-        local share=math.min(1,total/maximum)
-        local start=math.max(0,math.min(1-share,math.min(1,fraction)))
-        widget.shield:ClearAllPoints()
-        widget.shield:SetPoint("LEFT",widget.health,"LEFT",barWidth*start,0)
-        widget.shield:SetWidth(math.max(1,barWidth*share))
-        widget.shield:SetHeight(widget.health:GetHeight())
-        widget.shield:SetValue(1);widget.shield:Show()
+        -- The shield continues the health bar; the frame's own update places it, with health as it moves.
+        widget.shieldShare=total/maximum
+        widget.shield:SetValue(1)
         widget.shieldText:ClearAllPoints();widget.shieldText:SetPoint("CENTER",widget.health,"CENTER",0,0)
         widget.shieldText:SetText("+"..Short(total));widget.shieldText:Show()
-    else widget.shield:Hide();widget.shieldText:Hide() end
+    else widget.shieldShare=nil;widget.shield:Hide();widget.shieldFrame.Hide();widget.shieldText:Hide() end
     local energy,capacity=UnitMana(unit),UnitManaMax(unit)
     widget.powerGoal=capacity>0 and energy/capacity or 0
     if capacity>0 then widget.power:SetStatusBarColor(unpack(POWER_COLORS[UnitPowerType(unit)] or POWER_COLORS[0])) end

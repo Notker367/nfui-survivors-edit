@@ -83,7 +83,8 @@ end
 local function Dress(column,entry)
     local weight=math.max(0,math.min(1,column.weigh(entry.amount)))
     entry.life=LIFE+EXTRA_LIFE*weight
-    entry.label:SetFont(E.FONT,E.Size("risingFont",13)+EXTRA_FONT*weight,"OUTLINE")
+    entry.size=E.Size("risingFont",13)+EXTRA_FONT*weight;entry.settled=nil
+    entry.label:SetFont(E.FONT,entry.size,"OUTLINE")
     entry.label:SetText(column.prefix..E.HitText(entry.amount))
 end
 local function Pop(column,amount,texture)
@@ -97,7 +98,8 @@ local function Pop(column,amount,texture)
         newest.age=0;newest.amount=amount
         Dress(column,newest)
         newest.label:SetAlpha(1);newest.label:ClearAllPoints()
-        newest.label:SetPoint("BOTTOM",column.block,"BOTTOM",column.x,START);newest.label:Show()
+        newest.anchorX=column.fromBar and column.fromBar() or nil
+        newest.label:SetPoint("BOTTOM",column.block,"BOTTOM",newest.anchorX or column.x,START);newest.label:Show()
     end
     if texture then
         newest.icon:SetTexture(texture);newest.icon:SetAlpha(1);newest.icon:Show()
@@ -116,6 +118,19 @@ local function ByRecent(amount)
     return peak>0 and math.sqrt(amount/peak) or 0
 end
 local taken=Column(E.blocks.rising,E.COLORS.enemy,"-",0,ByHealth)
+-- Where the hero's health ends now, as an offset from the middle of the rising block: the number comes out of the
+-- piece of health just lost. Nil when the frames cannot be measured.
+taken.fromBar=function()
+    local widget=getglobal("nfUIPlayer")
+    local bar=widget and widget.health
+    if not bar or not bar:GetLeft() or not E.blocks.rising:GetCenter() then return nil end
+    local most=UnitHealthMax("player") or 0
+    local share=most>0 and (UnitHealth("player") or 0)/most or 0
+    local barScale,blockScale=bar:GetEffectiveScale(),E.blocks.rising:GetEffectiveScale()
+    local x=(bar:GetLeft()+bar:GetWidth()*math.max(0,math.min(1,share)))*barScale
+    local center=E.blocks.rising:GetCenter()*blockScale
+    return (x-center)/blockScale
+end
 local healed=Column(E.blocks.rising,E.COLORS.green,"+",58,ByHealth)
 local dealt=Column(E.blocks.targetRising,E.COLORS.enemy,"-",0,ByRecent)
 
@@ -140,10 +155,10 @@ function E.BiggestRecentHit()
     end
     return biggest
 end
+-- The hits on the hero are not shown one by one beside their total: one number per moment, coming out of the bar.
 function E.HeroHit(amount)
     local value=tonumber(amount)
     if value and value>0 then table.insert(recentHits,{at=GetTime(),amount=value}) end
-    if value and value>0 and E.On("risingDamage") then QueueHit(taken,E.blocks.rising,E.COLORS.enemy,"-",value,-1) end
 end
 
 -- Regeneration is passive, and has its own number at the end of the health bar.
@@ -196,7 +211,10 @@ ticker:SetScript("OnUpdate",function()
                 else
                     local part=entry.age/entry.life
                     -- One speed for all, so that a newer number never catches an older one.
-                    entry.label:SetPoint("BOTTOM",column.block,"BOTTOM",column.x,START+E.Size("risingHeight",64)*entry.age/LIFE)
+                    entry.label:SetPoint("BOTTOM",column.block,"BOTTOM",entry.anchorX or column.x,START+E.Size("risingHeight",64)*entry.age/LIFE)
+                    -- A short pop as it appears: larger for a moment, then its own size.
+                    if entry.age<0.18 then entry.label:SetFont(E.FONT,math.floor(entry.size*(1.5-entry.age/0.18*0.5)+0.5),"OUTLINE")
+                    elseif not entry.settled then entry.label:SetFont(E.FONT,entry.size,"OUTLINE");entry.settled=true end
                     -- Solid at first, then it dissolves ever more gently.
                     local fade=part<0.35 and 1 or (1-part)/0.65
                     entry.label:SetAlpha(fade*fade);entry.icon:SetAlpha(fade*fade)
