@@ -436,22 +436,30 @@ local function Overview(page,run,best,bestName)
     HideFrom(page.texts,textIndex);HideFrom(page.icons,iconIndex);HideFrom(page.hovers,hoverIndex)
 end
 
--- A row of icons for a part of a build, with a title; returns the y below it.
-local function IconRow(page,state2,titleText,pieces,y,size)
+-- A row of icons for a part of a build, with a title; returns the y below it. With names, each icon has its name
+-- under it, cut to the cell; the full name is on hover.
+local function IconRow(page,state2,titleText,pieces,y,size,withNames)
     local t=Text(page,state2.text,SIZE,{1,0.82,0.5});state2.text=state2.text+1
     t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y);t:SetText(titleText)
     y=y-18
-    local perRow=math.floor(PAGE_WIDTH/(size+6))
+    local cell=withNames and (size+56) or (size+6)
+    local tall=withNames and (size+18) or (size+6)
+    local perRow=math.floor(PAGE_WIDTH/cell)
     local column=0
     for _,piece in ipairs(pieces) do
-        if column>=perRow then column=0;y=y-size-6 end
+        if column>=perRow then column=0;y=y-tall end
         local icon=Icon(page,state2.icon,size);state2.icon=state2.icon+1
-        icon:ClearAllPoints();icon:SetPoint("TOPLEFT",page,"TOPLEFT",column*(size+6),y)
+        local x=column*cell+(withNames and (cell-size)/2 or 0)
+        icon:ClearAllPoints();icon:SetPoint("TOPLEFT",page,"TOPLEFT",x,y)
         icon.texture:SetTexture(piece.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
         icon.rank:SetText(piece.rank or "");icon.label=piece.name;icon.note=piece.note;icon:Show()
+        if withNames then
+            local name=Text(page,state2.text,SIZE-2,{0.85,0.85,0.9},"CENTER");state2.text=state2.text+1
+            name:SetPoint("TOP",icon,"BOTTOM",0,-2);name:SetWidth(cell-4);name:SetHeight(12);name:SetText(piece.name)
+        end
         column=column+1
     end
-    return y-size-12
+    return y-tall-8
 end
 
 -- Build: icons of every part, talents and luck as text.
@@ -467,7 +475,7 @@ local function Build(page,run)
     local y=0
     local titles={skills=E.Text("Скилы","Skills"),jewels=E.Text("Бижутерия","Jewelry"),gear=E.Text("Снаряжение","Gear")}
     for _,part in ipairs({"skills","jewels","gear"}) do
-        if build[part] and build[part][1] then y=IconRow(page,s2,titles[part],build[part],y,32) end
+        if build[part] and build[part][1] then y=IconRow(page,s2,titles[part],build[part],y,32,true) end
     end
     if build.talents and build.talents[1] then
         local t=Text(page,s2.text,SIZE,{1,0.82,0.5});s2.text=s2.text+1;t:SetPoint("TOPLEFT",page,"TOPLEFT",0,y);t:SetText(E.Text("Таланты","Talents"))
@@ -638,10 +646,8 @@ function frame.Refresh()
         local gain=math.floor((Rate(run)/Rate(target)-1)*100+0.5)
         versus="   "..(gain>=0 and GREEN or RED)..string.format(E.Text("%+d%% к забегу «%s» (%s)","%+d%% vs %s (%s)"),gain,targetName,Tag(target)).."|r"
     end
-    local skills={}
-    for index,skill in ipairs(run.skills or {}) do if index<=3 then table.insert(skills,skill.name.." "..E.Short(skill.dmg)) end end
-    sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run))..E.Text(" DPS в среднем"," DPS on average")..versus
-        ..(skills[1] and ("\n"..GREY..E.Text("Больше всего: ","Most: ")..table.concat(skills,", ").."|r") or ""))
+    -- Damage by skill is on its own tab; the header keeps to the totals.
+    sub:SetText(E.Text("Урон ","Damage ")..E.Short(run.dealt or 0).."  ·  "..E.Short(Rate(run))..E.Text(" DPS в среднем"," DPS on average")..versus)
     for _,button in ipairs(tabButtons) do button.label:SetText(E.Text(button.tab[2],button.tab[3]));Lit(button,button.tab[1]==state.tab);button:Show() end
     local page=pages[state.tab]
     if state.tab=="overview" then Overview(page,run,target,targetName)
